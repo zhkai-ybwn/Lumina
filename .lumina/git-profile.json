@@ -1,0 +1,103 @@
+{
+  "commit": {
+    "defaultLanguage": "en",
+    "scopeStrategy": "dominant-scope",
+    "style": "conventional"
+  },
+  "languages": [
+    {
+      "adapter": "typescript-vue",
+      "extensions": [
+        ".ts",
+        ".tsx",
+        ".vue"
+      ],
+      "id": "typescript"
+    },
+    {
+      "adapter": "rust",
+      "extensions": [
+        ".rs"
+      ],
+      "id": "rust"
+    }
+  ],
+  "project": {
+    "name": "Lumina",
+    "packageManager": "npm",
+    "type": [
+      "tauri",
+      "vite",
+      "node",
+      "rust"
+    ]
+  },
+  "review": {
+    "attentionWeights": {
+      "config": 8,
+      "lockfile": -5,
+      "source": 10,
+      "style": 3
+    }
+  },
+  "roles": {
+    "generated": [
+      "dist/**",
+      "target/**",
+      "node_modules/**",
+      "package-lock.json",
+      "pnpm-lock.yaml",
+      "yarn.lock"
+    ],
+    "primary": [
+      "src/views/**",
+      "src/components/**",
+      "src/services/**",
+      "src/stores/**",
+      "src-tauri/src/commands/**",
+      "src-tauri/src/git/**"
+    ],
+    "secondary": [
+      "src/i18n/**",
+      "src/styles/**",
+      "src/router/**",
+      "src/types/**"
+    ],
+    "tooling": [
+      "vite.config.*",
+      "tsconfig*.json",
+      "src-tauri/Cargo.toml",
+      "src-tauri/tauri.conf.json"
+    ]
+  },
+  "scopes": [
+    {
+      "name": "frontend",
+      "patterns": [
+        "src/**"
+      ]
+    },
+    {
+      "name": "config",
+      "patterns": [
+        "*.config.*",
+        "tsconfig*.json",
+        "package.json"
+      ]
+    },
+    {
+      "name": "tauri-backend",
+      "patterns": [
+        "src-tauri/src/**"
+      ]
+    },
+    {
+      "name": "tauri-config",
+      "patterns": [
+        "src-tauri/tauri.conf.json",
+        "src-tauri/capabilities/**"
+      ]
+    }
+  ],
+  "version": 1
+}

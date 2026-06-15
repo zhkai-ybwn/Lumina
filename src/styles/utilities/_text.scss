@@ -1,0 +1,11 @@
+/* Lumina 文本工具类 */
+
+.text-ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.text-secondary {
+  color: var(--lumina-text-secondary);
+}

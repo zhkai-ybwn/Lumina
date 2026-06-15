@@ -1,0 +1,53 @@
+{
+  "name": "lumina",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build",
+    "lint:css": "stylelint '**/*.{css,scss,vue}'",
+    "format:css": "stylelint '**/*.{css,scss,vue}' --fix",
+    "lint": "vue-tsc --noEmit && eslint . && stylelint '**/*.{css,scss,vue}'",
+    "format": "prettier --write . && stylelint '**/*.{css,scss,vue}' --fix"
+  },
+  "dependencies": {
+    "@iconify/vue": "^5.0.0",
+    "@tauri-apps/api": "^2.9.0",
+    "@tauri-apps/plugin-dialog": "^2.6.0",
+    "@vicons/ionicons5": "^0.13.0",
+    "naive-ui": "^2.43.1",
+    "or": "^0.2.0",
+    "pinia": "^3.0.3",
+    "vue": "^3.5.22",
+    "vue-i18n": "^10.0.0",
+    "vue-router": "^4.6.3"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.9.0",
+    "@types/node": "^24.6.0",
+    "@vitejs/plugin-vue": "^6.0.1",
+    "@vue/eslint-config-prettier": "^10.2.0",
+    "@vue/eslint-config-typescript": "^14.6.0",
+    "@vue/tsconfig": "^0.8.1",
+    "eslint": "^9.38.0",
+    "eslint-plugin-vue": "^10.5.1",
+    "postcss-html": "^1.8.1",
+    "postcss-scss": "^4.0.9",
+    "prettier": "^3.6.2",
+    "sass-embedded": "^1.93.3",
+    "stylelint": "^14.16.1",
+    "stylelint-config-prettier": "^9.0.5",
+    "stylelint-config-standard": "^26.0.0",
+    "stylelint-order": "^5.0.0",
+    "typescript": "~5.9.3",
+    "vite": "^7.1.7",
+    "vue-tsc": "^3.1.0"
+  },
+  "volta": {
+    "node": "20.19.3"
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "compilerOptions": {
+    "composite": true,
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
+    "types": ["vite/client"],
+    "lib": ["ESNext", "DOM"],
+    "resolveJsonModule": true,
+    /* Linting */
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "erasableSyntaxOnly": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedSideEffectImports": true,
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "Node",
+    "esModuleInterop": true,           // ✅ 关键
+    "allowSyntheticDefaultImports": true,
+    "skipLibCheck": true,              // ✅ 忽略第三方库类型检查错误
+    "forceConsistentCasingInFileNames": true,
+    // 核心配置：路径别名映射
+    "paths": {
+      "@/*": ["src/*"]
+    },
+    "baseUrl": ".",
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.vue"]
+}

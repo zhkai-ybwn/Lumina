@@ -1,0 +1,20 @@
+/* Lumina 色彩系统基础（Theme-agnostic） */
+
+:root {
+  /* 主色（Green/Teal 系） */
+  --lumina-primary-50: #eaf7f4;
+  --lumina-primary-100: #c4e9df;
+  --lumina-primary-200: #9edbc9;
+  --lumina-primary-300: #78cdb3;
+  --lumina-primary-400: #52bf9e;
+  --lumina-primary-500: #3f9e85; /* 主色 */
+  --lumina-primary-600: #2f7d69;
+  --lumina-primary-700: #205d4d;
+  --lumina-primary-800: #103c32;
+  --lumina-primary-900: #001c17;
+
+  /* 状态色（可扩展） */
+  --lumina-success: #4caf50;
+  --lumina-warning: #ff9800;
+  --lumina-danger: #e53935;
+}

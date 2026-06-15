@@ -1,0 +1,4412 @@
+{
+  "branch": "main",
+  "budgetPlan": [
+    {
+      "budgetChars": 160,
+      "groupKey": "config/secondary/config",
+      "weight": 24
+    },
+    {
+      "budgetChars": 160,
+      "groupKey": "config/secondary/source",
+      "weight": 24
+    },
+    {
+      "budgetChars": 170,
+      "groupKey": "config/tooling/config",
+      "weight": 48
+    },
+    {
+      "budgetChars": 160,
+      "groupKey": "config/tooling/source",
+      "weight": 32
+    },
+    {
+      "budgetChars": 5919,
+      "groupKey": "frontend/primary/source",
+      "weight": 1664
+    },
+    {
+      "budgetChars": 160,
+      "groupKey": "frontend/secondary/asset",
+      "weight": 9
+    },
+    {
+      "budgetChars": 160,
+      "groupKey": "frontend/secondary/config",
+      "weight": 24
+    },
+    {
+      "budgetChars": 160,
+      "groupKey": "frontend/secondary/i18n",
+      "weight": 24
+    },
+    {
+      "budgetChars": 1280,
+      "groupKey": "frontend/secondary/source",
+      "weight": 360
+    },
+    {
+      "budgetChars": 341,
+      "groupKey": "frontend/secondary/style",
+      "weight": 96
+    },
+    {
+      "budgetChars": 160,
+      "groupKey": "root/generated/lockfile",
+      "weight": 1
+    },
+    {
+      "budgetChars": 160,
+      "groupKey": "root/secondary/asset",
+      "weight": 9
+    },
+    {
+      "budgetChars": 213,
+      "groupKey": "root/secondary/config",
+      "weight": 60
+    },
+    {
+      "budgetChars": 160,
+      "groupKey": "root/secondary/docs",
+      "weight": 9
+    },
+    {
+      "budgetChars": 160,
+      "groupKey": "root/secondary/entry",
+      "weight": 6
+    },
+    {
+      "budgetChars": 160,
+      "groupKey": "root/secondary/ignore",
+      "weight": 12
+    },
+    {
+      "budgetChars": 160,
+      "groupKey": "root/secondary/lockfile",
+      "weight": 3
+    },
+    {
+      "budgetChars": 160,
+      "groupKey": "root/secondary/script",
+      "weight": 12
+    },
+    {
+      "budgetChars": 160,
+      "groupKey": "root/secondary/source",
+      "weight": 24
+    },
+    {
+      "budgetChars": 160,
+      "groupKey": "root/tooling/config",
+      "weight": 16
+    },
+    {
+      "budgetChars": 2732,
+      "groupKey": "tauri-backend/primary/source",
+      "weight": 768
+    },
+    {
+      "budgetChars": 426,
+      "groupKey": "tauri-backend/secondary/source",
+      "weight": 120
+    },
+    {
+      "budgetChars": 160,
+      "groupKey": "tauri-config/secondary/config",
+      "weight": 12
+    },
+    {
+      "budgetChars": 160,
+      "groupKey": "tauri-config/tooling/config",
+      "weight": 16
+    }
+  ],
+  "files": [
+    {
+      "action": "added",
+      "candidateCount": 5,
+      "cleanedChars": 37,
+      "evidence": [
+        "+ root: true,",
+        "+ extends: [",
+        "+ rules: {"
+      ],
+      "evidenceCount": 3,
+      "evidenceDetails": [
+        {
+          "lineIndex": 0,
+          "reason": "file-level summary",
+          "score": 90,
+          "text": "+<.eslintrc.cjs added config>"
+        },
+        {
+          "lineIndex": 7,
+          "reason": "config key",
+          "score": 54,
+          "text": "+ root: true,"
+        },
+        {
+          "lineIndex": 9,
+          "reason": "config key",
+          "score": 54,
+          "text": "+ extends: ["
+        },
+        {
+          "lineIndex": 15,
+          "reason": "config key",
+          "score": 54,
+          "text": "+ rules: {"
+        }
+      ],
+      "groupKey": "root/secondary/config",
+      "kind": "config",
+      "omittedCandidateCount": 1,
+      "path": ".eslintrc.cjs",
+      "rawChars": 476,
+      "reason": "new file summarized structurally",
+      "role": "secondary",
+      "scope": "root",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "added",
+      "candidateCount": 3,
+      "cleanedChars": 42,
+      "evidence": [
+        "+# Editor directories and files",
+        "+*.njsproj"
+      ],
+      "evidenceCount": 2,
+      "evidenceDetails": [
+        {
+          "lineIndex": 0,
+          "reason": "file-level summary",
+          "score": 90,
+          "text": "+<.gitignore added ignore>"
+        },
+        {
+          "lineIndex": 20,
+          "reason": "meaningful comment",
+          "score": 82,
+          "text": "+# Editor directories and files"
+        },
+        {
+          "lineIndex": 27,
+          "reason": "meaningful comment",
+          "score": 82,
+          "text": "+*.njsproj"
+        }
+      ],
+      "groupKey": "root/secondary/ignore",
+      "kind": "ignore",
+      "omittedCandidateCount": 0,
+      "path": ".gitignore",
+      "rawChars": 406,
+      "reason": "new file summarized structurally",
+      "role": "secondary",
+      "scope": "root",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "added",
+      "candidateCount": 1,
+      "cleanedChars": 0,
+      "evidence": [],
+      "evidenceCount": 0,
+      "evidenceDetails": [
+        {
+          "lineIndex": 0,
+          "reason": "file-level summary",
+          "score": 90,
+          "text": "+<.prettierrc.json added config>"
+        }
+      ],
+      "groupKey": "root/secondary/config",
+      "kind": "config",
+      "omittedCandidateCount": 0,
+      "path": ".prettierrc.json",
+      "rawChars": 287,
+      "reason": "new file summarized structurally",
+      "role": "secondary",
+      "scope": "root",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "added",
+      "candidateCount": 1,
+      "cleanedChars": 0,
+      "evidence": [],
+      "evidenceCount": 0,
+      "evidenceDetails": [
+        {
+          "lineIndex": 0,
+          "reason": "file-level summary",
+          "score": 90,
+          "text": "+<.vscode/extensions.json added config>"
+        }
+      ],
+      "groupKey": "root/secondary/config",
+      "kind": "config",
+      "omittedCandidateCount": 0,
+      "path": ".vscode/extensions.json",
+      "rawChars": 209,
+      "reason": "new file summarized structurally",
+      "role": "secondary",
+      "scope": "root",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "added",
+      "candidateCount": 2,
+      "cleanedChars": 28,
+      "evidence": [
+        "+# Vue 3 + TypeScript + Vite"
+      ],
+      "evidenceCount": 1,
+      "evidenceDetails": [
+        {
+          "lineIndex": 0,
+          "reason": "file-level summary",
+          "score": 90,
+          "text": "+<README.md added docs>"
+        },
+        {
+          "lineIndex": 6,
+          "reason": "meaningful comment",
+          "score": 82,
+          "text": "+# Vue 3 + TypeScript + Vite"
+        }
+      ],
+      "groupKey": "root/secondary/docs",
+      "kind": "docs",
+      "omittedCandidateCount": 0,
+      "path": "README.md",
+      "rawChars": 572,
+      "reason": "new file summarized structurally",
+      "role": "secondary",
+      "scope": "root",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "added",
+      "candidateCount": 12,
+      "cleanedChars": 123,
+      "evidence": [
+        "+# This script is designed to run before building a Tauri application if build with error like:",
+        "+# 1. 删除之前的临时目录和目标目录，保证干净环境"
+      ],
+      "evidenceCount": 2,
+      "evidenceDetails": [
+        {
+          "lineIndex": 0,
+          "reason": "file-level summary",
+          "score": 90,
+          "text": "+<fix-tauri-tools.ps1 added script>"
+        },
+        {
+          "lineIndex": 6,
+          "reason": "meaningful comment",
+          "score": 82,
+          "text": "+# This script is designed to run before building a Tauri application if build with error like:"
+        },
+        {
+          "lineIndex": 12,
+          "reason": "meaningful comment",
+          "score": 82,
+          "text": "+# 1. 删除之前的临时目录和目标目录，保证干净环境"
+        }
+      ],
+      "groupKey": "root/secondary/script",
+      "kind": "script",
+      "omittedCandidateCount": 9,
+      "path": "fix-tauri-tools.ps1",
+      "rawChars": 3854,
+      "reason": "new file summarized structurally",
+      "role": "secondary",
+      "scope": "root",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "added",
+      "candidateCount": 1,
+      "cleanedChars": 0,
+      "evidence": [],
+      "evidenceCount": 0,
+      "evidenceDetails": [
+        {
+          "lineIndex": 0,
+          "reason": "file-level summary",
+          "score": 90,
+          "text": "+<index.html added entry>"
+        }
+      ],
+      "groupKey": "root/secondary/entry",
+      "kind": "entry",
+      "omittedCandidateCount": 0,
+      "path": "index.html",
+      "rawChars": 506,
+      "reason": "new file summarized structurally",
+      "role": "secondary",
+      "scope": "root",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "added",
+      "candidateCount": 0,
+      "cleanedChars": 0,
+      "evidence": [],
+      "evidenceCount": 0,
+      "evidenceDetails": [],
+      "groupKey": "root/generated/lockfile",
+      "kind": "lockfile",
+      "omittedCandidateCount": 0,
+      "path": "package-lock.json",
+      "rawChars": 242394,
+      "reason": "lockfile ignored for commit prompt evidence",
+      "role": "generated",
+      "scope": "root",
+      "skipped": true,
+      "strategy": "summarize only"
+    },
+    {
+      "action": "added",
+      "candidateCount": 1,
+      "cleanedChars": 0,
+      "evidence": [],
+      "evidenceCount": 0,
+      "evidenceDetails": [
+        {
+          "lineIndex": 0,
+          "reason": "file-level summary",
+          "score": 90,
+          "text": "+<package.json added config>"
+        }
+      ],
+      "groupKey": "config/secondary/config",
+      "kind": "config",
+      "omittedCandidateCount": 0,
+      "path": "package.json",
+      "rawChars": 2493,
+      "reason": "new file summarized structurally",
+      "role": "secondary",
+      "scope": "config",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "added",
+      "candidateCount": 0,
+      "cleanedChars": 0,
+      "evidence": [],
+      "evidenceCount": 0,
+      "evidenceDetails": [],
+      "groupKey": "root/secondary/asset",
+      "kind": "asset",
+      "omittedCandidateCount": 0,
+      "path": "public/vite.svg",
+      "rawChars": 1668,
+      "reason": "asset ignored for commit prompt evidence",
+      "role": "secondary",
+      "scope": "root",
+      "skipped": true,
+      "strategy": "summarize only"
+    },
+    {
+      "action": "added",
+      "candidateCount": 1,
+      "cleanedChars": 0,
+      "evidence": [],
+      "evidenceCount": 0,
+      "evidenceDetails": [
+        {
+          "lineIndex": 0,
+          "reason": "file-level summary",
+          "score": 90,
+          "text": "+<rustfmt.toml added config>"
+        }
+      ],
+      "groupKey": "root/secondary/config",
+      "kind": "config",
+      "omittedCandidateCount": 0,
+      "path": "rustfmt.toml",
+      "rawChars": 214,
+      "reason": "new file summarized structurally",
+      "role": "secondary",
+      "scope": "root",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "added",
+      "candidateCount": 4,
+      "cleanedChars": 35,
+      "evidence": [
+        "+# Generated by Cargo",
+        "+/gen/schemas"
+      ],
+      "evidenceCount": 2,
+      "evidenceDetails": [
+        {
+          "lineIndex": 0,
+          "reason": "file-level summary",
+          "score": 90,
+          "text": "+<src-tauri/.gitignore added ignore>"
+        },
+        {
+          "lineIndex": 6,
+          "reason": "meaningful comment",
+          "score": 82,
+          "text": "+# Generated by Cargo"
+        },
+        {
+          "lineIndex": 9,
+          "reason": "prompt-or-rule",
+          "score": 70,
+          "text": "+/gen/schemas"
+        }
+      ],
+      "groupKey": "root/secondary/ignore",
+      "kind": "ignore",
+      "omittedCandidateCount": 1,
+      "path": "src-tauri/.gitignore",
+      "rawChars": 248,
+      "reason": "new file summarized structurally",
+      "role": "secondary",
+      "scope": "root",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "added",
+      "candidateCount": 0,
+      "cleanedChars": 0,
+      "evidence": [],
+      "evidenceCount": 0,
+      "evidenceDetails": [],
+      "groupKey": "root/secondary/lockfile",
+      "kind": "lockfile",
+      "omittedCandidateCount": 0,
+      "path": "src-tauri/Cargo.lock",
+      "rawChars": 142443,
+      "reason": "lockfile ignored for commit prompt evidence",
+      "role": "secondary",
+      "scope": "root",
+      "skipped": true,
+      "strategy": "summarize only"
+    },
+    {
+      "action": "added",
+      "candidateCount": 7,
+      "cleanedChars": 97,
+      "evidence": [
+        "+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html"
+      ],
+      "evidenceCount": 1,
+      "evidenceDetails": [
+        {
+          "lineIndex": 0,
+          "reason": "file-level summary",
+          "score": 90,
+          "text": "+<src-tauri/Cargo.toml added config>"
+        },
+        {
+          "lineIndex": 16,
+          "reason": "meaningful comment",
+          "score": 82,
+          "text": "+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html"
+        }
+      ],
+      "groupKey": "root/tooling/config",
+      "kind": "config",
+      "omittedCandidateCount": 5,
+      "path": "src-tauri/Cargo.toml",
+      "rawChars": 928,
+      "reason": "new file summarized structurally",
+      "role": "tooling",
+      "scope": "root",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "added",
+      "candidateCount": 3,
+      "cleanedChars": 35,
+      "evidence": [
+        "+fn main() {",
+        "+ tauri_build::build()"
+      ],
+      "evidenceCount": 2,
+      "evidenceDetails": [
+        {
+          "lineIndex": 0,
+          "reason": "file-level summary",
+          "score": 90,
+          "text": "+<src-tauri/build.rs added source>"
+        },
+        {
+          "lineIndex": 6,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+fn main() {"
+        },
+        {
+          "lineIndex": 7,
+          "reason": "command-or-integration",
+          "score": 64,
+          "text": "+ tauri_build::build()"
+        }
+      ],
+      "groupKey": "root/secondary/source",
+      "kind": "source",
+      "omittedCandidateCount": 0,
+      "path": "src-tauri/build.rs",
+      "rawChars": 192,
+      "reason": "new file summarized structurally",
+      "role": "secondary",
+      "scope": "root",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "added",
+      "candidateCount": 1,
+      "cleanedChars": 0,
+      "evidence": [],
+      "evidenceCount": 0,
+      "evidenceDetails": [
+        {
+          "lineIndex": 0,
+          "reason": "file-level summary",
+          "score": 90,
+          "text": "+<src-tauri/capabilities/default.json added config>"
+        }
+      ],
+      "groupKey": "tauri-config/secondary/config",
+      "kind": "config",
+      "omittedCandidateCount": 0,
+      "path": "src-tauri/capabilities/default.json",
+      "rawChars": 1005,
+      "reason": "new file summarized structurally",
+      "role": "secondary",
+      "scope": "tauri-config",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "added",
+      "candidateCount": 0,
+      "cleanedChars": 0,
+      "evidence": [],
+      "evidenceCount": 0,
+      "evidenceDetails": [],
+      "groupKey": "root/secondary/asset",
+      "kind": "asset",
+      "omittedCandidateCount": 0,
+      "path": "src-tauri/icons/logo.ico",
+      "rawChars": 170,
+      "reason": "asset ignored for commit prompt evidence",
+      "role": "secondary",
+      "scope": "root",
+      "skipped": true,
+      "strategy": "summarize only"
+    },
+    {
+      "action": "added",
+      "candidateCount": 0,
+      "cleanedChars": 0,
+      "evidence": [],
+      "evidenceCount": 0,
+      "evidenceDetails": [],
+      "groupKey": "root/secondary/asset",
+      "kind": "asset",
+      "omittedCandidateCount": 0,
+      "path": "src-tauri/icons/logo.png",
+      "rawChars": 170,
+      "reason": "asset ignored for commit prompt evidence",
+      "role": "secondary",
+      "scope": "root",
+      "skipped": true,
+      "strategy": "summarize only"
+    },
+    {
+      "action": "added",
+      "candidateCount": 1,
+      "cleanedChars": 0,
+      "evidence": [],
+      "evidenceCount": 0,
+      "evidenceDetails": [
+        {
+          "lineIndex": 0,
+          "reason": "file-level summary",
+          "score": 90,
+          "text": "+<src-tauri/src/ai/mod.rs added source>"
+        }
+      ],
+      "groupKey": "tauri-backend/secondary/source",
+      "kind": "source",
+      "omittedCandidateCount": 0,
+      "path": "src-tauri/src/ai/mod.rs",
+      "rawChars": 232,
+      "reason": "new file summarized structurally",
+      "role": "secondary",
+      "scope": "tauri-backend",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "added",
+      "candidateCount": 9,
+      "cleanedChars": 47,
+      "evidence": [
+        "+use crate::git::prompt::build_analysis_schema;"
+      ],
+      "evidenceCount": 1,
+      "evidenceDetails": [
+        {
+          "lineIndex": 0,
+          "reason": "file-level summary",
+          "score": 90,
+          "text": "+<src-tauri/src/ai/ollama.rs added source>"
+        },
+        {
+          "lineIndex": 9,
+          "reason": "prompt-or-rule",
+          "score": 70,
+          "text": "+use crate::git::prompt::build_analysis_schema;"
+        }
+      ],
+      "groupKey": "tauri-backend/secondary/source",
+      "kind": "source",
+      "omittedCandidateCount": 7,
+      "path": "src-tauri/src/ai/ollama.rs",
+      "rawChars": 3716,
+      "reason": "new file summarized structurally",
+      "role": "secondary",
+      "scope": "tauri-backend",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "added",
+      "candidateCount": 9,
+      "cleanedChars": 113,
+      "evidence": [
+        "+const BASE_URL: &str = \"https://dashscope.aliyuncs.com/compatible-mode/v1\";",
+        "+const MODEL: &str = \"qwen3.5-plus\";"
+      ],
+      "evidenceCount": 2,
+      "evidenceDetails": [
+        {
+          "lineIndex": 13,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+const BASE_URL: &str = \"https://dashscope.aliyuncs.com/compatible-mode/v1\";"
+        },
+        {
+          "lineIndex": 14,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+const MODEL: &str = \"qwen3.5-plus\";"
+        }
+      ],
+      "groupKey": "tauri-backend/secondary/source",
+      "kind": "source",
+      "omittedCandidateCount": 7,
+      "path": "src-tauri/src/ai/qwencloud.rs",
+      "rawChars": 5408,
+      "reason": "new file summarized structurally",
+      "role": "secondary",
+      "scope": "tauri-backend",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "added",
+      "candidateCount": 12,
+      "cleanedChars": 217,
+      "evidence": [
+        "+pub fn load_git_snapshot(repo_path: String) -> Result<GitSnapshot, String> {",
+        "+pub struct SaveGitProjectProfilePayload {",
+        "+pub fn load_git_file_diff(payload: GitFileDiffPayload) -> Result<GitFileDiffResponse, String> {"
+      ],
+      "evidenceCount": 3,
+      "evidenceDetails": [
+        {
+          "lineIndex": 14,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+pub fn load_git_snapshot(repo_path: String) -> Result<GitSnapshot, String> {"
+        },
+        {
+          "lineIndex": 49,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+pub struct SaveGitProjectProfilePayload {"
+        },
+        {
+          "lineIndex": 60,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+pub fn load_git_file_diff(payload: GitFileDiffPayload) -> Result<GitFileDiffResponse, String> {"
+        }
+      ],
+      "groupKey": "tauri-backend/primary/source",
+      "kind": "source",
+      "omittedCandidateCount": 9,
+      "path": "src-tauri/src/commands/git.rs",
+      "rawChars": 5687,
+      "reason": "new file summarized structurally",
+      "role": "primary",
+      "scope": "tauri-backend",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "added",
+      "candidateCount": 1,
+      "cleanedChars": 0,
+      "evidence": [],
+      "evidenceCount": 0,
+      "evidenceDetails": [
+        {
+          "lineIndex": 0,
+          "reason": "file-level summary",
+          "score": 90,
+          "text": "+<src-tauri/src/commands/mod.rs added source>"
+        }
+      ],
+      "groupKey": "tauri-backend/primary/source",
+      "kind": "source",
+      "omittedCandidateCount": 0,
+      "path": "src-tauri/src/commands/mod.rs",
+      "rawChars": 225,
+      "reason": "new file summarized structurally",
+      "role": "primary",
+      "scope": "tauri-backend",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "added",
+      "candidateCount": 12,
+      "cleanedChars": 224,
+      "evidence": [
+        "+fn normalize_path(path: &str) -> String {",
+        "+fn contains_any(path: &str, keywords: &[&str]) -> bool {",
+        "+pub fn classify_file_role(path: &str, config: &AnalysisConfig) -> FileRole {",
+        "+pub fn extract_scope(path: &str) -> String {"
+      ],
+      "evidenceCount": 4,
+      "evidenceDetails": [
+        {
+          "lineIndex": 14,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+fn normalize_path(path: &str) -> String {"
+        },
+        {
+          "lineIndex": 18,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+fn contains_any(path: &str, keywords: &[&str]) -> bool {"
+        },
+        {
+          "lineIndex": 22,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+pub fn classify_file_role(path: &str, config: &AnalysisConfig) -> FileRole {"
+        },
+        {
+          "lineIndex": 60,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+pub fn extract_scope(path: &str) -> String {"
+        }
+      ],
+      "groupKey": "tauri-backend/primary/source",
+      "kind": "source",
+      "omittedCandidateCount": 8,
+      "path": "src-tauri/src/git/analyzer.rs",
+      "rawChars": 12212,
+      "reason": "new file summarized structurally",
+      "role": "primary",
+      "scope": "tauri-backend",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "added",
+      "candidateCount": 12,
+      "cleanedChars": 180,
+      "evidence": [
+        "+pub struct AiConfig {",
+        "+ fn default() -> Self {",
+        "+pub struct AnalysisConfig {",
+        "+ fn default() -> Self {",
+        "+pub struct FileKindRule {",
+        "+pub struct ScopeRule {",
+        "+pub struct SemanticRules {"
+      ],
+      "evidenceCount": 7,
+      "evidenceDetails": [
+        {
+          "lineIndex": 0,
+          "reason": "file-level summary",
+          "score": 90,
+          "text": "+<src-tauri/src/git/config.rs added source>"
+        },
+        {
+          "lineIndex": 7,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+pub struct AiConfig {"
+        },
+        {
+          "lineIndex": 14,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+ fn default() -> Self {"
+        },
+        {
+          "lineIndex": 24,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+pub struct AnalysisConfig {"
+        },
+        {
+          "lineIndex": 35,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+ fn default() -> Self {"
+        },
+        {
+          "lineIndex": 94,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+pub struct FileKindRule {"
+        },
+        {
+          "lineIndex": 102,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+pub struct ScopeRule {"
+        },
+        {
+          "lineIndex": 108,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+pub struct SemanticRules {"
+        }
+      ],
+      "groupKey": "tauri-backend/primary/source",
+      "kind": "source",
+      "omittedCandidateCount": 4,
+      "path": "src-tauri/src/git/config.rs",
+      "rawChars": 5426,
+      "reason": "new file summarized structurally",
+      "role": "primary",
+      "scope": "tauri-backend",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "added",
+      "candidateCount": 12,
+      "cleanedChars": 220,
+      "evidence": [
+        "+fn normalize_path(path: &str) -> String {",
+        "+fn split_diff_by_file(staged_diff: &str) -> Vec<(String, String)> {",
+        "+fn is_noise_line(line: &str) -> bool {",
+        "+fn trim_diff_excerpt(diff_text: &str, max_lines: usize) -> String {"
+      ],
+      "evidenceCount": 4,
+      "evidenceDetails": [
+        {
+          "lineIndex": 8,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+fn normalize_path(path: &str) -> String {"
+        },
+        {
+          "lineIndex": 12,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+fn split_diff_by_file(staged_diff: &str) -> Vec<(String, String)> {"
+        },
+        {
+          "lineIndex": 46,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+fn is_noise_line(line: &str) -> bool {"
+        },
+        {
+          "lineIndex": 53,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+fn trim_diff_excerpt(diff_text: &str, max_lines: usize) -> String {"
+        }
+      ],
+      "groupKey": "tauri-backend/primary/source",
+      "kind": "source",
+      "omittedCandidateCount": 8,
+      "path": "src-tauri/src/git/diff_parser.rs",
+      "rawChars": 4820,
+      "reason": "new file summarized structurally",
+      "role": "primary",
+      "scope": "tauri-backend",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "added",
+      "candidateCount": 2,
+      "cleanedChars": 16,
+      "evidence": [
+        "+pub mod prompt;"
+      ],
+      "evidenceCount": 1,
+      "evidenceDetails": [
+        {
+          "lineIndex": 0,
+          "reason": "file-level summary",
+          "score": 90,
+          "text": "+<src-tauri/src/git/mod.rs added source>"
+        },
+        {
+          "lineIndex": 10,
+          "reason": "prompt-or-rule",
+          "score": 70,
+          "text": "+pub mod prompt;"
+        }
+      ],
+      "groupKey": "tauri-backend/primary/source",
+      "kind": "source",
+      "omittedCandidateCount": 0,
+      "path": "src-tauri/src/git/mod.rs",
+      "rawChars": 733,
+      "reason": "new file summarized structurally",
+      "role": "primary",
+      "scope": "tauri-backend",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "added",
+      "candidateCount": 12,
+      "cleanedChars": 219,
+      "evidence": [
+        "+pub struct GitSnapshot {",
+        "+pub struct GitAiPayload {",
+        "+pub struct GitAiAnalysis {",
+        "+pub struct OllamaGenerateResponse {",
+        "+pub struct ParsedGitFile {",
+        "+pub enum FileRole {",
+        "+pub struct ScopeSummary {",
+        "+pub struct DiffSignals {"
+      ],
+      "evidenceCount": 8,
+      "evidenceDetails": [
+        {
+          "lineIndex": 10,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+pub struct GitSnapshot {"
+        },
+        {
+          "lineIndex": 21,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+pub struct GitAiPayload {"
+        },
+        {
+          "lineIndex": 31,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+pub struct GitAiAnalysis {"
+        },
+        {
+          "lineIndex": 39,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+pub struct OllamaGenerateResponse {"
+        },
+        {
+          "lineIndex": 46,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+pub struct ParsedGitFile {"
+        },
+        {
+          "lineIndex": 59,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+pub enum FileRole {"
+        },
+        {
+          "lineIndex": 68,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+pub struct ScopeSummary {"
+        },
+        {
+          "lineIndex": 76,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+pub struct DiffSignals {"
+        }
+      ],
+      "groupKey": "tauri-backend/primary/source",
+      "kind": "source",
+      "omittedCandidateCount": 4,
+      "path": "src-tauri/src/git/models.rs",
+      "rawChars": 8258,
+      "reason": "new file summarized structurally",
+      "role": "primary",
+      "scope": "tauri-backend",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "added",
+      "candidateCount": 3,
+      "cleanedChars": 78,
+      "evidence": [
+        "+pub fn parse_git_status_line(line: &str) -> ParsedGitFile {",
+        "+ _ => \"unknown\","
+      ],
+      "evidenceCount": 2,
+      "evidenceDetails": [
+        {
+          "lineIndex": 0,
+          "reason": "file-level summary",
+          "score": 90,
+          "text": "+<src-tauri/src/git/parser.rs added source>"
+        },
+        {
+          "lineIndex": 8,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+pub fn parse_git_status_line(line: &str) -> ParsedGitFile {"
+        },
+        {
+          "lineIndex": 55,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+ _ => \"unknown\","
+        }
+      ],
+      "groupKey": "tauri-backend/primary/source",
+      "kind": "source",
+      "omittedCandidateCount": 0,
+      "path": "src-tauri/src/git/parser.rs",
+      "rawChars": 2018,
+      "reason": "new file summarized structurally",
+      "role": "primary",
+      "scope": "tauri-backend",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "added",
+      "candidateCount": 12,
+      "cleanedChars": 221,
+      "evidence": [
+        "+pub fn build_analysis_schema() -> Value {",
+        "+pub fn join_preview(items: &[String], limit: usize) -> String {",
+        "+pub fn build_analysis_prompt(payload: &GitAiPayload) -> String {",
+        "+const MAX_TOTAL_EVIDENCE_CHARS: usize = 12000;"
+      ],
+      "evidenceCount": 4,
+      "evidenceDetails": [
+        {
+          "lineIndex": 13,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+pub fn build_analysis_schema() -> Value {"
+        },
+        {
+          "lineIndex": 41,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+pub fn join_preview(items: &[String], limit: usize) -> String {"
+        },
+        {
+          "lineIndex": 60,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+pub fn build_analysis_prompt(payload: &GitAiPayload) -> String {"
+        },
+        {
+          "lineIndex": 241,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+const MAX_TOTAL_EVIDENCE_CHARS: usize = 12000;"
+        }
+      ],
+      "groupKey": "tauri-backend/primary/source",
+      "kind": "source",
+      "omittedCandidateCount": 8,
+      "path": "src-tauri/src/git/prompt.rs",
+      "rawChars": 50989,
+      "reason": "new file summarized structurally",
+      "role": "primary",
+      "scope": "tauri-backend",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "added",
+      "candidateCount": 12,
+      "cleanedChars": 155,
+      "evidence": [
+        "+pub fn run_git(repo_path: &str, args: &[&str]) -> Result<String, String> {",
+        "+pub fn run_git_raw(repo_path: &str, args: &[&str]) -> Result<String, String> {"
+      ],
+      "evidenceCount": 2,
+      "evidenceDetails": [
+        {
+          "lineIndex": 0,
+          "reason": "file-level summary",
+          "score": 90,
+          "text": "+<src-tauri/src/git/runner.rs added source>"
+        },
+        {
+          "lineIndex": 10,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+pub fn run_git(repo_path: &str, args: &[&str]) -> Result<String, String> {"
+        },
+        {
+          "lineIndex": 29,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+pub fn run_git_raw(repo_path: &str, args: &[&str]) -> Result<String, String> {"
+        }
+      ],
+      "groupKey": "tauri-backend/primary/source",
+      "kind": "source",
+      "omittedCandidateCount": 9,
+      "path": "src-tauri/src/git/runner.rs",
+      "rawChars": 7401,
+      "reason": "new file summarized structurally",
+      "role": "primary",
+      "scope": "tauri-backend",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "added",
+      "candidateCount": 12,
+      "cleanedChars": 224,
+      "evidence": [
+        "+fn detect_file_kind(path: &str) -> FileKind {",
+        "+ _ => FileKind::Unknown,",
+        "+fn detect_file_action(file: &ParsedGitFile) -> FileAction {",
+        "+ _ => FileAction::Update,",
+        "+ (FileAction::Add, FileKind::Page) => \"add_pages\".to_string(),"
+      ],
+      "evidenceCount": 5,
+      "evidenceDetails": [
+        {
+          "lineIndex": 18,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+fn detect_file_kind(path: &str) -> FileKind {"
+        },
+        {
+          "lineIndex": 36,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+ _ => FileKind::Unknown,"
+        },
+        {
+          "lineIndex": 45,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+fn detect_file_action(file: &ParsedGitFile) -> FileAction {"
+        },
+        {
+          "lineIndex": 50,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+ _ => FileAction::Update,"
+        },
+        {
+          "lineIndex": 56,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+ (FileAction::Add, FileKind::Page) => \"add_pages\".to_string(),"
+        }
+      ],
+      "groupKey": "tauri-backend/primary/source",
+      "kind": "source",
+      "omittedCandidateCount": 7,
+      "path": "src-tauri/src/git/summarizer.rs",
+      "rawChars": 9814,
+      "reason": "new file summarized structurally",
+      "role": "primary",
+      "scope": "tauri-backend",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "added",
+      "candidateCount": 12,
+      "cleanedChars": 15,
+      "evidence": [
+        "+pub fn run() {"
+      ],
+      "evidenceCount": 1,
+      "evidenceDetails": [
+        {
+          "lineIndex": 0,
+          "reason": "file-level summary",
+          "score": 90,
+          "text": "+<src-tauri/src/lib.rs added source>"
+        },
+        {
+          "lineIndex": 11,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+pub fn run() {"
+        }
+      ],
+      "groupKey": "tauri-backend/secondary/source",
+      "kind": "source",
+      "omittedCandidateCount": 10,
+      "path": "src-tauri/src/lib.rs",
+      "rawChars": 2096,
+      "reason": "new file summarized structurally",
+      "role": "secondary",
+      "scope": "tauri-backend",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "added",
+      "candidateCount": 3,
+      "cleanedChars": 80,
+      "evidence": [
+        "+#![cfg_attr(not(debug_assertions), windows_subsystem = \"windows\")]",
+        "+fn main() {"
+      ],
+      "evidenceCount": 2,
+      "evidenceDetails": [
+        {
+          "lineIndex": 0,
+          "reason": "file-level summary",
+          "score": 90,
+          "text": "+<src-tauri/src/main.rs added source>"
+        },
+        {
+          "lineIndex": 6,
+          "reason": "meaningful comment",
+          "score": 82,
+          "text": "+#![cfg_attr(not(debug_assertions), windows_subsystem = \"windows\")]"
+        },
+        {
+          "lineIndex": 8,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+fn main() {"
+        }
+      ],
+      "groupKey": "tauri-backend/secondary/source",
+      "kind": "source",
+      "omittedCandidateCount": 0,
+      "path": "src-tauri/src/main.rs",
+      "rawChars": 306,
+      "reason": "new file summarized structurally",
+      "role": "secondary",
+      "scope": "tauri-backend",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "added",
+      "candidateCount": 1,
+      "cleanedChars": 0,
+      "evidence": [],
+      "evidenceCount": 0,
+      "evidenceDetails": [
+        {
+          "lineIndex": 0,
+          "reason": "file-level summary",
+          "score": 90,
+          "text": "+<src-tauri/tauri.conf.json added config>"
+        }
+      ],
+      "groupKey": "tauri-config/tooling/config",
+      "kind": "config",
+      "omittedCandidateCount": 0,
+      "path": "src-tauri/tauri.conf.json",
+      "rawChars": 1559,
+      "reason": "new file summarized structurally",
+      "role": "tooling",
+      "scope": "tauri-config",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "added",
+      "candidateCount": 1,
+      "cleanedChars": 0,
+      "evidence": [],
+      "evidenceCount": 0,
+      "evidenceDetails": [
+        {
+          "lineIndex": 0,
+          "reason": "file-level summary",
+          "score": 90,
+          "text": "+<src/App.vue added source>"
+        }
+      ],
+      "groupKey": "frontend/secondary/source",
+      "kind": "source",
+      "omittedCandidateCount": 0,
+      "path": "src/App.vue",
+      "rawChars": 386,
+      "reason": "new file summarized structurally",
+      "role": "secondary",
+      "scope": "frontend",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "added",
+      "candidateCount": 0,
+      "cleanedChars": 0,
+      "evidence": [],
+      "evidenceCount": 0,
+      "evidenceDetails": [],
+      "groupKey": "frontend/secondary/asset",
+      "kind": "asset",
+      "omittedCandidateCount": 0,
+      "path": "src/assets/logo.ico",
+      "rawChars": 155,
+      "reason": "asset ignored for commit prompt evidence",
+      "role": "secondary",
+      "scope": "frontend",
+      "skipped": true,
+      "strategy": "summarize only"
+    },
+    {
+      "action": "added",
+      "candidateCount": 0,
+      "cleanedChars": 0,
+      "evidence": [],
+      "evidenceCount": 0,
+      "evidenceDetails": [],
+      "groupKey": "frontend/secondary/asset",
+      "kind": "asset",
+      "omittedCandidateCount": 0,
+      "path": "src/assets/logo.png",
+      "rawChars": 155,
+      "reason": "asset ignored for commit prompt evidence",
+      "role": "secondary",
+      "scope": "frontend",
+      "skipped": true,
+      "strategy": "summarize only"
+    },
+    {
+      "action": "added",
+      "candidateCount": 0,
+      "cleanedChars": 0,
+      "evidence": [],
+      "evidenceCount": 0,
+      "evidenceDetails": [],
+      "groupKey": "frontend/secondary/asset",
+      "kind": "asset",
+      "omittedCandidateCount": 0,
+      "path": "src/assets/vue.svg",
+      "rawChars": 676,
+      "reason": "asset ignored for commit prompt evidence",
+      "role": "secondary",
+      "scope": "frontend",
+      "skipped": true,
+      "strategy": "summarize only"
+    },
+    {
+      "action": "added",
+      "candidateCount": 6,
+      "cleanedChars": 126,
+      "evidence": [
+        "+interface AppItem {",
+        "+const props = defineProps<{",
+        "+const router = useRouter()",
+        "+const handleClick = () => {",
+        "+ /* 磁吸效果（轻微 3D） */"
+      ],
+      "evidenceCount": 5,
+      "evidenceDetails": [
+        {
+          "lineIndex": 0,
+          "reason": "file-level summary",
+          "score": 90,
+          "text": "+<src/components/card/AppCard.vue added source>"
+        },
+        {
+          "lineIndex": 18,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+interface AppItem {"
+        },
+        {
+          "lineIndex": 24,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+const props = defineProps<{"
+        },
+        {
+          "lineIndex": 27,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+const router = useRouter()"
+        },
+        {
+          "lineIndex": 28,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+const handleClick = () => {"
+        },
+        {
+          "lineIndex": 66,
+          "reason": "meaningful comment",
+          "score": 82,
+          "text": "+ /* 磁吸效果（轻微 3D） */"
+        }
+      ],
+      "groupKey": "frontend/primary/source",
+      "kind": "source",
+      "omittedCandidateCount": 0,
+      "path": "src/components/card/AppCard.vue",
+      "rawChars": 4157,
+      "reason": "new file summarized structurally",
+      "role": "primary",
+      "scope": "frontend",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "added",
+      "candidateCount": 12,
+      "cleanedChars": 170,
+      "evidence": [
+        "+ <!-- 左侧分类 -->",
+        "+ <!-- 右侧内容区 -->",
+        "+// import LanguagePanel from \"./panels/LanguagePanel.vue\"",
+        "+// import StoragePanel from \"./panels/StoragePanel.vue\"",
+        "+const categories = ["
+      ],
+      "evidenceCount": 5,
+      "evidenceDetails": [
+        {
+          "lineIndex": 0,
+          "reason": "file-level summary",
+          "score": 90,
+          "text": "+<src/components/settings/Settings.vue added source>"
+        },
+        {
+          "lineIndex": 9,
+          "reason": "meaningful comment",
+          "score": 82,
+          "text": "+ <!-- 左侧分类 -->"
+        },
+        {
+          "lineIndex": 23,
+          "reason": "meaningful comment",
+          "score": 82,
+          "text": "+ <!-- 右侧内容区 -->"
+        },
+        {
+          "lineIndex": 34,
+          "reason": "meaningful comment",
+          "score": 82,
+          "text": "+// import LanguagePanel from \"./panels/LanguagePanel.vue\""
+        },
+        {
+          "lineIndex": 36,
+          "reason": "meaningful comment",
+          "score": 82,
+          "text": "+// import StoragePanel from \"./panels/StoragePanel.vue\""
+        },
+        {
+          "lineIndex": 40,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+const categories = ["
+        }
+      ],
+      "groupKey": "frontend/primary/source",
+      "kind": "source",
+      "omittedCandidateCount": 6,
+      "path": "src/components/settings/Settings.vue",
+      "rawChars": 8276,
+      "reason": "new file summarized structurally",
+      "role": "primary",
+      "scope": "frontend",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "added",
+      "candidateCount": 12,
+      "cleanedChars": 219,
+      "evidence": [
+        "+const { theme, applyTheme } = useTheme()",
+        "+const cardSize = ref(localStorage.getItem(\"lumina-card-size\") || \"medium\")",
+        "+const cardSizeOptions = [",
+        "+const useShadow = ref(localStorage.getItem(\"lumina-card-shadow\") === \"1\")"
+      ],
+      "evidenceCount": 4,
+      "evidenceDetails": [
+        {
+          "lineIndex": 61,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+const { theme, applyTheme } = useTheme()"
+        },
+        {
+          "lineIndex": 66,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+const cardSize = ref(localStorage.getItem(\"lumina-card-size\") || \"medium\")"
+        },
+        {
+          "lineIndex": 67,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+const cardSizeOptions = ["
+        },
+        {
+          "lineIndex": 73,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+const useShadow = ref(localStorage.getItem(\"lumina-card-shadow\") === \"1\")"
+        }
+      ],
+      "groupKey": "frontend/primary/source",
+      "kind": "source",
+      "omittedCandidateCount": 8,
+      "path": "src/components/settings/panels/AppearancePanel.vue",
+      "rawChars": 7413,
+      "reason": "new file summarized structurally",
+      "role": "primary",
+      "scope": "frontend",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "added",
+      "candidateCount": 10,
+      "cleanedChars": 213,
+      "evidence": [
+        "+const { theme, toggleTheme } = useTheme()",
+        "+const activeGroup = ref(groups[0].id)",
+        "+const changeGroup = (id: string) => {",
+        "+const emit = defineEmits(['update:groupId', 'open-settings'])",
+        "+const openSettings = () => {"
+      ],
+      "evidenceCount": 5,
+      "evidenceDetails": [
+        {
+          "lineIndex": 44,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+const { theme, toggleTheme } = useTheme()"
+        },
+        {
+          "lineIndex": 47,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+const activeGroup = ref(groups[0].id)"
+        },
+        {
+          "lineIndex": 48,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+const changeGroup = (id: string) => {"
+        },
+        {
+          "lineIndex": 53,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+const emit = defineEmits(['update:groupId', 'open-settings'])"
+        },
+        {
+          "lineIndex": 55,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+const openSettings = () => {"
+        }
+      ],
+      "groupKey": "frontend/primary/source",
+      "kind": "source",
+      "omittedCandidateCount": 5,
+      "path": "src/components/sidebar/Sidebar.vue",
+      "rawChars": 4823,
+      "reason": "new file summarized structurally",
+      "role": "primary",
+      "scope": "frontend",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "added",
+      "candidateCount": 2,
+      "cleanedChars": 36,
+      "evidence": [
+        "+const emit = defineEmits(['click'])"
+      ],
+      "evidenceCount": 1,
+      "evidenceDetails": [
+        {
+          "lineIndex": 0,
+          "reason": "file-level summary",
+          "score": 90,
+          "text": "+<src/components/sidebar/SidebarItem.vue added source>"
+        },
+        {
+          "lineIndex": 14,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+const emit = defineEmits(['click'])"
+        }
+      ],
+      "groupKey": "frontend/primary/source",
+      "kind": "source",
+      "omittedCandidateCount": 0,
+      "path": "src/components/sidebar/SidebarItem.vue",
+      "rawChars": 2293,
+      "reason": "new file summarized structurally",
+      "role": "primary",
+      "scope": "frontend",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "added",
+      "candidateCount": 1,
+      "cleanedChars": 0,
+      "evidence": [],
+      "evidenceCount": 0,
+      "evidenceDetails": [
+        {
+          "lineIndex": 0,
+          "reason": "file-level summary",
+          "score": 90,
+          "text": "+<src/config/apps.json added config>"
+        }
+      ],
+      "groupKey": "frontend/secondary/config",
+      "kind": "config",
+      "omittedCandidateCount": 0,
+      "path": "src/config/apps.json",
+      "rawChars": 2845,
+      "reason": "new file summarized structurally",
+      "role": "secondary",
+      "scope": "frontend",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "added",
+      "candidateCount": 1,
+      "cleanedChars": 0,
+      "evidence": [],
+      "evidenceCount": 0,
+      "evidenceDetails": [
+        {
+          "lineIndex": 0,
+          "reason": "file-level summary",
+          "score": 90,
+          "text": "+<src/config/groups.json added config>"
+        }
+      ],
+      "groupKey": "frontend/secondary/config",
+      "kind": "config",
+      "omittedCandidateCount": 0,
+      "path": "src/config/groups.json",
+      "rawChars": 1345,
+      "reason": "new file summarized structurally",
+      "role": "secondary",
+      "scope": "frontend",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "added",
+      "candidateCount": 12,
+      "cleanedChars": 110,
+      "evidence": [
+        "+// src/hooks/useTheme.ts",
+        "+const saved = (localStorage.getItem(\"lumina-theme\") as \"light\" | \"dark\") ?? \"dark\";"
+      ],
+      "evidenceCount": 2,
+      "evidenceDetails": [
+        {
+          "lineIndex": 6,
+          "reason": "meaningful comment",
+          "score": 82,
+          "text": "+// src/hooks/useTheme.ts"
+        },
+        {
+          "lineIndex": 10,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+const saved = (localStorage.getItem(\"lumina-theme\") as \"light\" | \"dark\") ?? \"dark\";"
+        }
+      ],
+      "groupKey": "frontend/secondary/source",
+      "kind": "source",
+      "omittedCandidateCount": 10,
+      "path": "src/hooks/useTheme.ts",
+      "rawChars": 2523,
+      "reason": "new file summarized structurally",
+      "role": "secondary",
+      "scope": "frontend",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "added",
+      "candidateCount": 12,
+      "cleanedChars": 116,
+      "evidence": [
+        "+const activeGroup = ref('1')",
+        "+const showSettings = ref(false)",
+        "+const router = useRouter()",
+        "+const route = useRoute()"
+      ],
+      "evidenceCount": 4,
+      "evidenceDetails": [
+        {
+          "lineIndex": 25,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+const activeGroup = ref('1')"
+        },
+        {
+          "lineIndex": 26,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+const showSettings = ref(false)"
+        },
+        {
+          "lineIndex": 111,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+const router = useRouter()"
+        },
+        {
+          "lineIndex": 112,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+const route = useRoute()"
+        }
+      ],
+      "groupKey": "frontend/secondary/source",
+      "kind": "source",
+      "omittedCandidateCount": 8,
+      "path": "src/layouts/MainLayout.vue",
+      "rawChars": 7590,
+      "reason": "new file summarized structurally",
+      "role": "secondary",
+      "scope": "frontend",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "added",
+      "candidateCount": 1,
+      "cleanedChars": 0,
+      "evidence": [],
+      "evidenceCount": 0,
+      "evidenceDetails": [
+        {
+          "lineIndex": 0,
+          "reason": "file-level summary",
+          "score": 90,
+          "text": "+<src/locales/index.ts added i18n>"
+        }
+      ],
+      "groupKey": "frontend/secondary/i18n",
+      "kind": "i18n",
+      "omittedCandidateCount": 0,
+      "path": "src/locales/index.ts",
+      "rawChars": 207,
+      "reason": "new file summarized structurally",
+      "role": "secondary",
+      "scope": "frontend",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "added",
+      "candidateCount": 2,
+      "cleanedChars": 27,
+      "evidence": [
+        "+const app = createApp(App)"
+      ],
+      "evidenceCount": 1,
+      "evidenceDetails": [
+        {
+          "lineIndex": 0,
+          "reason": "file-level summary",
+          "score": 90,
+          "text": "+<src/main.ts added source>"
+        },
+        {
+          "lineIndex": 16,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+const app = createApp(App)"
+        }
+      ],
+      "groupKey": "frontend/secondary/source",
+      "kind": "source",
+      "omittedCandidateCount": 0,
+      "path": "src/main.ts",
+      "rawChars": 1346,
+      "reason": "new file summarized structurally",
+      "role": "secondary",
+      "scope": "frontend",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "added",
+      "candidateCount": 1,
+      "cleanedChars": 0,
+      "evidence": [],
+      "evidenceCount": 0,
+      "evidenceDetails": [
+        {
+          "lineIndex": 0,
+          "reason": "file-level summary",
+          "score": 90,
+          "text": "+<src/plugins/naive.ts added source>"
+        }
+      ],
+      "groupKey": "frontend/secondary/source",
+      "kind": "source",
+      "omittedCandidateCount": 0,
+      "path": "src/plugins/naive.ts",
+      "rawChars": 1556,
+      "reason": "new file summarized structurally",
+      "role": "secondary",
+      "scope": "frontend",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "added",
+      "candidateCount": 7,
+      "cleanedChars": 90,
+      "evidence": [
+        "+const routes: RouteRecordRaw[] = [",
+        "+ component: () => import('@/layouts/MainLayout.vue'),"
+      ],
+      "evidenceCount": 2,
+      "evidenceDetails": [
+        {
+          "lineIndex": 8,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+const routes: RouteRecordRaw[] = ["
+        },
+        {
+          "lineIndex": 11,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+ component: () => import('@/layouts/MainLayout.vue'),"
+        }
+      ],
+      "groupKey": "frontend/secondary/source",
+      "kind": "source",
+      "omittedCandidateCount": 5,
+      "path": "src/router/index.ts",
+      "rawChars": 1669,
+      "reason": "new file summarized structurally",
+      "role": "secondary",
+      "scope": "frontend",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "added",
+      "candidateCount": 12,
+      "cleanedChars": 175,
+      "evidence": [
+        "+export interface GitCommitPromptPreview {",
+        "+ prompt: string",
+        "+ trace: GitCommitPromptTrace",
+        "+export interface GitCommitPromptTrace {",
+        "+export interface GitCommitPromptFileTrace {"
+      ],
+      "evidenceCount": 5,
+      "evidenceDetails": [
+        {
+          "lineIndex": 0,
+          "reason": "file-level summary",
+          "score": 90,
+          "text": "+<src/services/git/git-ai-service.ts added source>"
+        },
+        {
+          "lineIndex": 29,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+export interface GitCommitPromptPreview {"
+        },
+        {
+          "lineIndex": 30,
+          "reason": "prompt-or-rule",
+          "score": 70,
+          "text": "+ prompt: string"
+        },
+        {
+          "lineIndex": 31,
+          "reason": "prompt-or-rule",
+          "score": 70,
+          "text": "+ trace: GitCommitPromptTrace"
+        },
+        {
+          "lineIndex": 34,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+export interface GitCommitPromptTrace {"
+        },
+        {
+          "lineIndex": 42,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+export interface GitCommitPromptFileTrace {"
+        }
+      ],
+      "groupKey": "frontend/primary/source",
+      "kind": "source",
+      "omittedCandidateCount": 6,
+      "path": "src/services/git/git-ai-service.ts",
+      "rawChars": 2349,
+      "reason": "new file summarized structurally",
+      "role": "primary",
+      "scope": "frontend",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "added",
+      "candidateCount": 7,
+      "cleanedChars": 103,
+      "evidence": [
+        "+export interface GitSnapshot {",
+        "+export interface GitFileStat {",
+        "+export interface GitFileDiffResponse {"
+      ],
+      "evidenceCount": 3,
+      "evidenceDetails": [
+        {
+          "lineIndex": 0,
+          "reason": "file-level summary",
+          "score": 90,
+          "text": "+<src/services/git/git-service.ts added source>"
+        },
+        {
+          "lineIndex": 8,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+export interface GitSnapshot {"
+        },
+        {
+          "lineIndex": 33,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+export interface GitFileStat {"
+        },
+        {
+          "lineIndex": 45,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+export interface GitFileDiffResponse {"
+        }
+      ],
+      "groupKey": "frontend/primary/source",
+      "kind": "source",
+      "omittedCandidateCount": 3,
+      "path": "src/services/git/git-service.ts",
+      "rawChars": 1719,
+      "reason": "new file summarized structurally",
+      "role": "primary",
+      "scope": "frontend",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "added",
+      "candidateCount": 2,
+      "cleanedChars": 28,
+      "evidence": [
+        "+const pinia = createPinia()"
+      ],
+      "evidenceCount": 1,
+      "evidenceDetails": [
+        {
+          "lineIndex": 0,
+          "reason": "file-level summary",
+          "score": 90,
+          "text": "+<src/store/index.ts added source>"
+        },
+        {
+          "lineIndex": 8,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+const pinia = createPinia()"
+        }
+      ],
+      "groupKey": "frontend/secondary/source",
+      "kind": "source",
+      "omittedCandidateCount": 0,
+      "path": "src/store/index.ts",
+      "rawChars": 242,
+      "reason": "new file summarized structurally",
+      "role": "secondary",
+      "scope": "frontend",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "added",
+      "candidateCount": 12,
+      "cleanedChars": 22,
+      "evidence": [
+        "+/* Lumina 全局 Reset */"
+      ],
+      "evidenceCount": 1,
+      "evidenceDetails": [
+        {
+          "lineIndex": 0,
+          "reason": "file-level summary",
+          "score": 90,
+          "text": "+<src/styles/base/_reset.scss added style>"
+        },
+        {
+          "lineIndex": 6,
+          "reason": "meaningful comment",
+          "score": 82,
+          "text": "+/* Lumina 全局 Reset */"
+        }
+      ],
+      "groupKey": "frontend/secondary/style",
+      "kind": "style",
+      "omittedCandidateCount": 10,
+      "path": "src/styles/base/_reset.scss",
+      "rawChars": 2784,
+      "reason": "new file summarized structurally",
+      "role": "secondary",
+      "scope": "frontend",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "added",
+      "candidateCount": 6,
+      "cleanedChars": 0,
+      "evidence": [],
+      "evidenceCount": 0,
+      "evidenceDetails": [
+        {
+          "lineIndex": 0,
+          "reason": "file-level summary",
+          "score": 90,
+          "text": "+<src/styles/base/_typography.scss added style>"
+        }
+      ],
+      "groupKey": "frontend/secondary/style",
+      "kind": "style",
+      "omittedCandidateCount": 5,
+      "path": "src/styles/base/_typography.scss",
+      "rawChars": 693,
+      "reason": "new file summarized structurally",
+      "role": "secondary",
+      "scope": "frontend",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "added",
+      "candidateCount": 1,
+      "cleanedChars": 0,
+      "evidence": [],
+      "evidenceCount": 0,
+      "evidenceDetails": [
+        {
+          "lineIndex": 0,
+          "reason": "file-level summary",
+          "score": 90,
+          "text": "+<src/styles/base/index.scss added style>"
+        }
+      ],
+      "groupKey": "frontend/secondary/style",
+      "kind": "style",
+      "omittedCandidateCount": 0,
+      "path": "src/styles/base/index.scss",
+      "rawChars": 555,
+      "reason": "new file summarized structurally",
+      "role": "secondary",
+      "scope": "frontend",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "added",
+      "candidateCount": 12,
+      "cleanedChars": 0,
+      "evidence": [],
+      "evidenceCount": 0,
+      "evidenceDetails": [
+        {
+          "lineIndex": 0,
+          "reason": "file-level summary",
+          "score": 90,
+          "text": "+<src/styles/themes/_dark.scss added style>"
+        }
+      ],
+      "groupKey": "frontend/secondary/style",
+      "kind": "style",
+      "omittedCandidateCount": 11,
+      "path": "src/styles/themes/_dark.scss",
+      "rawChars": 3030,
+      "reason": "new file summarized structurally",
+      "role": "secondary",
+      "scope": "frontend",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "added",
+      "candidateCount": 12,
+      "cleanedChars": 0,
+      "evidence": [],
+      "evidenceCount": 0,
+      "evidenceDetails": [
+        {
+          "lineIndex": 0,
+          "reason": "file-level summary",
+          "score": 90,
+          "text": "+<src/styles/themes/_light.scss added style>"
+        }
+      ],
+      "groupKey": "frontend/secondary/style",
+      "kind": "style",
+      "omittedCandidateCount": 11,
+      "path": "src/styles/themes/_light.scss",
+      "rawChars": 2823,
+      "reason": "new file summarized structurally",
+      "role": "secondary",
+      "scope": "frontend",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "added",
+      "candidateCount": 8,
+      "cleanedChars": 0,
+      "evidence": [],
+      "evidenceCount": 0,
+      "evidenceDetails": [
+        {
+          "lineIndex": 0,
+          "reason": "file-level summary",
+          "score": 90,
+          "text": "+<src/styles/themes/index.scss added style>"
+        }
+      ],
+      "groupKey": "frontend/secondary/style",
+      "kind": "style",
+      "omittedCandidateCount": 7,
+      "path": "src/styles/themes/index.scss",
+      "rawChars": 503,
+      "reason": "new file summarized structurally",
+      "role": "secondary",
+      "scope": "frontend",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "added",
+      "candidateCount": 12,
+      "cleanedChars": 0,
+      "evidence": [],
+      "evidenceCount": 0,
+      "evidenceDetails": [
+        {
+          "lineIndex": 0,
+          "reason": "file-level summary",
+          "score": 90,
+          "text": "+<src/styles/tokens/_color-system.scss added style>"
+        }
+      ],
+      "groupKey": "frontend/secondary/style",
+      "kind": "style",
+      "omittedCandidateCount": 11,
+      "path": "src/styles/tokens/_color-system.scss",
+      "rawChars": 741,
+      "reason": "new file summarized structurally",
+      "role": "secondary",
+      "scope": "frontend",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "added",
+      "candidateCount": 6,
+      "cleanedChars": 0,
+      "evidence": [],
+      "evidenceCount": 0,
+      "evidenceDetails": [],
+      "groupKey": "frontend/secondary/style",
+      "kind": "style",
+      "omittedCandidateCount": 6,
+      "path": "src/styles/tokens/_radius.scss",
+      "rawChars": 338,
+      "reason": "new file summarized structurally",
+      "role": "secondary",
+      "scope": "frontend",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "added",
+      "candidateCount": 8,
+      "cleanedChars": 0,
+      "evidence": [],
+      "evidenceCount": 0,
+      "evidenceDetails": [],
+      "groupKey": "frontend/secondary/style",
+      "kind": "style",
+      "omittedCandidateCount": 8,
+      "path": "src/styles/tokens/_shadow.scss",
+      "rawChars": 921,
+      "reason": "new file summarized structurally",
+      "role": "secondary",
+      "scope": "frontend",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "added",
+      "candidateCount": 7,
+      "cleanedChars": 0,
+      "evidence": [],
+      "evidenceCount": 0,
+      "evidenceDetails": [],
+      "groupKey": "frontend/secondary/style",
+      "kind": "style",
+      "omittedCandidateCount": 7,
+      "path": "src/styles/tokens/_spacing.scss",
+      "rawChars": 354,
+      "reason": "new file summarized structurally",
+      "role": "secondary",
+      "scope": "frontend",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "added",
+      "candidateCount": 3,
+      "cleanedChars": 0,
+      "evidence": [],
+      "evidenceCount": 0,
+      "evidenceDetails": [],
+      "groupKey": "frontend/secondary/style",
+      "kind": "style",
+      "omittedCandidateCount": 3,
+      "path": "src/styles/tokens/_width.scss",
+      "rawChars": 521,
+      "reason": "new file summarized structurally",
+      "role": "secondary",
+      "scope": "frontend",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "added",
+      "candidateCount": 1,
+      "cleanedChars": 0,
+      "evidence": [],
+      "evidenceCount": 0,
+      "evidenceDetails": [],
+      "groupKey": "frontend/secondary/style",
+      "kind": "style",
+      "omittedCandidateCount": 1,
+      "path": "src/styles/tokens/index.scss",
+      "rawChars": 582,
+      "reason": "new file summarized structurally",
+      "role": "secondary",
+      "scope": "frontend",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "added",
+      "candidateCount": 4,
+      "cleanedChars": 0,
+      "evidence": [],
+      "evidenceCount": 0,
+      "evidenceDetails": [],
+      "groupKey": "frontend/secondary/style",
+      "kind": "style",
+      "omittedCandidateCount": 4,
+      "path": "src/styles/utilities/_layout.scss",
+      "rawChars": 878,
+      "reason": "new file summarized structurally",
+      "role": "secondary",
+      "scope": "frontend",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "added",
+      "candidateCount": 4,
+      "cleanedChars": 0,
+      "evidence": [],
+      "evidenceCount": 0,
+      "evidenceDetails": [],
+      "groupKey": "frontend/secondary/style",
+      "kind": "style",
+      "omittedCandidateCount": 4,
+      "path": "src/styles/utilities/_text.scss",
+      "rawChars": 372,
+      "reason": "new file summarized structurally",
+      "role": "secondary",
+      "scope": "frontend",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "added",
+      "candidateCount": 1,
+      "cleanedChars": 0,
+      "evidence": [],
+      "evidenceCount": 0,
+      "evidenceDetails": [],
+      "groupKey": "frontend/secondary/style",
+      "kind": "style",
+      "omittedCandidateCount": 1,
+      "path": "src/styles/utilities/index.scss",
+      "rawChars": 233,
+      "reason": "new file summarized structurally",
+      "role": "secondary",
+      "scope": "frontend",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "added",
+      "candidateCount": 2,
+      "cleanedChars": 29,
+      "evidence": [
+        "+export interface AppConfig {"
+      ],
+      "evidenceCount": 1,
+      "evidenceDetails": [
+        {
+          "lineIndex": 0,
+          "reason": "file-level summary",
+          "score": 90,
+          "text": "+<src/types/app.ts added source>"
+        },
+        {
+          "lineIndex": 6,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+export interface AppConfig {"
+        }
+      ],
+      "groupKey": "frontend/secondary/source",
+      "kind": "source",
+      "omittedCandidateCount": 0,
+      "path": "src/types/app.ts",
+      "rawChars": 701,
+      "reason": "new file summarized structurally",
+      "role": "secondary",
+      "scope": "frontend",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "added",
+      "candidateCount": 2,
+      "cleanedChars": 33,
+      "evidence": [
+        "+export interface GitAiAnalysis {"
+      ],
+      "evidenceCount": 1,
+      "evidenceDetails": [
+        {
+          "lineIndex": 0,
+          "reason": "file-level summary",
+          "score": 90,
+          "text": "+<src/types/git-ai.ts added source>"
+        },
+        {
+          "lineIndex": 6,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+export interface GitAiAnalysis {"
+        }
+      ],
+      "groupKey": "frontend/secondary/source",
+      "kind": "source",
+      "omittedCandidateCount": 0,
+      "path": "src/types/git-ai.ts",
+      "rawChars": 291,
+      "reason": "new file summarized structurally",
+      "role": "secondary",
+      "scope": "frontend",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "added",
+      "candidateCount": 5,
+      "cleanedChars": 102,
+      "evidence": [
+        "+export type GitChangeType =",
+        "+export interface GitFileStatus {",
+        "+export interface GitRepoInfoResponse {"
+      ],
+      "evidenceCount": 3,
+      "evidenceDetails": [
+        {
+          "lineIndex": 6,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+export type GitChangeType ="
+        },
+        {
+          "lineIndex": 16,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+export interface GitFileStatus {"
+        },
+        {
+          "lineIndex": 27,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+export interface GitRepoInfoResponse {"
+        }
+      ],
+      "groupKey": "frontend/secondary/source",
+      "kind": "source",
+      "omittedCandidateCount": 2,
+      "path": "src/types/git.ts",
+      "rawChars": 712,
+      "reason": "new file summarized structurally",
+      "role": "secondary",
+      "scope": "frontend",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "added",
+      "candidateCount": 12,
+      "cleanedChars": 117,
+      "evidence": [
+        "+function mapStatusCharToType(char: string): GitChangeType {",
+        "+ const raw = line",
+        "+ // 未追踪文件",
+        "+ const x = line[0] ?? ' '"
+      ],
+      "evidenceCount": 4,
+      "evidenceDetails": [
+        {
+          "lineIndex": 8,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+function mapStatusCharToType(char: string): GitChangeType {"
+        },
+        {
+          "lineIndex": 28,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+ const raw = line"
+        },
+        {
+          "lineIndex": 30,
+          "reason": "user-facing text",
+          "score": 52,
+          "text": "+ // 未追踪文件"
+        },
+        {
+          "lineIndex": 44,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+ const x = line[0] ?? ' '"
+        }
+      ],
+      "groupKey": "frontend/secondary/source",
+      "kind": "source",
+      "omittedCandidateCount": 8,
+      "path": "src/utils/git-status.ts",
+      "rawChars": 1735,
+      "reason": "new file summarized structurally",
+      "role": "secondary",
+      "scope": "frontend",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "added",
+      "candidateCount": 12,
+      "cleanedChars": 50,
+      "evidence": [
+        "+ <!-- 顶部工具栏 -->",
+        "+ <!-- 主工作区 -->",
+        "+ <!-- 左：文件面板 -->"
+      ],
+      "evidenceCount": 3,
+      "evidenceDetails": [
+        {
+          "lineIndex": 0,
+          "reason": "file-level summary",
+          "score": 90,
+          "text": "+<src/views/git-assistant/GitAssistantView.vue added source>"
+        },
+        {
+          "lineIndex": 8,
+          "reason": "meaningful comment",
+          "score": 82,
+          "text": "+ <!-- 顶部工具栏 -->"
+        },
+        {
+          "lineIndex": 39,
+          "reason": "meaningful comment",
+          "score": 82,
+          "text": "+ <!-- 主工作区 -->"
+        },
+        {
+          "lineIndex": 41,
+          "reason": "meaningful comment",
+          "score": 82,
+          "text": "+ <!-- 左：文件面板 -->"
+        }
+      ],
+      "groupKey": "frontend/primary/source",
+      "kind": "source",
+      "omittedCandidateCount": 8,
+      "path": "src/views/git-assistant/GitAssistantView.vue",
+      "rawChars": 84479,
+      "reason": "new file summarized structurally",
+      "role": "primary",
+      "scope": "frontend",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "added",
+      "candidateCount": 7,
+      "cleanedChars": 195,
+      "evidence": [
+        "+const apps = rawApps as AppConfig[]",
+        "+const activeGroup = inject<Ref<string>>('activeGroup')",
+        "+const appList = computed(() => {",
+        "+ const currentGroup = activeGroup?.value ?? '1'",
+        "+ .sort((a, b) => {"
+      ],
+      "evidenceCount": 5,
+      "evidenceDetails": [
+        {
+          "lineIndex": 18,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+const apps = rawApps as AppConfig[]"
+        },
+        {
+          "lineIndex": 20,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+const activeGroup = inject<Ref<string>>('activeGroup')"
+        },
+        {
+          "lineIndex": 22,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+const appList = computed(() => {"
+        },
+        {
+          "lineIndex": 23,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+ const currentGroup = activeGroup?.value ?? '1'"
+        },
+        {
+          "lineIndex": 27,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+ .sort((a, b) => {"
+        }
+      ],
+      "groupKey": "frontend/primary/source",
+      "kind": "source",
+      "omittedCandidateCount": 2,
+      "path": "src/views/home/HomeView.vue",
+      "rawChars": 2337,
+      "reason": "new file summarized structurally",
+      "role": "primary",
+      "scope": "frontend",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "added",
+      "candidateCount": 2,
+      "cleanedChars": 10,
+      "evidence": [
+        "+ rules: {"
+      ],
+      "evidenceCount": 1,
+      "evidenceDetails": [
+        {
+          "lineIndex": 0,
+          "reason": "file-level summary",
+          "score": 90,
+          "text": "+<stylelint.config.js added source>"
+        },
+        {
+          "lineIndex": 13,
+          "reason": "prompt-or-rule",
+          "score": 70,
+          "text": "+ rules: {"
+        }
+      ],
+      "groupKey": "config/secondary/source",
+      "kind": "source",
+      "omittedCandidateCount": 0,
+      "path": "stylelint.config.js",
+      "rawChars": 903,
+      "reason": "new file summarized structurally",
+      "role": "secondary",
+      "scope": "config",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "added",
+      "candidateCount": 3,
+      "cleanedChars": 32,
+      "evidence": [
+        "+ /* Linting */",
+        "+ // 核心配置：路径别名映射"
+      ],
+      "evidenceCount": 2,
+      "evidenceDetails": [
+        {
+          "lineIndex": 0,
+          "reason": "file-level summary",
+          "score": 90,
+          "text": "+<tsconfig.app.json added config>"
+        },
+        {
+          "lineIndex": 13,
+          "reason": "meaningful comment",
+          "score": 82,
+          "text": "+ /* Linting */"
+        },
+        {
+          "lineIndex": 27,
+          "reason": "meaningful comment",
+          "score": 82,
+          "text": "+ // 核心配置：路径别名映射"
+        }
+      ],
+      "groupKey": "config/tooling/config",
+      "kind": "config",
+      "omittedCandidateCount": 0,
+      "path": "tsconfig.app.json",
+      "rawChars": 1025,
+      "reason": "new file summarized structurally",
+      "role": "tooling",
+      "scope": "config",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "added",
+      "candidateCount": 1,
+      "cleanedChars": 0,
+      "evidence": [],
+      "evidenceCount": 0,
+      "evidenceDetails": [
+        {
+          "lineIndex": 0,
+          "reason": "file-level summary",
+          "score": 90,
+          "text": "+<tsconfig.json added config>"
+        }
+      ],
+      "groupKey": "config/tooling/config",
+      "kind": "config",
+      "omittedCandidateCount": 0,
+      "path": "tsconfig.json",
+      "rawChars": 1466,
+      "reason": "new file summarized structurally",
+      "role": "tooling",
+      "scope": "config",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "added",
+      "candidateCount": 1,
+      "cleanedChars": 0,
+      "evidence": [],
+      "evidenceCount": 0,
+      "evidenceDetails": [
+        {
+          "lineIndex": 0,
+          "reason": "file-level summary",
+          "score": 90,
+          "text": "+<tsconfig.node.json added config>"
+        }
+      ],
+      "groupKey": "config/tooling/config",
+      "kind": "config",
+      "omittedCandidateCount": 0,
+      "path": "tsconfig.node.json",
+      "rawChars": 754,
+      "reason": "new file summarized structurally",
+      "role": "tooling",
+      "scope": "config",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "added",
+      "candidateCount": 1,
+      "cleanedChars": 0,
+      "evidence": [],
+      "evidenceCount": 0,
+      "evidenceDetails": [
+        {
+          "lineIndex": 0,
+          "reason": "file-level summary",
+          "score": 90,
+          "text": "+<tsconfig.tsbuildinfo added config>"
+        }
+      ],
+      "groupKey": "root/secondary/config",
+      "kind": "config",
+      "omittedCandidateCount": 0,
+      "path": "tsconfig.tsbuildinfo",
+      "rawChars": 379,
+      "reason": "new file summarized structurally",
+      "role": "secondary",
+      "scope": "root",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "added",
+      "candidateCount": 3,
+      "cleanedChars": 50,
+      "evidence": [
+        "+// https://vite.dev/config/",
+        "+ // 配置 `@` 指向 src 目录"
+      ],
+      "evidenceCount": 2,
+      "evidenceDetails": [
+        {
+          "lineIndex": 0,
+          "reason": "file-level summary",
+          "score": 90,
+          "text": "+<vite.config.ts added source>"
+        },
+        {
+          "lineIndex": 10,
+          "reason": "meaningful comment",
+          "score": 82,
+          "text": "+// https://vite.dev/config/"
+        },
+        {
+          "lineIndex": 15,
+          "reason": "meaningful comment",
+          "score": 82,
+          "text": "+ // 配置 `@` 指向 src 目录"
+        }
+      ],
+      "groupKey": "config/tooling/source",
+      "kind": "source",
+      "omittedCandidateCount": 0,
+      "path": "vite.config.ts",
+      "rawChars": 440,
+      "reason": "new file summarized structurally",
+      "role": "tooling",
+      "scope": "config",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "untracked",
+      "candidateCount": 0,
+      "cleanedChars": 0,
+      "evidence": [],
+      "evidenceCount": 0,
+      "evidenceDetails": [],
+      "groupKey": "lumina/internal/internal",
+      "kind": "internal",
+      "omittedCandidateCount": 0,
+      "path": ".lumina/commit-prompt-debug.json",
+      "rawChars": 151889,
+      "reason": "internal ignored for commit prompt evidence",
+      "role": "internal",
+      "scope": "lumina",
+      "skipped": true,
+      "strategy": "summarize only"
+    },
+    {
+      "action": "untracked",
+      "candidateCount": 0,
+      "cleanedChars": 0,
+      "evidence": [],
+      "evidenceCount": 0,
+      "evidenceDetails": [],
+      "groupKey": "lumina/internal/internal",
+      "kind": "internal",
+      "omittedCandidateCount": 0,
+      "path": ".lumina/git-profile.json",
+      "rawChars": 2074,
+      "reason": "internal ignored for commit prompt evidence",
+      "role": "internal",
+      "scope": "lumina",
+      "skipped": true,
+      "strategy": "summarize only"
+    },
+    {
+      "action": "untracked",
+      "candidateCount": 12,
+      "cleanedChars": 214,
+      "evidence": [
+        "+const PROFILE_DIR: &str = \".lumina\";",
+        "+const PROFILE_FILE: &str = \"git-profile.json\";",
+        "+pub struct GitProjectProfileFile {",
+        "+fn profile_path(repo_root: &str) -> PathBuf {",
+        "+fn project_name(repo_root: &str) -> String {"
+      ],
+      "evidenceCount": 5,
+      "evidenceDetails": [
+        {
+          "lineIndex": 14,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+const PROFILE_DIR: &str = \".lumina\";"
+        },
+        {
+          "lineIndex": 15,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+const PROFILE_FILE: &str = \"git-profile.json\";"
+        },
+        {
+          "lineIndex": 19,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+pub struct GitProjectProfileFile {"
+        },
+        {
+          "lineIndex": 26,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+fn profile_path(repo_root: &str) -> PathBuf {"
+        },
+        {
+          "lineIndex": 34,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+fn project_name(repo_root: &str) -> String {"
+        }
+      ],
+      "groupKey": "tauri-backend/primary/source",
+      "kind": "source",
+      "omittedCandidateCount": 7,
+      "path": "src-tauri/src/git/profile.rs",
+      "rawChars": 7155,
+      "reason": "new file summarized structurally",
+      "role": "primary",
+      "scope": "tauri-backend",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "untracked",
+      "candidateCount": 1,
+      "cleanedChars": 0,
+      "evidence": [],
+      "evidenceCount": 0,
+      "evidenceDetails": [
+        {
+          "lineIndex": 0,
+          "reason": "file-level summary",
+          "score": 90,
+          "text": "+<src/components/settings/SettingsNav.vue untracked source>"
+        }
+      ],
+      "groupKey": "frontend/primary/source",
+      "kind": "source",
+      "omittedCandidateCount": 0,
+      "path": "src/components/settings/SettingsNav.vue",
+      "rawChars": 2243,
+      "reason": "new file summarized structurally",
+      "role": "primary",
+      "scope": "frontend",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "untracked",
+      "candidateCount": 3,
+      "cleanedChars": 94,
+      "evidence": [
+        "+const preferencesStore = usePreferencesStore()",
+        "+const { t } = useI18n({ useScope: 'global' })"
+      ],
+      "evidenceCount": 2,
+      "evidenceDetails": [
+        {
+          "lineIndex": 0,
+          "reason": "file-level summary",
+          "score": 90,
+          "text": "+<src/components/settings/panels/LocalizationSettingsPanel.vue untracked source>"
+        },
+        {
+          "lineIndex": 21,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+const preferencesStore = usePreferencesStore()"
+        },
+        {
+          "lineIndex": 22,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+const { t } = useI18n({ useScope: 'global' })"
+        }
+      ],
+      "groupKey": "frontend/primary/source",
+      "kind": "source",
+      "omittedCandidateCount": 0,
+      "path": "src/components/settings/panels/LocalizationSettingsPanel.vue",
+      "rawChars": 1397,
+      "reason": "new file summarized structurally",
+      "role": "primary",
+      "scope": "frontend",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "untracked",
+      "candidateCount": 12,
+      "cleanedChars": 226,
+      "evidence": [
+        "+const aiSettings = useAiSettingsStore()",
+        "+const { t } = useI18n({ useScope: 'global' })",
+        "+const testingId = ref('')",
+        "+const expandedId = ref('')",
+        "+const testResults = reactive<Record<string, string>>({})",
+        "+function createModel() {"
+      ],
+      "evidenceCount": 6,
+      "evidenceDetails": [
+        {
+          "lineIndex": 137,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+const aiSettings = useAiSettingsStore()"
+        },
+        {
+          "lineIndex": 138,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+const { t } = useI18n({ useScope: 'global' })"
+        },
+        {
+          "lineIndex": 139,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+const testingId = ref('')"
+        },
+        {
+          "lineIndex": 140,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+const expandedId = ref('')"
+        },
+        {
+          "lineIndex": 141,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+const testResults = reactive<Record<string, string>>({})"
+        },
+        {
+          "lineIndex": 144,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+function createModel() {"
+        }
+      ],
+      "groupKey": "frontend/primary/source",
+      "kind": "source",
+      "omittedCandidateCount": 6,
+      "path": "src/components/settings/panels/ModelSettingsPanel.vue",
+      "rawChars": 11822,
+      "reason": "new file summarized structurally",
+      "role": "primary",
+      "scope": "frontend",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "untracked",
+      "candidateCount": 12,
+      "cleanedChars": 224,
+      "evidence": [
+        "+const { t } = useI18n({ useScope: 'global' })",
+        "+const repoPath = ref('')",
+        "+const content = ref('')",
+        "+const loading = ref(false)",
+        "+const saving = ref(false)",
+        "+const error = ref('')",
+        "+const notice = ref('')",
+        "+onMounted(async () => {"
+      ],
+      "evidenceCount": 8,
+      "evidenceDetails": [
+        {
+          "lineIndex": 62,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+const { t } = useI18n({ useScope: 'global' })"
+        },
+        {
+          "lineIndex": 64,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+const repoPath = ref('')"
+        },
+        {
+          "lineIndex": 65,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+const content = ref('')"
+        },
+        {
+          "lineIndex": 66,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+const loading = ref(false)"
+        },
+        {
+          "lineIndex": 67,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+const saving = ref(false)"
+        },
+        {
+          "lineIndex": 68,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+const error = ref('')"
+        },
+        {
+          "lineIndex": 69,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+const notice = ref('')"
+        },
+        {
+          "lineIndex": 72,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+onMounted(async () => {"
+        }
+      ],
+      "groupKey": "frontend/primary/source",
+      "kind": "source",
+      "omittedCandidateCount": 4,
+      "path": "src/components/settings/panels/ProjectProfileSettingsPanel.vue",
+      "rawChars": 6627,
+      "reason": "new file summarized structurally",
+      "role": "primary",
+      "scope": "frontend",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "untracked",
+      "candidateCount": 4,
+      "cleanedChars": 144,
+      "evidence": [
+        "+const aiSettings = useAiSettingsStore()",
+        "+const { t } = useI18n({ useScope: 'global' })",
+        "+function setTaskModel(task: AiTaskType, event: Event) {"
+      ],
+      "evidenceCount": 3,
+      "evidenceDetails": [
+        {
+          "lineIndex": 0,
+          "reason": "file-level summary",
+          "score": 90,
+          "text": "+<src/components/settings/panels/TaskRoutingSettingsPanel.vue untracked source>"
+        },
+        {
+          "lineIndex": 33,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+const aiSettings = useAiSettingsStore()"
+        },
+        {
+          "lineIndex": 34,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+const { t } = useI18n({ useScope: 'global' })"
+        },
+        {
+          "lineIndex": 36,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+function setTaskModel(task: AiTaskType, event: Event) {"
+        }
+      ],
+      "groupKey": "frontend/primary/source",
+      "kind": "source",
+      "omittedCandidateCount": 0,
+      "path": "src/components/settings/panels/TaskRoutingSettingsPanel.vue",
+      "rawChars": 2624,
+      "reason": "new file summarized structurally",
+      "role": "primary",
+      "scope": "frontend",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "untracked",
+      "candidateCount": 3,
+      "cleanedChars": 94,
+      "evidence": [
+        "+const preferencesStore = usePreferencesStore()",
+        "+const { t } = useI18n({ useScope: 'global' })"
+      ],
+      "evidenceCount": 2,
+      "evidenceDetails": [
+        {
+          "lineIndex": 0,
+          "reason": "file-level summary",
+          "score": 90,
+          "text": "+<src/components/settings/panels/ThemeSettingsPanel.vue untracked source>"
+        },
+        {
+          "lineIndex": 22,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+const preferencesStore = usePreferencesStore()"
+        },
+        {
+          "lineIndex": 23,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+const { t } = useI18n({ useScope: 'global' })"
+        }
+      ],
+      "groupKey": "frontend/primary/source",
+      "kind": "source",
+      "omittedCandidateCount": 0,
+      "path": "src/components/settings/panels/ThemeSettingsPanel.vue",
+      "rawChars": 1436,
+      "reason": "new file summarized structurally",
+      "role": "primary",
+      "scope": "frontend",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "untracked",
+      "candidateCount": 2,
+      "cleanedChars": 58,
+      "evidence": [
+        "+export const GIT_REPO_STORAGE_KEY = 'lumina.git.repoPath'"
+      ],
+      "evidenceCount": 1,
+      "evidenceDetails": [
+        {
+          "lineIndex": 0,
+          "reason": "file-level summary",
+          "score": 90,
+          "text": "+<src/constants/git.ts untracked source>"
+        },
+        {
+          "lineIndex": 6,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+export const GIT_REPO_STORAGE_KEY = 'lumina.git.repoPath'"
+        }
+      ],
+      "groupKey": "frontend/secondary/source",
+      "kind": "source",
+      "omittedCandidateCount": 0,
+      "path": "src/constants/git.ts",
+      "rawChars": 215,
+      "reason": "new file summarized structurally",
+      "role": "secondary",
+      "scope": "frontend",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "untracked",
+      "candidateCount": 6,
+      "cleanedChars": 107,
+      "evidence": [
+        "+export function useLocale() {",
+        "+ const preferencesStore = usePreferencesStore()",
+        "+ function toggleLocale() {"
+      ],
+      "evidenceCount": 3,
+      "evidenceDetails": [
+        {
+          "lineIndex": 9,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+export function useLocale() {"
+        },
+        {
+          "lineIndex": 10,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+ const preferencesStore = usePreferencesStore()"
+        },
+        {
+          "lineIndex": 17,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+ function toggleLocale() {"
+        }
+      ],
+      "groupKey": "frontend/secondary/source",
+      "kind": "source",
+      "omittedCandidateCount": 3,
+      "path": "src/hooks/useLocale.ts",
+      "rawChars": 699,
+      "reason": "new file summarized structurally",
+      "role": "secondary",
+      "scope": "frontend",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "untracked",
+      "candidateCount": 6,
+      "cleanedChars": 92,
+      "evidence": [
+        "+export type AppLocale = 'zh-CN' | 'en-US'",
+        "+export const DEFAULT_LOCALE: AppLocale = 'zh-CN'"
+      ],
+      "evidenceCount": 2,
+      "evidenceDetails": [
+        {
+          "lineIndex": 10,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+export type AppLocale = 'zh-CN' | 'en-US'"
+        },
+        {
+          "lineIndex": 12,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+export const DEFAULT_LOCALE: AppLocale = 'zh-CN'"
+        }
+      ],
+      "groupKey": "frontend/secondary/i18n",
+      "kind": "i18n",
+      "omittedCandidateCount": 4,
+      "path": "src/i18n/index.ts",
+      "rawChars": 717,
+      "reason": "new file summarized structurally",
+      "role": "secondary",
+      "scope": "frontend",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "untracked",
+      "candidateCount": 11,
+      "cleanedChars": 28,
+      "evidence": [
+        "+ viewPrompt: 'View Prompt',"
+      ],
+      "evidenceCount": 1,
+      "evidenceDetails": [
+        {
+          "lineIndex": 147,
+          "reason": "prompt-or-rule",
+          "score": 70,
+          "text": "+ viewPrompt: 'View Prompt',"
+        }
+      ],
+      "groupKey": "frontend/secondary/i18n",
+      "kind": "i18n",
+      "omittedCandidateCount": 10,
+      "path": "src/i18n/messages/en-US.ts",
+      "rawChars": 9848,
+      "reason": "new file summarized structurally",
+      "role": "secondary",
+      "scope": "frontend",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "untracked",
+      "candidateCount": 12,
+      "cleanedChars": 0,
+      "evidence": [],
+      "evidenceCount": 0,
+      "evidenceDetails": [],
+      "groupKey": "frontend/secondary/i18n",
+      "kind": "i18n",
+      "omittedCandidateCount": 12,
+      "path": "src/i18n/messages/zh-CN.ts",
+      "rawChars": 7440,
+      "reason": "new file summarized structurally",
+      "role": "secondary",
+      "scope": "frontend",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "untracked",
+      "candidateCount": 2,
+      "cleanedChars": 0,
+      "evidence": [],
+      "evidenceCount": 0,
+      "evidenceDetails": [
+        {
+          "lineIndex": 0,
+          "reason": "file-level summary",
+          "score": 90,
+          "text": "+<src/services/ai-settings-service.ts untracked source>"
+        }
+      ],
+      "groupKey": "frontend/primary/source",
+      "kind": "source",
+      "omittedCandidateCount": 1,
+      "path": "src/services/ai-settings-service.ts",
+      "rawChars": 465,
+      "reason": "new file summarized structurally",
+      "role": "primary",
+      "scope": "frontend",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "untracked",
+      "candidateCount": 4,
+      "cleanedChars": 0,
+      "evidence": [],
+      "evidenceCount": 0,
+      "evidenceDetails": [
+        {
+          "lineIndex": 0,
+          "reason": "file-level summary",
+          "score": 90,
+          "text": "+<src/services/git/git-profile-service.ts untracked source>"
+        }
+      ],
+      "groupKey": "frontend/primary/source",
+      "kind": "source",
+      "omittedCandidateCount": 3,
+      "path": "src/services/git/git-profile-service.ts",
+      "rawChars": 920,
+      "reason": "new file summarized structurally",
+      "role": "primary",
+      "scope": "frontend",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "untracked",
+      "candidateCount": 12,
+      "cleanedChars": 200,
+      "evidence": [
+        "+const STORAGE_KEY = 'lumina.ai.settings.v1'",
+        "+const DEFAULT_SETTINGS: AiSettings = {",
+        "+function cloneSettings(settings: AiSettings): AiSettings {",
+        "+ models: settings.models.map(model => ({ ...model })),"
+      ],
+      "evidenceCount": 4,
+      "evidenceDetails": [
+        {
+          "lineIndex": 9,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+const STORAGE_KEY = 'lumina.ai.settings.v1'"
+        },
+        {
+          "lineIndex": 11,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+const DEFAULT_SETTINGS: AiSettings = {"
+        },
+        {
+          "lineIndex": 21,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+function cloneSettings(settings: AiSettings): AiSettings {"
+        },
+        {
+          "lineIndex": 24,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+ models: settings.models.map(model => ({ ...model })),"
+        }
+      ],
+      "groupKey": "frontend/primary/source",
+      "kind": "source",
+      "omittedCandidateCount": 8,
+      "path": "src/stores/ai-settings.ts",
+      "rawChars": 5344,
+      "reason": "new file summarized structurally",
+      "role": "primary",
+      "scope": "frontend",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "untracked",
+      "candidateCount": 7,
+      "cleanedChars": 192,
+      "evidence": [
+        "+export type ThemeMode = 'light' | 'dark' | 'system'",
+        "+const STORAGE_KEYS = {",
+        "+function resolveSystemTheme() {",
+        "+export const usePreferencesStore = defineStore('preferences', {",
+        "+ state: () => ({"
+      ],
+      "evidenceCount": 5,
+      "evidenceDetails": [
+        {
+          "lineIndex": 9,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+export type ThemeMode = 'light' | 'dark' | 'system'"
+        },
+        {
+          "lineIndex": 11,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+const STORAGE_KEYS = {"
+        },
+        {
+          "lineIndex": 18,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+function resolveSystemTheme() {"
+        },
+        {
+          "lineIndex": 22,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+export const usePreferencesStore = defineStore('preferences', {"
+        },
+        {
+          "lineIndex": 23,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+ state: () => ({"
+        }
+      ],
+      "groupKey": "frontend/primary/source",
+      "kind": "source",
+      "omittedCandidateCount": 2,
+      "path": "src/stores/preferences.ts",
+      "rawChars": 2121,
+      "reason": "new file summarized structurally",
+      "role": "primary",
+      "scope": "frontend",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "untracked",
+      "candidateCount": 12,
+      "cleanedChars": 0,
+      "evidence": [],
+      "evidenceCount": 0,
+      "evidenceDetails": [],
+      "groupKey": "frontend/secondary/style",
+      "kind": "style",
+      "omittedCandidateCount": 12,
+      "path": "src/styles/base/_naive.scss",
+      "rawChars": 819,
+      "reason": "new file summarized structurally",
+      "role": "secondary",
+      "scope": "frontend",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "untracked",
+      "candidateCount": 5,
+      "cleanedChars": 94,
+      "evidence": [
+        "+export type AiProviderType = 'openai-compatible' | 'ollama'",
+        "+export interface AiModelConfig {"
+      ],
+      "evidenceCount": 2,
+      "evidenceDetails": [
+        {
+          "lineIndex": 6,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+export type AiProviderType = 'openai-compatible' | 'ollama'"
+        },
+        {
+          "lineIndex": 10,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+export interface AiModelConfig {"
+        }
+      ],
+      "groupKey": "frontend/secondary/source",
+      "kind": "source",
+      "omittedCandidateCount": 3,
+      "path": "src/types/ai-settings.ts",
+      "rawChars": 620,
+      "reason": "new file summarized structurally",
+      "role": "secondary",
+      "scope": "frontend",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "untracked",
+      "candidateCount": 2,
+      "cleanedChars": 41,
+      "evidence": [
+        "+export interface GitProjectProfileFile {"
+      ],
+      "evidenceCount": 1,
+      "evidenceDetails": [
+        {
+          "lineIndex": 0,
+          "reason": "file-level summary",
+          "score": 90,
+          "text": "+<src/types/git-profile.ts untracked source>"
+        },
+        {
+          "lineIndex": 6,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+export interface GitProjectProfileFile {"
+        }
+      ],
+      "groupKey": "frontend/secondary/source",
+      "kind": "source",
+      "omittedCandidateCount": 0,
+      "path": "src/types/git-profile.ts",
+      "rawChars": 297,
+      "reason": "new file summarized structurally",
+      "role": "secondary",
+      "scope": "frontend",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "untracked",
+      "candidateCount": 12,
+      "cleanedChars": 168,
+      "evidence": [
+        "+const props = defineProps<{",
+        "+const statusMeta = STATUS_META",
+        "+const { t } = useLocale()",
+        "+const visibleFiles = computed(() => props.groups.flatMap(group => group.files))"
+      ],
+      "evidenceCount": 4,
+      "evidenceDetails": [
+        {
+          "lineIndex": 116,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+const props = defineProps<{"
+        },
+        {
+          "lineIndex": 139,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+const statusMeta = STATUS_META"
+        },
+        {
+          "lineIndex": 140,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+const { t } = useLocale()"
+        },
+        {
+          "lineIndex": 142,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+const visibleFiles = computed(() => props.groups.flatMap(group => group.files))"
+        }
+      ],
+      "groupKey": "frontend/primary/source",
+      "kind": "source",
+      "omittedCandidateCount": 8,
+      "path": "src/views/git-assistant/components/GitChangeExplorer.vue",
+      "rawChars": 12698,
+      "reason": "new file summarized structurally",
+      "role": "primary",
+      "scope": "frontend",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "untracked",
+      "candidateCount": 2,
+      "cleanedChars": 26,
+      "evidence": [
+        "+const { t } = useLocale()"
+      ],
+      "evidenceCount": 1,
+      "evidenceDetails": [
+        {
+          "lineIndex": 0,
+          "reason": "file-level summary",
+          "score": 90,
+          "text": "+<src/views/git-assistant/components/GitCommitAssistant.vue untracked source>"
+        },
+        {
+          "lineIndex": 79,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+const { t } = useLocale()"
+        }
+      ],
+      "groupKey": "frontend/primary/source",
+      "kind": "source",
+      "omittedCandidateCount": 0,
+      "path": "src/views/git-assistant/components/GitCommitAssistant.vue",
+      "rawChars": 4701,
+      "reason": "new file summarized structurally",
+      "role": "primary",
+      "scope": "frontend",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "untracked",
+      "candidateCount": 7,
+      "cleanedChars": 184,
+      "evidence": [
+        "+const props = defineProps<{",
+        "+const statusMeta = STATUS_META",
+        "+const { t } = useLocale()",
+        "+const lines = computed(() => props.diffText.split('\\n'))",
+        "+function getLineClass(line: string) {"
+      ],
+      "evidenceCount": 5,
+      "evidenceDetails": [
+        {
+          "lineIndex": 69,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+const props = defineProps<{"
+        },
+        {
+          "lineIndex": 81,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+const statusMeta = STATUS_META"
+        },
+        {
+          "lineIndex": 82,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+const { t } = useLocale()"
+        },
+        {
+          "lineIndex": 84,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+const lines = computed(() => props.diffText.split('\\n'))"
+        },
+        {
+          "lineIndex": 87,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+function getLineClass(line: string) {"
+        }
+      ],
+      "groupKey": "frontend/primary/source",
+      "kind": "source",
+      "omittedCandidateCount": 2,
+      "path": "src/views/git-assistant/components/GitDiffViewer.vue",
+      "rawChars": 6184,
+      "reason": "new file summarized structurally",
+      "role": "primary",
+      "scope": "frontend",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "untracked",
+      "candidateCount": 6,
+      "cleanedChars": 200,
+      "evidence": [
+        "+const props = defineProps<{",
+        "+const { t } = useLocale()",
+        "+const repoName = computed(() => {",
+        "+ const normalized = props.repoPath.replace(/\\\\/g, '/')",
+        "+ const parts = normalized.split('/').filter(Boolean)"
+      ],
+      "evidenceCount": 5,
+      "evidenceDetails": [
+        {
+          "lineIndex": 58,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+const props = defineProps<{"
+        },
+        {
+          "lineIndex": 72,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+const { t } = useLocale()"
+        },
+        {
+          "lineIndex": 74,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+const repoName = computed(() => {"
+        },
+        {
+          "lineIndex": 75,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+ const normalized = props.repoPath.replace(/\\\\/g, '/')"
+        },
+        {
+          "lineIndex": 76,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+ const parts = normalized.split('/').filter(Boolean)"
+        }
+      ],
+      "groupKey": "frontend/primary/source",
+      "kind": "source",
+      "omittedCandidateCount": 1,
+      "path": "src/views/git-assistant/components/GitStatusBar.vue",
+      "rawChars": 4712,
+      "reason": "new file summarized structurally",
+      "role": "primary",
+      "scope": "frontend",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "untracked",
+      "candidateCount": 4,
+      "cleanedChars": 120,
+      "evidence": [
+        "+export const STATUS_FILTER_OPTIONS: Array<{",
+        "+export const STATUS_META: Record<",
+        "+export const ATTENTION_SCORE_CONFIG = {"
+      ],
+      "evidenceCount": 3,
+      "evidenceDetails": [
+        {
+          "lineIndex": 0,
+          "reason": "file-level summary",
+          "score": 90,
+          "text": "+<src/views/git-assistant/git-assistant.config.ts untracked source>"
+        },
+        {
+          "lineIndex": 10,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+export const STATUS_FILTER_OPTIONS: Array<{"
+        },
+        {
+          "lineIndex": 23,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+export const STATUS_META: Record<"
+        },
+        {
+          "lineIndex": 41,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+export const ATTENTION_SCORE_CONFIG = {"
+        }
+      ],
+      "groupKey": "frontend/primary/source",
+      "kind": "source",
+      "omittedCandidateCount": 0,
+      "path": "src/views/git-assistant/git-assistant.config.ts",
+      "rawChars": 2332,
+      "reason": "new file summarized structurally",
+      "role": "primary",
+      "scope": "frontend",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "untracked",
+      "candidateCount": 9,
+      "cleanedChars": 224,
+      "evidence": [
+        "+export type GitAssistantStatusFilter =",
+        "+export interface GitAssistantSummary {",
+        "+export interface GitAssistantFileView extends GitFileStatus {",
+        "+export interface GitAssistantFileGroup {",
+        "+export interface GitAssistantAiState {"
+      ],
+      "evidenceCount": 5,
+      "evidenceDetails": [
+        {
+          "lineIndex": 9,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+export type GitAssistantStatusFilter ="
+        },
+        {
+          "lineIndex": 22,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+export interface GitAssistantSummary {"
+        },
+        {
+          "lineIndex": 34,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+export interface GitAssistantFileView extends GitFileStatus {"
+        },
+        {
+          "lineIndex": 44,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+export interface GitAssistantFileGroup {"
+        },
+        {
+          "lineIndex": 68,
+          "reason": "structural declaration",
+          "score": 95,
+          "text": "+export interface GitAssistantAiState {"
+        }
+      ],
+      "groupKey": "frontend/primary/source",
+      "kind": "source",
+      "omittedCandidateCount": 4,
+      "path": "src/views/git-assistant/git-assistant.types.ts",
+      "rawChars": 1641,
+      "reason": "new file summarized structurally",
+      "role": "primary",
+      "scope": "frontend",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "untracked",
+      "candidateCount": 1,
+      "cleanedChars": 0,
+      "evidence": [],
+      "evidenceCount": 0,
+      "evidenceDetails": [
+        {
+          "lineIndex": 0,
+          "reason": "file-level summary",
+          "score": 90,
+          "text": "+<src/views/settings/SettingsView.vue untracked source>"
+        }
+      ],
+      "groupKey": "frontend/primary/source",
+      "kind": "source",
+      "omittedCandidateCount": 0,
+      "path": "src/views/settings/SettingsView.vue",
+      "rawChars": 342,
+      "reason": "new file summarized structurally",
+      "role": "primary",
+      "scope": "frontend",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    },
+    {
+      "action": "untracked",
+      "candidateCount": 12,
+      "cleanedChars": 75,
+      "evidence": [
+        "+ root: true,",
+        "+ ignoreFiles: [",
+        "+ extends: [",
+        "+ plugins: [\"stylelint-order\"],"
+      ],
+      "evidenceCount": 4,
+      "evidenceDetails": [
+        {
+          "lineIndex": 0,
+          "reason": "file-level summary",
+          "score": 90,
+          "text": "+<stylelint.config.cjs untracked config>"
+        },
+        {
+          "lineIndex": 7,
+          "reason": "config key",
+          "score": 54,
+          "text": "+ root: true,"
+        },
+        {
+          "lineIndex": 8,
+          "reason": "config key",
+          "score": 54,
+          "text": "+ ignoreFiles: ["
+        },
+        {
+          "lineIndex": 12,
+          "reason": "config key",
+          "score": 54,
+          "text": "+ extends: ["
+        },
+        {
+          "lineIndex": 16,
+          "reason": "config key",
+          "score": 54,
+          "text": "+ plugins: [\"stylelint-order\"],"
+        }
+      ],
+      "groupKey": "config/secondary/config",
+      "kind": "config",
+      "omittedCandidateCount": 7,
+      "path": "stylelint.config.cjs",
+      "rawChars": 1166,
+      "reason": "new file summarized structurally",
+      "role": "secondary",
+      "scope": "config",
+      "skipped": false,
+      "strategy": "new file structural summary"
+    }
+  ],
+  "generatedAtUnix": 1781228715,
+  "groupSummary": [
+    {
+      "candidateCount": 13,
+      "cleanedChars": 146,
+      "evidenceCount": 6,
+      "fileCount": 2,
+      "groupKey": "config/secondary/config",
+      "kind": "config",
+      "rawChars": 3659,
+      "role": "secondary",
+      "scope": "config"
+    },
+    {
+      "candidateCount": 2,
+      "cleanedChars": 47,
+      "evidenceCount": 2,
+      "fileCount": 1,
+      "groupKey": "config/secondary/source",
+      "kind": "source",
+      "rawChars": 903,
+      "role": "secondary",
+      "scope": "config"
+    },
+    {
+      "candidateCount": 5,
+      "cleanedChars": 132,
+      "evidenceCount": 5,
+      "fileCount": 3,
+      "groupKey": "config/tooling/config",
+      "kind": "config",
+      "rawChars": 3245,
+      "role": "tooling",
+      "scope": "config"
+    },
+    {
+      "candidateCount": 3,
+      "cleanedChars": 82,
+      "evidenceCount": 3,
+      "fileCount": 1,
+      "groupKey": "config/tooling/source",
+      "kind": "source",
+      "rawChars": 440,
+      "role": "tooling",
+      "scope": "config"
+    },
+    {
+      "candidateCount": 181,
+      "cleanedChars": 4334,
+      "evidenceCount": 104,
+      "fileCount": 26,
+      "groupKey": "frontend/primary/source",
+      "kind": "source",
+      "rawChars": 185455,
+      "role": "primary",
+      "scope": "frontend"
+    },
+    {
+      "candidateCount": 0,
+      "cleanedChars": 0,
+      "evidenceCount": 0,
+      "fileCount": 3,
+      "groupKey": "frontend/secondary/asset",
+      "kind": "asset",
+      "rawChars": 986,
+      "role": "secondary",
+      "scope": "frontend"
+    },
+    {
+      "candidateCount": 2,
+      "cleanedChars": 76,
+      "evidenceCount": 2,
+      "fileCount": 2,
+      "groupKey": "frontend/secondary/config",
+      "kind": "config",
+      "rawChars": 4190,
+      "role": "secondary",
+      "scope": "frontend"
+    },
+    {
+      "candidateCount": 30,
+      "cleanedChars": 157,
+      "evidenceCount": 4,
+      "fileCount": 4,
+      "groupKey": "frontend/secondary/i18n",
+      "kind": "i18n",
+      "rawChars": 18212,
+      "role": "secondary",
+      "scope": "frontend"
+    },
+    {
+      "candidateCount": 73,
+      "cleanedChars": 1248,
+      "evidenceCount": 34,
+      "fileCount": 15,
+      "groupKey": "frontend/secondary/source",
+      "kind": "source",
+      "rawChars": 20582,
+      "role": "secondary",
+      "scope": "frontend"
+    },
+    {
+      "candidateCount": 109,
+      "cleanedChars": 341,
+      "evidenceCount": 8,
+      "fileCount": 16,
+      "groupKey": "frontend/secondary/style",
+      "kind": "style",
+      "rawChars": 16147,
+      "role": "secondary",
+      "scope": "frontend"
+    },
+    {
+      "candidateCount": 0,
+      "cleanedChars": 0,
+      "evidenceCount": 0,
+      "fileCount": 2,
+      "groupKey": "lumina/internal/internal",
+      "kind": "internal",
+      "rawChars": 153963,
+      "role": "internal",
+      "scope": "lumina"
+    },
+    {
+      "candidateCount": 0,
+      "cleanedChars": 0,
+      "evidenceCount": 0,
+      "fileCount": 1,
+      "groupKey": "root/generated/lockfile",
+      "kind": "lockfile",
+      "rawChars": 242394,
+      "role": "generated",
+      "scope": "root"
+    },
+    {
+      "candidateCount": 0,
+      "cleanedChars": 0,
+      "evidenceCount": 0,
+      "fileCount": 3,
+      "groupKey": "root/secondary/asset",
+      "kind": "asset",
+      "rawChars": 2008,
+      "role": "secondary",
+      "scope": "root"
+    },
+    {
+      "candidateCount": 9,
+      "cleanedChars": 207,
+      "evidenceCount": 8,
+      "fileCount": 5,
+      "groupKey": "root/secondary/config",
+      "kind": "config",
+      "rawChars": 1565,
+      "role": "secondary",
+      "scope": "root"
+    },
+    {
+      "candidateCount": 2,
+      "cleanedChars": 53,
+      "evidenceCount": 2,
+      "fileCount": 1,
+      "groupKey": "root/secondary/docs",
+      "kind": "docs",
+      "rawChars": 572,
+      "role": "secondary",
+      "scope": "root"
+    },
+    {
+      "candidateCount": 1,
+      "cleanedChars": 26,
+      "evidenceCount": 1,
+      "fileCount": 1,
+      "groupKey": "root/secondary/entry",
+      "kind": "entry",
+      "rawChars": 506,
+      "role": "secondary",
+      "scope": "root"
+    },
+    {
+      "candidateCount": 7,
+      "cleanedChars": 143,
+      "evidenceCount": 6,
+      "fileCount": 2,
+      "groupKey": "root/secondary/ignore",
+      "kind": "ignore",
+      "rawChars": 654,
+      "role": "secondary",
+      "scope": "root"
+    },
+    {
+      "candidateCount": 0,
+      "cleanedChars": 0,
+      "evidenceCount": 0,
+      "fileCount": 1,
+      "groupKey": "root/secondary/lockfile",
+      "kind": "lockfile",
+      "rawChars": 142443,
+      "role": "secondary",
+      "scope": "root"
+    },
+    {
+      "candidateCount": 12,
+      "cleanedChars": 160,
+      "evidenceCount": 3,
+      "fileCount": 1,
+      "groupKey": "root/secondary/script",
+      "kind": "script",
+      "rawChars": 3854,
+      "role": "secondary",
+      "scope": "root"
+    },
+    {
+      "candidateCount": 3,
+      "cleanedChars": 71,
+      "evidenceCount": 3,
+      "fileCount": 1,
+      "groupKey": "root/secondary/source",
+      "kind": "source",
+      "rawChars": 192,
+      "role": "secondary",
+      "scope": "root"
+    },
+    {
+      "candidateCount": 7,
+      "cleanedChars": 135,
+      "evidenceCount": 2,
+      "fileCount": 1,
+      "groupKey": "root/tooling/config",
+      "kind": "config",
+      "rawChars": 928,
+      "role": "tooling",
+      "scope": "root"
+    },
+    {
+      "candidateCount": 114,
+      "cleanedChars": 2198,
+      "evidenceCount": 50,
+      "fileCount": 12,
+      "groupKey": "tauri-backend/primary/source",
+      "kind": "source",
+      "rawChars": 114738,
+      "role": "primary",
+      "scope": "tauri-backend"
+    },
+    {
+      "candidateCount": 34,
+      "cleanedChars": 417,
+      "evidenceCount": 10,
+      "fileCount": 5,
+      "groupKey": "tauri-backend/secondary/source",
+      "kind": "source",
+      "rawChars": 11758,
+      "role": "secondary",
+      "scope": "tauri-backend"
+    },
+    {
+      "candidateCount": 1,
+      "cleanedChars": 52,
+      "evidenceCount": 1,
+      "fileCount": 1,
+      "groupKey": "tauri-config/secondary/config",
+      "kind": "config",
+      "rawChars": 1005,
+      "role": "secondary",
+      "scope": "tauri-config"
+    },
+    {
+      "candidateCount": 1,
+      "cleanedChars": 42,
+      "evidenceCount": 1,
+      "fileCount": 1,
+      "groupKey": "tauri-config/tooling/config",
+      "kind": "config",
+      "rawChars": 1559,
+      "role": "tooling",
+      "scope": "tauri-config"
+    }
+  ],
+  "prompt": "\nYou are a precise git commit assistant.\n\nReturn ONLY valid JSON that matches this schema:\n{\"properties\":{\"body\":{\"description\":\"3 to 6 bullet lines separated by newline, in English\",\"type\":\"string\"},\"risks\":{\"description\":\"Chinese risk notes, 1 to 5 items\",\"items\":{\"type\":\"string\"},\"type\":\"array\"},\"summary\":{\"description\":\"A concise Chinese summary of the main business change line, not a raw file list\",\"type\":\"string\"},\"title\":{\"description\":\"Conventional commit style title, concise and in English\",\"type\":\"string\"}},\"required\":[\"title\",\"body\",\"summary\",\"risks\"],\"type\":\"object\"}\n\nTask:\nGenerate a Conventional Commit message for ONLY the selected files below.\n\nRules:\n1. Infer the main intent from the selected files, not from the whole workspace.\n2. Do not mechanically list file paths.\n3. Prefer a concrete conventional commit title like feat(scope): ..., fix(scope): ..., refactor(scope): ...\n4. The title must be English only.\n5. The body must be English bullet lines, each prefixed with \"- \".\n6. summary and risks must be Simplified Chinese only.\n7. Do not invent business details beyond the evidence.\n8. If evidence is weak, stay moderately specific instead of becoming vague.\n\nRepository:\nD:\\my_project\\Lumina\n\nBranch:\nmain\n\nChange groups:\n- config/secondary/config: files=2, evidenceLines=6, cleanedChars=146\n- config/secondary/source: files=1, evidenceLines=2, cleanedChars=47\n- config/tooling/config: files=3, evidenceLines=5, cleanedChars=132\n- config/tooling/source: files=1, evidenceLines=3, cleanedChars=82\n- frontend/primary/source: files=26, evidenceLines=104, cleanedChars=4334\n- frontend/secondary/config: files=2, evidenceLines=2, cleanedChars=76\n- frontend/secondary/i18n: files=4, evidenceLines=4, cleanedChars=157\n- frontend/secondary/source: files=15, evidenceLines=34, cleanedChars=1248\n- frontend/secondary/style: files=16, evidenceLines=8, cleanedChars=341\n- root/secondary/config: files=5, evidenceLines=8, cleanedChars=207\n- root/secondary/docs: files=1, evidenceLines=2, cleanedChars=53\n- root/secondary/entry: files=1, evidenceLines=1, cleanedChars=26\n- root/secondary/ignore: files=2, evidenceLines=6, cleanedChars=143\n- root/secondary/script: files=1, evidenceLines=3, cleanedChars=160\n- root/secondary/source: files=1, evidenceLines=3, cleanedChars=71\n- root/tooling/config: files=1, evidenceLines=2, cleanedChars=135\n- tauri-backend/primary/source: files=12, evidenceLines=50, cleanedChars=2198\n- tauri-backend/secondary/source: files=5, evidenceLines=10, cleanedChars=417\n- tauri-config/secondary/config: files=1, evidenceLines=1, cleanedChars=52\n- tauri-config/tooling/config: files=1, evidenceLines=1, cleanedChars=42\n\nOmitted or summarized files:\n- frontend/secondary/asset: 3 files omitted or summarized\n- frontend/secondary/i18n: 1 files omitted or summarized\n- frontend/secondary/style: 9 files omitted or summarized\n- root/generated/lockfile: 1 files omitted or summarized\n- root/secondary/asset: 3 files omitted or summarized\n- root/secondary/lockfile: 1 files omitted or summarized\n\nCleaned diff evidence:\n[.eslintrc.cjs | added | secondary/config | root]\n+ root: true,\n+ extends: [\n+ rules: {\n\n[.gitignore | added | secondary/ignore | root]\n+# Editor directories and files\n+*.njsproj\n\n[README.md | added | secondary/docs | root]\n+# Vue 3 + TypeScript + Vite\n\n[fix-tauri-tools.ps1 | added | secondary/script | root]\n+# This script is designed to run before building a Tauri application if build with error like:\n+# 1. 删除之前的临时目录和目标目录，保证干净环境\n\n[src-tauri/.gitignore | added | secondary/ignore | root]\n+# Generated by Cargo\n+/gen/schemas\n\n[src-tauri/Cargo.toml | added | tooling/config | root]\n+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html\n\n[src-tauri/build.rs | added | secondary/source | root]\n+fn main() {\n+ tauri_build::build()\n\n[src-tauri/src/ai/ollama.rs | added | secondary/source | tauri-backend]\n+use crate::git::prompt::build_analysis_schema;\n\n[src-tauri/src/ai/qwencloud.rs | added | secondary/source | tauri-backend]\n+const BASE_URL: &str = \"https://dashscope.aliyuncs.com/compatible-mode/v1\";\n+const MODEL: &str = \"qwen3.5-plus\";\n\n[src-tauri/src/commands/git.rs | added | primary/source | tauri-backend]\n+pub fn load_git_snapshot(repo_path: String) -> Result<GitSnapshot, String> {\n+pub struct SaveGitProjectProfilePayload {\n+pub fn load_git_file_diff(payload: GitFileDiffPayload) -> Result<GitFileDiffResponse, String> {\n\n[src-tauri/src/git/analyzer.rs | added | primary/source | tauri-backend]\n+fn normalize_path(path: &str) -> String {\n+fn contains_any(path: &str, keywords: &[&str]) -> bool {\n+pub fn classify_file_role(path: &str, config: &AnalysisConfig) -> FileRole {\n+pub fn extract_scope(path: &str) -> String {\n\n[src-tauri/src/git/config.rs | added | primary/source | tauri-backend]\n+pub struct AiConfig {\n+ fn default() -> Self {\n+pub struct AnalysisConfig {\n+ fn default() -> Self {\n+pub struct FileKindRule {\n+pub struct ScopeRule {\n+pub struct SemanticRules {\n\n[src-tauri/src/git/diff_parser.rs | added | primary/source | tauri-backend]\n+fn normalize_path(path: &str) -> String {\n+fn split_diff_by_file(staged_diff: &str) -> Vec<(String, String)> {\n+fn is_noise_line(line: &str) -> bool {\n+fn trim_diff_excerpt(diff_text: &str, max_lines: usize) -> String {\n\n[src-tauri/src/git/mod.rs | added | primary/source | tauri-backend]\n+pub mod prompt;\n\n[src-tauri/src/git/models.rs | added | primary/source | tauri-backend]\n+pub struct GitSnapshot {\n+pub struct GitAiPayload {\n+pub struct GitAiAnalysis {\n+pub struct OllamaGenerateResponse {\n+pub struct ParsedGitFile {\n+pub enum FileRole {\n+pub struct ScopeSummary {\n+pub struct DiffSignals {\n\n[src-tauri/src/git/parser.rs | added | primary/source | tauri-backend]\n+pub fn parse_git_status_line(line: &str) -> ParsedGitFile {\n+ _ => \"unknown\",\n\n[src-tauri/src/git/prompt.rs | added | primary/source | tauri-backend]\n+pub fn build_analysis_schema() -> Value {\n+pub fn join_preview(items: &[String], limit: usize) -> String {\n+pub fn build_analysis_prompt(payload: &GitAiPayload) -> String {\n+const MAX_TOTAL_EVIDENCE_CHARS: usize = 12000;\n\n[src-tauri/src/git/runner.rs | added | primary/source | tauri-backend]\n+pub fn run_git(repo_path: &str, args: &[&str]) -> Result<String, String> {\n+pub fn run_git_raw(repo_path: &str, args: &[&str]) -> Result<String, String> {\n\n[src-tauri/src/git/summarizer.rs | added | primary/source | tauri-backend]\n+fn detect_file_kind(path: &str) -> FileKind {\n+ _ => FileKind::Unknown,\n+fn detect_file_action(file: &ParsedGitFile) -> FileAction {\n+ _ => FileAction::Update,\n+ (FileAction::Add, FileKind::Page) => \"add_pages\".to_string(),\n\n[src-tauri/src/lib.rs | added | secondary/source | tauri-backend]\n+pub fn run() {\n\n[src-tauri/src/main.rs | added | secondary/source | tauri-backend]\n+#![cfg_attr(not(debug_assertions), windows_subsystem = \"windows\")]\n+fn main() {\n\n[src/components/card/AppCard.vue | added | primary/source | frontend]\n+interface AppItem {\n+const props = defineProps<{\n+const router = useRouter()\n+const handleClick = () => {\n+ /* 磁吸效果（轻微 3D） */\n\n[src/components/settings/Settings.vue | added | primary/source | frontend]\n+ <!-- 左侧分类 -->\n+ <!-- 右侧内容区 -->\n+// import LanguagePanel from \"./panels/LanguagePanel.vue\"\n+// import StoragePanel from \"./panels/StoragePanel.vue\"\n+const categories = [\n\n[src/components/settings/panels/AppearancePanel.vue | added | primary/source | frontend]\n+const { theme, applyTheme } = useTheme()\n+const cardSize = ref(localStorage.getItem(\"lumina-card-size\") || \"medium\")\n+const cardSizeOptions = [\n+const useShadow = ref(localStorage.getItem(\"lumina-card-shadow\") === \"1\")\n\n[src/components/sidebar/Sidebar.vue | added | primary/source | frontend]\n+const { theme, toggleTheme } = useTheme()\n+const activeGroup = ref(groups[0].id)\n+const changeGroup = (id: string) => {\n+const emit = defineEmits(['update:groupId', 'open-settings'])\n+const openSettings = () => {\n\n[src/components/sidebar/SidebarItem.vue | added | primary/source | frontend]\n+const emit = defineEmits(['click'])\n\n[src/hooks/useTheme.ts | added | secondary/source | frontend]\n+// src/hooks/useTheme.ts\n+const saved = (localStorage.getItem(\"lumina-theme\") as \"light\" | \"dark\") ?? \"dark\";\n\n[src/layouts/MainLayout.vue | added | secondary/source | frontend]\n+const activeGroup = ref('1')\n+const showSettings = ref(false)\n+const router = useRouter()\n+const route = useRoute()\n\n[src/main.ts | added | secondary/source | frontend]\n+const app = createApp(App)\n\n[src/router/index.ts | added | secondary/source | frontend]\n+const routes: RouteRecordRaw[] = [\n+ component: () => import('@/layouts/MainLayout.vue'),\n\n[src/services/git/git-ai-service.ts | added | primary/source | frontend]\n+export interface GitCommitPromptPreview {\n+ prompt: string\n+ trace: GitCommitPromptTrace\n+export interface GitCommitPromptTrace {\n+export interface GitCommitPromptFileTrace {\n\n[src/services/git/git-service.ts | added | primary/source | frontend]\n+export interface GitSnapshot {\n+export interface GitFileStat {\n+export interface GitFileDiffResponse {\n\n[src/store/index.ts | added | secondary/source | frontend]\n+const pinia = createPinia()\n\n[src/styles/base/_reset.scss | added | secondary/style | frontend]\n+/* Lumina 全局 Reset */\n\n[src/types/app.ts | added | secondary/source | frontend]\n+export interface AppConfig {\n\n[src/types/git-ai.ts | added | secondary/source | frontend]\n+export interface GitAiAnalysis {\n\n[src/types/git.ts | added | secondary/source | frontend]\n+export type GitChangeType =\n+export interface GitFileStatus {\n+export interface GitRepoInfoResponse {\n\n[src/utils/git-status.ts | added | secondary/source | frontend]\n+function mapStatusCharToType(char: string): GitChangeType {\n+ const raw = line\n+ // 未追踪文件\n+ const x = line[0] ?? ' '\n\n[src/views/git-assistant/GitAssistantView.vue | added | primary/source | frontend]\n+ <!-- 顶部工具栏 -->\n+ <!-- 主工作区 -->\n+ <!-- 左：文件面板 -->\n\n[src/views/home/HomeView.vue | added | primary/source | frontend]\n+const apps = rawApps as AppConfig[]\n+const activeGroup = inject<Ref<string>>('activeGroup')\n+const appList = computed(() => {\n+ const currentGroup = activeGroup?.value ?? '1'\n+ .sort((a, b) => {\n\n[stylelint.config.js | added | secondary/source | config]\n+ rules: {\n\n[tsconfig.app.json | added | tooling/config | config]\n+ /* Linting */\n+ // 核心配置：路径别名映射\n\n[vite.config.ts | added | tooling/source | config]\n+// https://vite.dev/config/\n+ // 配置 `@` 指向 src 目录\n\n[src-tauri/src/git/profile.rs | untracked | primary/source | tauri-backend]\n+const PROFILE_DIR: &str = \".lumina\";\n+const PROFILE_FILE: &str = \"git-profile.json\";\n+pub struct GitProjectProfileFile {\n+fn profile_path(repo_root: &str) -> PathBuf {\n+fn project_name(repo_root: &str) -> String {\n\n[src/components/settings/panels/LocalizationSettingsPanel.vue | untracked | primary/source | frontend]\n+const preferencesStore = usePreferencesStore()\n+const { t } = useI18n({ useScope: 'global' })\n\n[src/components/settings/panels/ModelSettingsPanel.vue | untracked | primary/source | frontend]\n+const aiSettings = useAiSettingsStore()\n+const { t } = useI18n({ useScope: 'global' })\n+const testingId = ref('')\n+const expandedId = ref('')\n+const testResults = reactive<Record<string, string>>({})\n+function createModel() {\n\n[src/components/settings/panels/ProjectProfileSettingsPanel.vue | untracked | primary/source | frontend]\n+const { t } = useI18n({ useScope: 'global' })\n+const repoPath = ref('')\n+const content = ref('')\n+const loading = ref(false)\n+const saving = ref(false)\n+const error = ref('')\n+const notice = ref('')\n+onMounted(async () => {\n\n[src/components/settings/panels/TaskRoutingSettingsPanel.vue | untracked | primary/source | frontend]\n+const aiSettings = useAiSettingsStore()\n+const { t } = useI18n({ useScope: 'global' })\n+function setTaskModel(task: AiTaskType, event: Event) {\n\n[src/components/settings/panels/ThemeSettingsPanel.vue | untracked | primary/source | frontend]\n+const preferencesStore = usePreferencesStore()\n+const { t } = useI18n({ useScope: 'global' })\n\n[src/constants/git.ts | untracked | secondary/source | frontend]\n+export const GIT_REPO_STORAGE_KEY = 'lumina.git.repoPath'\n\n[src/hooks/useLocale.ts | untracked | secondary/source | frontend]\n+export function useLocale() {\n+ const preferencesStore = usePreferencesStore()\n+ function toggleLocale() {\n\n[src/i18n/index.ts | untracked | secondary/i18n | frontend]\n+export type AppLocale = 'zh-CN' | 'en-US'\n+export const DEFAULT_LOCALE: AppLocale = 'zh-CN'\n\n[src/i18n/messages/en-US.ts | untracked | secondary/i18n | frontend]\n+ viewPrompt: 'View Prompt',\n\n[src/stores/ai-settings.ts | untracked | primary/source | frontend]\n+const STORAGE_KEY = 'lumina.ai.settings.v1'\n+const DEFAULT_SETTINGS: AiSettings = {\n+function cloneSettings(settings: AiSettings): AiSettings {\n+ models: settings.models.map(model => ({ ...model })),\n\n[src/stores/preferences.ts | untracked | primary/source | frontend]\n+export type ThemeMode = 'light' | 'dark' | 'system'\n+const STORAGE_KEYS = {\n+function resolveSystemTheme() {\n+export const usePreferencesStore = defineStore('preferences', {\n+ state: () => ({\n\n[src/types/ai-settings.ts | untracked | secondary/source | frontend]\n+export type AiProviderType = 'openai-compatible' | 'ollama'\n+export interface AiModelConfig {\n\n[src/types/git-profile.ts | untracked | secondary/source | frontend]\n+export interface GitProjectProfileFile {\n\n[src/views/git-assistant/components/GitChangeExplorer.vue | untracked | primary/source | frontend]\n+const props = defineProps<{\n+const statusMeta = STATUS_META\n+const { t } = useLocale()\n+const visibleFiles = computed(() => props.groups.flatMap(group => group.files))\n\n[src/views/git-assistant/components/GitCommitAssistant.vue | untracked | primary/source | frontend]\n+const { t } = useLocale()\n\n[src/views/git-assistant/components/GitDiffViewer.vue | untracked | primary/source | frontend]\n+const props = defineProps<{\n+const statusMeta = STATUS_META\n+const { t } = useLocale()\n+const lines = computed(() => props.diffText.split('\\n'))\n+function getLineClass(line: string) {\n\n[src/views/git-assistant/components/GitStatusBar.vue | untracked | primary/source | frontend]\n+const props = defineProps<{\n+const { t } = useLocale()\n+const repoName = computed(() => {\n+ const normalized = props.repoPath.replace(/\\\\/g, '/')\n+ const parts = normalized.split('/').filter(Boolean)\n\n[src/views/git-assistant/git-assistant.config.ts | untracked | primary/source | frontend]\n+export const STATUS_FILTER_OPTIONS: Array<{\n+export const STATUS_META: Record<\n+export const ATTENTION_SCORE_CONFIG = {\n\n[src/views/git-assistant/git-assistant.types.ts | untracked | primary/source | frontend]\n+export type GitAssistantStatusFilter =\n+export interface GitAssistantSummary {\n+export interface GitAssistantFileView extends GitFileStatus {\n+export interface GitAssistantFileGroup {\n+export interface GitAssistantAiState {\n\n[stylelint.config.cjs | untracked | secondary/config | config]\n+ root: true,\n+ ignoreFiles: [\n+ extends: [\n+ plugins: [\"stylelint-order\"],\n",
+  "promptLength": 14999,
+  "repoPath": "D:\\my_project\\Lumina",
+  "rules": [
+    "Read only selected files and generate diff evidence locally before any model call.",
+    "Use .lumina/git-profile.json scopes and roles first; fall back to built-in rules when missing.",
+    "Evidence is selected by group budget, not by file order.",
+    "Comment, declaration, command, error, prompt, and user-facing text lines receive higher scores.",
+    "Generated, lock, and asset files are summarized instead of sending verbose content.",
+    "Style, i18n, docs, config, and tooling files keep reduced evidence as supporting context.",
+    "The final prompt is capped globally to avoid sending oversized workspace content."
+  ],
+  "selectedFiles": [
+    ".eslintrc.cjs",
+    ".gitignore",
+    ".prettierrc.json",
+    ".vscode/extensions.json",
+    "README.md",
+    "fix-tauri-tools.ps1",
+    "index.html",
+    "package-lock.json",
+    "package.json",
+    "public/vite.svg",
+    "rustfmt.toml",
+    "src-tauri/.gitignore",
+    "src-tauri/Cargo.lock",
+    "src-tauri/Cargo.toml",
+    "src-tauri/build.rs",
+    "src-tauri/capabilities/default.json",
+    "src-tauri/icons/logo.ico",
+    "src-tauri/icons/logo.png",
+    "src-tauri/src/ai/mod.rs",
+    "src-tauri/src/ai/ollama.rs",
+    "src-tauri/src/ai/qwencloud.rs",
+    "src-tauri/src/commands/git.rs",
+    "src-tauri/src/commands/mod.rs",
+    "src-tauri/src/git/analyzer.rs",
+    "src-tauri/src/git/config.rs",
+    "src-tauri/src/git/diff_parser.rs",
+    "src-tauri/src/git/mod.rs",
+    "src-tauri/src/git/models.rs",
+    "src-tauri/src/git/parser.rs",
+    "src-tauri/src/git/prompt.rs",
+    "src-tauri/src/git/runner.rs",
+    "src-tauri/src/git/summarizer.rs",
+    "src-tauri/src/lib.rs",
+    "src-tauri/src/main.rs",
+    "src-tauri/tauri.conf.json",
+    "src/App.vue",
+    "src/assets/logo.ico",
+    "src/assets/logo.png",
+    "src/assets/vue.svg",
+    "src/components/card/AppCard.vue",
+    "src/components/settings/Settings.vue",
+    "src/components/settings/panels/AppearancePanel.vue",
+    "src/components/sidebar/Sidebar.vue",
+    "src/components/sidebar/SidebarItem.vue",
+    "src/config/apps.json",
+    "src/config/groups.json",
+    "src/hooks/useTheme.ts",
+    "src/layouts/MainLayout.vue",
+    "src/locales/index.ts",
+    "src/main.ts",
+    "src/plugins/naive.ts",
+    "src/router/index.ts",
+    "src/services/git/git-ai-service.ts",
+    "src/services/git/git-service.ts",
+    "src/store/index.ts",
+    "src/styles/base/_reset.scss",
+    "src/styles/base/_typography.scss",
+    "src/styles/base/index.scss",
+    "src/styles/themes/_dark.scss",
+    "src/styles/themes/_light.scss",
+    "src/styles/themes/index.scss",
+    "src/styles/tokens/_color-system.scss",
+    "src/styles/tokens/_radius.scss",
+    "src/styles/tokens/_shadow.scss",
+    "src/styles/tokens/_spacing.scss",
+    "src/styles/tokens/_width.scss",
+    "src/styles/tokens/index.scss",
+    "src/styles/utilities/_layout.scss",
+    "src/styles/utilities/_text.scss",
+    "src/styles/utilities/index.scss",
+    "src/types/app.ts",
+    "src/types/git-ai.ts",
+    "src/types/git.ts",
+    "src/utils/git-status.ts",
+    "src/views/git-assistant/GitAssistantView.vue",
+    "src/views/home/HomeView.vue",
+    "stylelint.config.js",
+    "tsconfig.app.json",
+    "tsconfig.json",
+    "tsconfig.node.json",
+    "tsconfig.tsbuildinfo",
+    "vite.config.ts",
+    ".lumina/commit-prompt-debug.json",
+    ".lumina/git-profile.json",
+    "src-tauri/src/git/profile.rs",
+    "src/components/settings/SettingsNav.vue",
+    "src/components/settings/panels/LocalizationSettingsPanel.vue",
+    "src/components/settings/panels/ModelSettingsPanel.vue",
+    "src/components/settings/panels/ProjectProfileSettingsPanel.vue",
+    "src/components/settings/panels/TaskRoutingSettingsPanel.vue",
+    "src/components/settings/panels/ThemeSettingsPanel.vue",
+    "src/constants/git.ts",
+    "src/hooks/useLocale.ts",
+    "src/i18n/index.ts",
+    "src/i18n/messages/en-US.ts",
+    "src/i18n/messages/zh-CN.ts",
+    "src/services/ai-settings-service.ts",
+    "src/services/git/git-profile-service.ts",
+    "src/stores/ai-settings.ts",
+    "src/stores/preferences.ts",
+    "src/styles/base/_naive.scss",
+    "src/types/ai-settings.ts",
+    "src/types/git-profile.ts",
+    "src/views/git-assistant/components/GitChangeExplorer.vue",
+    "src/views/git-assistant/components/GitCommitAssistant.vue",
+    "src/views/git-assistant/components/GitDiffViewer.vue",
+    "src/views/git-assistant/components/GitStatusBar.vue",
+    "src/views/git-assistant/git-assistant.config.ts",
+    "src/views/git-assistant/git-assistant.types.ts",
+    "src/views/settings/SettingsView.vue",
+    "stylelint.config.cjs"
+  ],
+  "summary": {
+    "cleanedChars": 7264,
+    "evidenceCount": 192,
+    "rawChars": 931958,
+    "selectedFiles": 111
+  },
+  "version": 1
+}

@@ -1,0 +1,16 @@
+/* Lumina Theme System */
+
+/* ① 直接输出 color-system 的 CSS 变量（推荐现代写法） */
+@use "../tokens/color-system";
+
+/* ② 加载 Sass tokens（用于内部 mixin/function 共享） */
+@use "../tokens" as *;
+
+/* ③ 加载主题（light / dark） */
+@use "./light";
+@use "./dark";
+
+/* ④ 未来更多主题 */
+// @use "./glass";
+// @use "./neon";
+// @use "./aurora";
