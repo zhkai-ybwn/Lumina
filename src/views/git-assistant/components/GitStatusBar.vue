@@ -6,18 +6,13 @@
         <span class="context-value">{{ repoName || t('gitAssistant.repo.emptyPath') }}</span>
       </div>
 
-      <NDropdown
-        trigger="click"
-        :options="recentRepoOptions"
-        :disabled="!recentRepos.length"
-        @select="handleRecentRepoSelect"
-      >
-        <button class="recent-repo-field recent-trigger" type="button" :title="repoPath || t('gitAssistant.repo.emptyPath')">
-          <span>{{ t('gitAssistant.repo.recentRepos') }}</span>
-          <strong>{{ currentRecentLabel }}</strong>
-          <i></i>
+      <div class="recent-repo-field" :title="repoPath || t('gitAssistant.repo.emptyPath')">
+        <span>{{ t('gitAssistant.repo.recentRepos') }}</span>
+        <strong>{{ currentRecentLabel }}</strong>
+        <button class="recent-repo-manage" type="button" :title="t('gitAssistant.repo.recentRepoManage')" @click="$emit('manage-repos')">
+          <Icon icon="solar:settings-linear" />
         </button>
-      </NDropdown>
+      </div>
 
       <div class="context-pill">
         <span class="context-label">{{ t('gitAssistant.repo.branchShort') }}</span>
@@ -47,8 +42,15 @@
     </div>
 
     <div class="status-bar__actions">
-      <button class="tool-btn" :title="repoPath || t('gitAssistant.repo.emptyPath')">
-        {{ statusText }}
+      <span class="sync-pill" :class="syncTone">
+        <span class="sync-dot"></span>
+        {{ syncLabel }}
+      </span>
+      <button class="tool-btn" :disabled="pullDisabled" @click="$emit('pull')">
+        {{ pulling ? t('gitAssistant.ai.pulling') : t('gitAssistant.ai.pull') }}
+      </button>
+      <button class="tool-btn" :disabled="pushDisabled" @click="$emit('push')">
+        {{ pushing ? t('gitAssistant.ai.pushing') : t('gitAssistant.ai.push') }}
       </button>
       <button class="tool-btn" @click="$emit('pick-directory')">{{ t('gitAssistant.repo.chooseDirectory') }}</button>
       <button class="tool-btn primary" :disabled="loading || !repoPath" @click="$emit('refresh')">
@@ -60,24 +62,28 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { NDropdown, type DropdownOption } from 'naive-ui'
 import { useLocale } from '@/hooks/useLocale'
+import type { GitRepositoryState } from '@/services/git/git-service'
 import type { GitAssistantSummary } from '../git-assistant.types'
 
 const props = defineProps<{
   repoPath: string
   branch: string
   loading: boolean
+  pushing: boolean
+  pulling: boolean
   summary: GitAssistantSummary
   recommendedCount: number
-  statusText: string
+  repositoryState: GitRepositoryState | null
   recentRepos: RecentGitRepo[]
 }>()
 
-const emit = defineEmits<{
+defineEmits<{
   (e: 'pick-directory'): void
   (e: 'refresh'): void
-  (e: 'switch-repo', path: string): void
+  (e: 'pull'): void
+  (e: 'push'): void
+  (e: 'manage-repos'): void
 }>()
 
 const { t } = useLocale()
@@ -89,30 +95,44 @@ const repoName = computed(() => {
 })
 
 const currentRecentLabel = computed(() => {
-  return repoName.value || t('gitAssistant.repo.recentRepoPlaceholder')
+  const current = props.recentRepos.find(repo => normalizePath(repo.path) === normalizePath(props.repoPath))
+  return current?.name || repoName.value || t('gitAssistant.repo.recentRepoPlaceholder')
 })
 
-const recentRepoOptions = computed<DropdownOption[]>(() => {
-  if (!props.recentRepos.length) {
-    return [{ label: t('gitAssistant.repo.recentRepoEmpty'), key: '__empty__', disabled: true }]
-  }
-
-  return props.recentRepos.map(repo => ({
-    label: repo.name,
-    key: repo.path,
-  }))
+const syncLabel = computed(() => {
+  const state = props.repositoryState
+  if (!state?.remoteName) return t('gitAssistant.sync.remoteMissing')
+  if (!state.hasCommits) return t('gitAssistant.sync.firstCommit')
+  if (state.upstreamGone) return t('gitAssistant.sync.upstreamGone')
+  if (!state.upstream) return t('gitAssistant.sync.notSet')
+  if (state.ahead > 0 && state.behind > 0) return t('gitAssistant.sync.diverged', { ahead: state.ahead, behind: state.behind })
+  if (state.ahead > 0) return t('gitAssistant.sync.ahead', { count: state.ahead })
+  if (state.behind > 0) return t('gitAssistant.sync.behind', { count: state.behind })
+  return t('gitAssistant.sync.syncedShort')
 })
+
+const syncTone = computed(() => {
+  const state = props.repositoryState
+  if (!state?.remoteName || !state.hasCommits || state.upstreamGone || !state.upstream) return 'warning'
+  if (state.behind > 0) return 'danger'
+  if (state.ahead > 0) return 'accent'
+  return 'ready'
+})
+
+const pushDisabled = computed(() =>
+  props.pushing || props.pulling || props.loading || !props.repositoryState?.hasCommits || !props.repositoryState.remoteName,
+)
+const pullDisabled = computed(() =>
+  props.pulling || props.pushing || props.loading || !props.repositoryState?.upstream || props.repositoryState.upstreamGone,
+)
 
 export interface RecentGitRepo {
   path: string
   name: string
 }
 
-function handleRecentRepoSelect(key: string | number) {
-  const path = String(key)
-  if (path && path !== '__empty__' && path !== props.repoPath) {
-    emit('switch-repo', path)
-  }
+function normalizePath(path: string) {
+  return path.replace(/\\/g, '/').toLowerCase()
 }
 </script>
 
@@ -151,7 +171,8 @@ function handleRecentRepoSelect(key: string | number) {
 .context-pill,
 .recent-repo-field,
 .metric-pill,
-.tool-btn {
+.tool-btn,
+.sync-pill {
   border: 1px solid var(--lumina-card-border);
   border-radius: 8px;
   font-size: 11px;
@@ -169,25 +190,52 @@ function handleRecentRepoSelect(key: string | number) {
   white-space: nowrap;
 }
 
+.sync-pill {
+  align-items: center;
+  background: color-mix(in srgb, var(--lumina-surface-3) 82%, transparent);
+  color: var(--lumina-text-secondary);
+  display: inline-flex;
+  gap: 7px;
+  padding: 0 10px;
+  white-space: nowrap;
+
+  &.ready {
+    color: var(--lumina-primary);
+  }
+
+  &.accent {
+    background: var(--lumina-primary-soft);
+    color: var(--lumina-primary);
+  }
+
+  &.warning {
+    color: var(--lumina-warning);
+  }
+
+  &.danger {
+    color: var(--lumina-danger);
+  }
+}
+
+.sync-dot {
+  background: currentColor;
+  border-radius: 999px;
+  height: 6px;
+  width: 6px;
+}
+
 .context-pill {
   max-width: 240px;
   min-width: 0;
 }
 
 .recent-repo-field {
-  padding: 0;
-}
-
-.recent-trigger {
   align-items: center;
-  color: var(--lumina-text);
-  cursor: pointer;
   display: inline-flex;
   gap: 8px;
-  max-width: 260px;
-  min-width: 210px;
-  outline: none;
-  padding: 0 8px 0 10px;
+  max-width: 280px;
+  min-width: 220px;
+  padding: 0 4px 0 10px;
 
   span {
     color: var(--lumina-text-secondary);
@@ -203,20 +251,33 @@ function handleRecentRepoSelect(key: string | number) {
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+}
 
-  i {
-    border-bottom: 1.5px solid currentColor;
-    border-right: 1.5px solid currentColor;
-    color: var(--lumina-text-secondary);
-    flex: 0 0 auto;
-    height: 7px;
-    transform: rotate(45deg) translateY(-2px);
-    width: 7px;
+.recent-repo-manage {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  color: var(--lumina-text-secondary);
+  cursor: pointer;
+  display: inline-flex;
+  flex: 0 0 auto;
+  height: 22px;
+  justify-content: center;
+  padding: 0;
+  transition:
+    background 0.18s ease,
+    color 0.18s ease;
+  width: 22px;
+
+  :deep(svg) {
+    height: 15px;
+    width: 15px;
   }
 
-  &:disabled {
-    cursor: not-allowed;
-    opacity: 0.6;
+  &:hover {
+    background: color-mix(in srgb, var(--lumina-button-secondary-hover) 82%, transparent);
+    color: var(--lumina-text);
   }
 }
 
@@ -252,6 +313,11 @@ function handleRecentRepoSelect(key: string | number) {
 
   &:hover {
     background: var(--lumina-button-secondary-hover);
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.52;
   }
 }
 

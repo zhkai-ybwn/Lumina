@@ -309,6 +309,13 @@ fn validate_selected_files(repo_path: &str, selected_files: &[String]) -> Result
 
         let exists_in_worktree = Path::new(repo_path).join(normalized).exists();
         let tracked_by_git = run_git(repo_path, &["ls-files", "--error-unmatch", "--", normalized]).is_ok();
+        let ignored_by_git = is_git_ignored(repo_path, normalized);
+        if ignored_by_git && !tracked_by_git {
+            return Err(format!(
+                "选中文件已被 .gitignore 忽略，不能作为普通文件加入提交: {}\n\n建议: 请刷新仓库状态后重新勾选文件。",
+                normalized
+            ));
+        }
         if !exists_in_worktree && !tracked_by_git {
             return Err(format!(
                 "选中文件在当前仓库中不存在，也不是已跟踪文件: {}\n\n建议: 请刷新仓库状态后重新勾选文件。如果刚切换过项目，请确认当前仓库路径是否正确。",
@@ -318,6 +325,23 @@ fn validate_selected_files(repo_path: &str, selected_files: &[String]) -> Result
     }
 
     Ok(())
+}
+
+fn is_git_ignored(repo_path: &str, file_path: &str) -> bool {
+    git_command(repo_path)
+        .args(["check-ignore", "--no-index", "--quiet", "--", file_path])
+        .status()
+        .is_ok_and(|status| status.success())
+}
+
+fn stage_selected_file_for_commit(repo_path: &str, file_path: &str) -> Result<GitCommandResult, String> {
+    if is_git_ignored(repo_path, file_path)
+        && run_git(repo_path, &["ls-files", "--error-unmatch", "--", file_path]).is_ok()
+    {
+        return run_git_capture(repo_path, &["rm", "--cached", "--", file_path]);
+    }
+
+    run_git_capture(repo_path, &["add", "--", file_path])
 }
 
 fn load_repository_state(repo_path: &str) -> GitRepositoryState {
@@ -527,7 +551,7 @@ pub fn commit_changes(payload: &GitCommitPayload) -> Result<GitCommandResult, St
     stderr.push_str(&clear_index.stderr);
 
     for file in &payload.selected_files {
-        let add = run_git_capture(&payload.repo_path, &["add", "--", file])?;
+        let add = stage_selected_file_for_commit(&payload.repo_path, file)?;
         commands.push(add.command);
         stdout.push_str(&add.stdout);
         stderr.push_str(&add.stderr);
@@ -686,6 +710,43 @@ pub fn repair_upstream(payload: &GitRepairUpstreamPayload) -> Result<GitCommandR
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
+    use std::path::{Path, PathBuf};
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn temp_repo(name: &str) -> PathBuf {
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system time")
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!("lumina-{}-{}-{}", name, std::process::id(), now));
+        fs::create_dir_all(&path).expect("create temp repo");
+        path
+    }
+
+    fn write_file(path: &Path, content: &str) {
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent).expect("create parent dir");
+        }
+        fs::write(path, content).expect("write test file");
+    }
+
+    fn git(repo_path: &Path, args: &[&str]) {
+        let output = Command::new("git")
+            .args(args)
+            .current_dir(repo_path)
+            .output()
+            .expect("run git");
+
+        if !output.status.success() {
+            panic!(
+                "git {:?} failed\nstdout:\n{}\nstderr:\n{}",
+                args,
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            );
+        }
+    }
 
     #[test]
     fn normalizes_plain_windows_proxy_server() {
@@ -721,5 +782,46 @@ HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Internet Settings
             registry_value(registry_output, "ProxyServer").as_deref(),
             Some("127.0.0.1:10808")
         );
+    }
+
+    #[test]
+    fn commit_removes_tracked_files_that_are_now_ignored() {
+        let repo = temp_repo("ignored-tracked-file");
+        git(&repo, &["init"]);
+        git(&repo, &["config", "user.name", "Lumina Test"]);
+        git(&repo, &["config", "user.email", "lumina@example.test"]);
+
+        let lumina_file = repo.join(".lumina").join("commit-prompt-debug.json");
+        write_file(&lumina_file, "{\"version\":1}\n");
+        git(&repo, &["add", "--", ".lumina/commit-prompt-debug.json"]);
+        git(&repo, &["commit", "-m", "chore: add lumina debug file"]);
+
+        write_file(&repo.join(".gitignore"), ".lumina\n");
+        write_file(&lumina_file, "{\"version\":2}\n");
+
+        let result = commit_changes(&GitCommitPayload {
+            repo_path: repo.to_string_lossy().to_string(),
+            title: "chore: ignore local lumina data".to_string(),
+            body: String::new(),
+            selected_files: vec![
+                ".gitignore".to_string(),
+                ".lumina/commit-prompt-debug.json".to_string(),
+            ],
+        })
+        .expect("commit ignored tracked file removal");
+
+        assert!(result
+            .command
+            .contains("git rm --cached -- .lumina/commit-prompt-debug.json"));
+        assert!(lumina_file.exists());
+
+        let tracked = Command::new("git")
+            .args(["ls-files", "--error-unmatch", "--", ".lumina/commit-prompt-debug.json"])
+            .current_dir(&repo)
+            .output()
+            .expect("run git ls-files");
+        assert!(!tracked.status.success());
+
+        fs::remove_dir_all(&repo).expect("remove temp repo");
     }
 }
