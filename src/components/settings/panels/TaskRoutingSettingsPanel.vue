@@ -10,26 +10,35 @@
     <div v-else class="routing-list">
       <label v-for="task in AI_TASKS" :key="task.key" class="routing-row">
         <span>{{ t(task.i18nKey) }}</span>
-        <select :value="aiSettings.taskModelMap[task.key]" @change="setTaskModel(task.key, $event)">
-          <option v-for="model in aiSettings.enabledModels" :key="model.id" :value="model.id">
-            {{ model.name }}
-          </option>
-        </select>
+        <NSelect
+          class="routing-select"
+          :value="aiSettings.taskModelMap[task.key]"
+          :options="enabledModelOptions"
+          @update:value="value => setTaskModel(task.key, value)"
+        />
       </label>
     </div>
   </section>
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
+import { NSelect } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { AI_TASKS, useAiSettingsStore } from '@/stores/ai-settings'
 import type { AiTaskType } from '@/types/ai-settings'
 
 const aiSettings = useAiSettingsStore()
 const { t } = useI18n({ useScope: 'global' })
+const enabledModelOptions = computed(() =>
+  aiSettings.enabledModels.map(model => ({
+    label: model.name,
+    value: model.id,
+  })),
+)
 
-function setTaskModel(task: AiTaskType, event: Event) {
-  aiSettings.setTaskModel(task, (event.target as HTMLSelectElement).value)
+function setTaskModel(task: AiTaskType, value: string | number | null) {
+  aiSettings.setTaskModel(task, String(value ?? ''))
 }
 </script>
 
@@ -74,13 +83,17 @@ p {
   grid-template-columns: minmax(180px, 240px) minmax(260px, 420px);
 }
 
-select {
+.routing-select {
+  width: 100%;
+}
+
+:deep(.routing-select .n-base-selection) {
   background: var(--lumina-surface-2);
-  border: 1px solid var(--lumina-card-border);
   border-radius: var(--lumina-radius-md);
-  box-sizing: border-box;
+  min-height: 34px;
+}
+
+:deep(.routing-select .n-base-selection-label) {
   color: var(--lumina-text);
-  height: 34px;
-  padding: 0 10px;
 }
 </style>

@@ -22,6 +22,8 @@ pub fn run() {
             commands::git::commit_git_changes,
             commands::git::push_git_changes,
             commands::git::pull_git_changes,
+            commands::git::configure_git_origin,
+            commands::git::repair_git_upstream,
             commands::git::ensure_git_project_profile,
             commands::git::load_git_project_profile,
             commands::git::save_git_project_profile,

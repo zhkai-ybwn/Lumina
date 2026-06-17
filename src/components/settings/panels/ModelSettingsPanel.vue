@@ -35,16 +35,15 @@
           </div>
         </div>
 
-        <div v-if="expandedId === model.id" class="model-editor">
+          <div v-if="expandedId === model.id" class="model-editor">
           <div class="model-editor__toolbar">
-            <label class="inline-toggle">
-              <input
-                type="checkbox"
-                :checked="model.enabled"
-                @change="updateModel(model.id, { enabled: ($event.target as HTMLInputElement).checked })"
-              />
-              <span>{{ t('settings.aiModels.enabled') }}</span>
-            </label>
+            <NCheckbox
+              class="inline-toggle"
+              :checked="model.enabled"
+              @update:checked="checked => updateModel(model.id, { enabled: Boolean(checked) })"
+            >
+              {{ t('settings.aiModels.enabled') }}
+            </NCheckbox>
 
             <button
               class="ghost-button"
@@ -64,13 +63,13 @@
 
             <label class="field">
               <span>{{ t('settings.aiModels.provider') }}</span>
-              <select
+              <NSelect
+                class="field-select"
                 :value="model.provider"
-                @change="updateModel(model.id, { provider: ($event.target as HTMLSelectElement).value as AiProviderType })"
-              >
-                <option value="openai-compatible">{{ t('settings.aiModels.openaiCompatible') }}</option>
-                <option value="ollama">{{ t('settings.aiModels.ollama') }}</option>
-              </select>
+                :options="providerOptions"
+                size="small"
+                @update:value="value => updateModel(model.id, { provider: value as AiProviderType })"
+              />
             </label>
 
             <label class="field">
@@ -123,7 +122,8 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
+import { computed, reactive, ref } from 'vue'
+import { NCheckbox, NSelect } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { testAiModelConnection } from '@/services/ai-settings-service'
 import { useAiSettingsStore } from '@/stores/ai-settings'
@@ -135,6 +135,10 @@ const testingId = ref('')
 const expandedId = ref('')
 const testResults = reactive<Record<string, string>>({})
 const testErrors = reactive<Record<string, string>>({})
+const providerOptions = computed(() => [
+  { label: t('settings.aiModels.openaiCompatible'), value: 'openai-compatible' },
+  { label: t('settings.aiModels.ollama'), value: 'ollama' },
+])
 
 function createModel() {
   expandedId.value = aiSettings.createModel()
@@ -359,8 +363,7 @@ p {
   grid-column: 1 / -1;
 }
 
-input,
-select {
+input {
   background: var(--lumina-surface-2);
   border: 1px solid var(--lumina-card-border);
   border-radius: 6px;
@@ -370,12 +373,28 @@ select {
   padding: 0 10px;
 }
 
+.field-select {
+  width: 100%;
+}
+
+:deep(.field-select .n-base-selection) {
+  background: var(--lumina-surface-2);
+  border-radius: 6px;
+  min-height: 32px;
+}
+
+:deep(.field-select .n-base-selection-label) {
+  color: var(--lumina-text);
+}
+
 .inline-toggle {
-  align-items: center;
   color: var(--lumina-text-secondary);
-  display: inline-flex;
   font-size: 12px;
-  gap: 6px;
+}
+
+:deep(.inline-toggle .n-checkbox__label) {
+  color: var(--lumina-text-secondary);
+  font-size: 12px;
 }
 
 .action-button,

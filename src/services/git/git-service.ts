@@ -4,10 +4,21 @@ export interface GitSnapshot {
   repoPath: string
   repoRoot: string
   branch: string
+  repositoryState: GitRepositoryState
   status: string[]
   stagedFiles: string[]
   stagedDiff: string
   fileStats: GitFileStat[]
+}
+
+export interface GitRepositoryState {
+  hasCommits: boolean
+  remoteName?: string | null
+  remoteUrl?: string | null
+  upstream?: string | null
+  upstreamGone: boolean
+  ahead: number
+  behind: number
 }
 
 export interface GitFileStat {
@@ -57,4 +68,12 @@ export async function pushGitChanges(repoPath: string): Promise<GitCommandResult
 
 export async function pullGitChanges(repoPath: string): Promise<GitCommandResult> {
   return await invoke<GitCommandResult>('pull_git_changes', { payload: { repoPath } })
+}
+
+export async function configureGitOrigin(repoPath: string, remoteUrl: string): Promise<GitCommandResult> {
+  return await invoke<GitCommandResult>('configure_git_origin', { payload: { repoPath, remoteUrl } })
+}
+
+export async function repairGitUpstream(repoPath: string): Promise<GitCommandResult> {
+  return await invoke<GitCommandResult>('repair_git_upstream', { payload: { repoPath } })
 }

@@ -3,7 +3,8 @@ use crate::ai::qwencloud;
 use crate::git::models::{
     AiModelConfig, AiProviderType, GitAiAnalysis, GitAiPayload, GitCommitPayload,
     GitCommitPromptPayload, GitCommitPromptPreview, GitFileDiffPayload, GitFileDiffResponse,
-    GitCommandResult, GitPromptAiPayload, GitPullPayload, GitPushPayload, GitSnapshot,
+    GitCommandResult, GitConfigureRemotePayload, GitPromptAiPayload, GitPullPayload, GitPushPayload,
+    GitRepairUpstreamPayload, GitSnapshot,
 };
 use crate::git::prompt::{build_analysis_prompt, build_selected_commit_prompt};
 use crate::git::profile::{self, GitProjectProfileFile};
@@ -18,28 +19,38 @@ pub struct SaveGitProjectProfilePayload {
 }
 
 #[tauri::command]
-pub fn load_git_snapshot(repo_path: String) -> Result<GitSnapshot, String> {
-    runner::load_git_snapshot(&repo_path)
+pub async fn load_git_snapshot(repo_path: String) -> Result<GitSnapshot, String> {
+    run_git_task("加载仓库状态", move || runner::load_git_snapshot(&repo_path)).await
 }
 
 #[tauri::command]
-pub fn load_git_file_diff(payload: GitFileDiffPayload) -> Result<GitFileDiffResponse, String> {
-    runner::load_file_diff(&payload.repo_path, &payload.file_path, payload.staged)
+pub async fn load_git_file_diff(payload: GitFileDiffPayload) -> Result<GitFileDiffResponse, String> {
+    run_git_task("加载文件 Diff", move || runner::load_file_diff(&payload.repo_path, &payload.file_path, payload.staged)).await
 }
 
 #[tauri::command]
-pub fn commit_git_changes(payload: GitCommitPayload) -> Result<GitCommandResult, String> {
-    runner::commit_changes(&payload)
+pub async fn commit_git_changes(payload: GitCommitPayload) -> Result<GitCommandResult, String> {
+    run_git_task("提交变更", move || runner::commit_changes(&payload)).await
 }
 
 #[tauri::command]
-pub fn push_git_changes(payload: GitPushPayload) -> Result<GitCommandResult, String> {
-    runner::push_changes(&payload)
+pub async fn push_git_changes(payload: GitPushPayload) -> Result<GitCommandResult, String> {
+    run_git_task("推送变更", move || runner::push_changes(&payload)).await
 }
 
 #[tauri::command]
-pub fn pull_git_changes(payload: GitPullPayload) -> Result<GitCommandResult, String> {
-    runner::pull_changes(&payload)
+pub async fn pull_git_changes(payload: GitPullPayload) -> Result<GitCommandResult, String> {
+    run_git_task("拉取变更", move || runner::pull_changes(&payload)).await
+}
+
+#[tauri::command]
+pub async fn configure_git_origin(payload: GitConfigureRemotePayload) -> Result<GitCommandResult, String> {
+    run_git_task("配置远端", move || runner::configure_origin_remote(&payload)).await
+}
+
+#[tauri::command]
+pub async fn repair_git_upstream(payload: GitRepairUpstreamPayload) -> Result<GitCommandResult, String> {
+    run_git_task("修复 upstream", move || runner::repair_upstream(&payload)).await
 }
 
 #[tauri::command]
@@ -84,6 +95,16 @@ async fn call_ai_with_prompt(model: &AiModelConfig, prompt: &str) -> Result<GitA
             qwencloud::call_openai_compatible_generate(model, prompt).await
         }
     }
+}
+
+async fn run_git_task<T, F>(task_name: &str, task: F) -> Result<T, String>
+where
+    T: Send + 'static,
+    F: FnOnce() -> Result<T, String> + Send + 'static,
+{
+    tokio::task::spawn_blocking(task)
+        .await
+        .map_err(|e| format!("{}任务异常: {}", task_name, e))?
 }
 
 #[tauri::command]

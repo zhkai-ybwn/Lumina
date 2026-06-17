@@ -11,8 +11,10 @@
       :summary="summary"
       :recommended-count="recommendedFiles.length"
       :status-text="repoStatusText"
+      :recent-repos="recentRepos"
       @pick-directory="handlePickDirectory"
       @refresh="handleRefresh"
+      @switch-repo="handleSwitchRecentRepo"
     />
 
     <section class="workspace-body">
@@ -27,6 +29,8 @@
           :submit-disabled="!snapshot || !reviewSelectedRaws.length || !commitTitle.trim()"
           :title="commitTitle"
           :body="commitBody"
+          :branch="snapshot?.branch ?? ''"
+          :repository-state="snapshot?.repositoryState ?? null"
           :selected-count="reviewSelectedRaws.length"
           :recommended-files="recommendedFiles"
           :status-text="commitStatusText"
@@ -45,24 +49,20 @@
 
           <label class="model-field">
             <span>{{ t('gitAssistant.ai.currentModel') }}</span>
-            <select
+            <NSelect
+              class="model-select"
               :value="aiSettings.taskModelMap['commit-message'] || aiSettings.defaultModelId"
+              :options="modelSelectOptions"
               :disabled="!aiSettings.enabledModels.length"
-              @change="aiSettings.setTaskModel('commit-message', ($event.target as HTMLSelectElement).value)"
-            >
-              <option v-if="!aiSettings.enabledModels.length" value="">
-                {{ t('gitAssistant.ai.noModelConfigured') }}
-              </option>
-              <option v-for="model in aiSettings.enabledModels" :key="model.id" :value="model.id">
-                {{ model.name }}
-              </option>
-            </select>
+              size="small"
+              :consistent-menu-width="false"
+              @update:value="value => aiSettings.setTaskModel('commit-message', String(value ?? ''))"
+            />
           </label>
 
-          <label class="ai-toggle">
-            <input v-model="autoSendPromptToApi" type="checkbox" />
-            <span>{{ t('gitAssistant.ai.autoSendPrompt') }}</span>
-          </label>
+          <NCheckbox v-model:checked="autoSendPromptToApi" class="ai-toggle">
+            {{ t('gitAssistant.ai.autoSendPrompt') }}
+          </NCheckbox>
 
           <div class="ai-stats">
             <div class="side-row">
@@ -75,12 +75,57 @@
             </div>
           </div>
 
+          <section v-if="showRemoteTools" class="remote-tools">
+            <div class="remote-tools__header">
+              <span>{{ t('gitAssistant.remote.title') }}</span>
+              <strong>{{ remoteToolStatus }}</strong>
+            </div>
+            <NInput
+              v-if="needsRemoteUrl"
+              v-model:value="remoteUrlDraft"
+              size="small"
+              clearable
+              :placeholder="t('gitAssistant.remote.urlPlaceholder')"
+            />
+            <div class="remote-actions">
+              <NButton
+                v-if="needsRemoteUrl"
+                size="small"
+                type="primary"
+                :disabled="!remoteUrlDraft.trim() || remoteLoading"
+                @click="handleConfigureOrigin"
+              >
+                {{ t('gitAssistant.remote.connectOrigin') }}
+              </NButton>
+              <NButton
+                v-if="canRepairUpstream"
+                size="small"
+                :disabled="remoteLoading"
+                @click="handleRepairUpstream"
+              >
+                {{ t('gitAssistant.remote.repairUpstream') }}
+              </NButton>
+              <NButton
+                v-if="canPublishBranch"
+                size="small"
+                :disabled="pushLoading || remoteLoading"
+                @click="handlePush"
+              >
+                {{ t('gitAssistant.remote.publishBranch') }}
+              </NButton>
+            </div>
+            <p>{{ remoteToolHint }}</p>
+          </section>
+
           <div class="ai-actions">
             <button class="ai-action primary-action" type="button" :disabled="!snapshot || aiLoading" @click="handleGenerateAiAnalysis">
               {{ aiLoading ? t('gitAssistant.ai.generating') : t('gitAssistant.ai.generate') }}
             </button>
             <button class="ai-action" type="button" :disabled="!promptPreview" @click="promptDrawerOpen = true">
               {{ t('gitAssistant.ai.viewPrompt') }}
+            </button>
+            <button class="ai-action" type="button" :disabled="!filteredCommitMessageHistory.length" @click="historyDrawerOpen = true">
+              {{ t('gitAssistant.history.open') }}
             </button>
           </div>
           <div v-if="aiLoading" class="ai-progress">
@@ -110,13 +155,14 @@
         @update:status-filter="handleStatusFilterChange"
         @update:recommended-only="recommendedOnly = $event"
         @select-file="handleSelectFile"
+        @open-diff="handleOpenDiff"
         @toggle-review-selection="toggleReviewSelection"
         @set-review-selection="setReviewSelection"
       />
 
+      <NModal v-model:show="showDiff" class="diff-modal" preset="card" :bordered="false">
         <GitDiffViewer
-          v-if="showDiff"
-          class="diff-drawer"
+          class="diff-window"
           :has-snapshot="Boolean(snapshot)"
           :active-file="selectedFile"
           :diff-text="currentDiff"
@@ -124,6 +170,7 @@
           :current-mode="diffMode"
           @update:mode="diffMode = $event"
         />
+      </NModal>
     </section>
 
     <aside v-if="promptDrawerOpen" class="prompt-drawer">
@@ -209,6 +256,31 @@
       </div>
     </aside>
 
+    <aside v-if="historyDrawerOpen" class="history-drawer">
+      <header class="history-drawer__header">
+        <div>
+          <h3>{{ t('gitAssistant.history.title') }}</h3>
+          <p>{{ t('gitAssistant.history.description') }}</p>
+        </div>
+        <button type="button" @click="historyDrawerOpen = false">{{ t('gitAssistant.prompt.close') }}</button>
+      </header>
+
+      <section class="history-list">
+        <article v-for="entry in filteredCommitMessageHistory" :key="entry.id" class="history-item">
+          <div class="history-item__main">
+            <span>{{ formatHistoryTime(entry.createdAt) }} · {{ historySourceLabel(entry.source) }}</span>
+            <strong>{{ entry.title }}</strong>
+            <p v-if="entry.body">{{ entry.body }}</p>
+            <small>{{ entry.repoName }} · {{ t('gitAssistant.history.fileCount', { count: entry.selectedFileCount }) }}</small>
+          </div>
+          <button type="button" @click="restoreCommitMessage(entry)">{{ t('gitAssistant.history.restore') }}</button>
+        </article>
+        <div v-if="!filteredCommitMessageHistory.length" class="history-empty">
+          {{ t('gitAssistant.history.empty') }}
+        </div>
+      </section>
+    </aside>
+
     <GitCommandDialog
       :visible="gitCommandDialog.visible"
       :title="gitCommandDialog.title"
@@ -233,6 +305,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { open } from '@tauri-apps/plugin-dialog'
+import { NButton, NCheckbox, NInput, NModal, NSelect } from 'naive-ui'
 import { useLocale } from '@/hooks/useLocale'
 import {
   buildGitCommitPrompt,
@@ -242,11 +315,13 @@ import {
 } from '@/services/git/git-ai-service'
 import {
   commitGitChanges,
+  configureGitOrigin,
   type GitCommandResult,
   loadGitFileDiff,
   loadGitSnapshot,
   pullGitChanges,
   pushGitChanges,
+  repairGitUpstream,
   type GitSnapshot,
 } from '@/services/git/git-service'
 import { ensureGitProjectProfile } from '@/services/git/git-profile-service'
@@ -258,7 +333,12 @@ import GitCommandDialog from './components/GitCommandDialog.vue'
 import GitCommitAssistant from './components/GitCommitAssistant.vue'
 import GitDiffViewer from './components/GitDiffViewer.vue'
 import GitStatusBar from './components/GitStatusBar.vue'
-import { ATTENTION_SCORE_CONFIG, GIT_REPO_STORAGE_KEY } from './git-assistant.config'
+import {
+  ATTENTION_SCORE_CONFIG,
+  GIT_COMMIT_MESSAGE_HISTORY_STORAGE_KEY,
+  GIT_RECENT_REPOS_STORAGE_KEY,
+  GIT_REPO_STORAGE_KEY,
+} from './git-assistant.config'
 import type {
   GitAssistantFileGroup,
   GitAssistantFileView,
@@ -271,9 +351,12 @@ const aiLoading = ref(false)
 const commitLoading = ref(false)
 const pushLoading = ref(false)
 const pullLoading = ref(false)
+const remoteLoading = ref(false)
 const error = ref('')
 const repoPath = ref('')
 const snapshot = ref<GitSnapshot | null>(null)
+const recentRepos = ref<RecentGitRepo[]>([])
+const remoteUrlDraft = ref('')
 
 const keyword = ref('')
 const statusFilter = ref<GitAssistantStatusFilter>('all')
@@ -289,9 +372,12 @@ const commitTitle = ref('')
 const commitBody = ref('')
 const promptPreview = ref<GitCommitPromptPreview | null>(null)
 const promptDrawerOpen = ref(false)
+const historyDrawerOpen = ref(false)
 const promptGenerationStep = ref('')
 const autoSendPromptToApi = ref(true)
 let promptProgressTimers: number[] = []
+const MAX_RECENT_REPOS = 8
+const MAX_COMMIT_MESSAGE_HISTORY = 20
 
 const gitCommandDialog = ref({
   visible: false,
@@ -305,7 +391,7 @@ const gitCommandDialog = ref({
   message: '',
   suggestion: '',
   nextActionLabel: '',
-  nextAction: '' as '' | 'push',
+  nextAction: '' as '' | 'push' | 'pull',
 })
 
 const { t } = useLocale()
@@ -351,6 +437,7 @@ const summary = computed(() => {
 })
 
 const displayRepoPath = computed(() => repoPath.value || snapshot.value?.repoPath || '')
+const repositoryState = computed(() => snapshot.value?.repositoryState ?? null)
 
 const recommendedFiles = computed(() => {
   return [...allFiles.value].filter(file => file.recommended).sort((left, right) => right.score - left.score)
@@ -424,7 +511,6 @@ const selectedFile = computed(() => {
 const repoStatusText = computed(() => {
   if (!snapshot.value) return t('gitAssistant.repo.statusUnloaded')
   if (!summary.value.total) return t('gitAssistant.repo.statusClean')
-  if (!summary.value.staged) return t('gitAssistant.repo.statusNoStaged', { count: summary.value.total })
 
   return t('gitAssistant.repo.statusReady', {
     count: summary.value.total,
@@ -449,6 +535,61 @@ const commitStatusText = computed(() => {
 })
 
 const currentModelName = computed(() => aiSettings.getModelForTask('commit-message')?.name ?? t('gitAssistant.ai.noModelConfigured'))
+const modelSelectOptions = computed(() => {
+  if (!aiSettings.enabledModels.length) {
+    return [{ label: t('gitAssistant.ai.noModelConfigured'), value: '' }]
+  }
+
+  return aiSettings.enabledModels.map(model => ({
+    label: model.name,
+    value: model.id,
+  }))
+})
+const filteredCommitMessageHistory = computed(() => {
+  const currentRepo = normalizePath(displayRepoPath.value).toLowerCase()
+  return commitMessageHistory.value.filter(entry => !currentRepo || normalizePath(entry.repoPath).toLowerCase() === currentRepo)
+})
+const needsRemoteUrl = computed(() => Boolean(snapshot.value && !repositoryState.value?.remoteName))
+const canRepairUpstream = computed(() => {
+  const state = repositoryState.value
+  return Boolean(state?.remoteName && state.hasCommits && (state.upstreamGone || !state.upstream))
+})
+const canPublishBranch = computed(() => {
+  const state = repositoryState.value
+  return Boolean(state?.remoteName && state.hasCommits && (!state.upstream || state.upstreamGone))
+})
+const showRemoteTools = computed(() => needsRemoteUrl.value || canRepairUpstream.value || canPublishBranch.value)
+const remoteToolStatus = computed(() => {
+  if (needsRemoteUrl.value) return t('gitAssistant.remote.missingOrigin')
+  if (repositoryState.value?.upstreamGone) return t('gitAssistant.remote.upstreamGone')
+  if (!repositoryState.value?.upstream) return t('gitAssistant.remote.upstreamMissing')
+  return t('gitAssistant.remote.ready')
+})
+const remoteToolHint = computed(() => {
+  if (needsRemoteUrl.value) return t('gitAssistant.remote.originHint')
+  if (repositoryState.value?.upstreamGone) return t('gitAssistant.remote.upstreamGoneHint')
+  if (!repositoryState.value?.upstream) return t('gitAssistant.remote.upstreamMissingHint')
+  return t('gitAssistant.remote.readyHint')
+})
+
+interface RecentGitRepo {
+  path: string
+  name: string
+  openedAt: number
+}
+
+interface CommitMessageHistoryEntry {
+  id: string
+  repoPath: string
+  repoName: string
+  title: string
+  body: string
+  source: 'ai' | 'manual'
+  selectedFileCount: number
+  createdAt: number
+}
+
+const commitMessageHistory = ref<CommitMessageHistoryEntry[]>([])
 
 watch(
   filteredFiles,
@@ -591,8 +732,10 @@ async function loadSnapshotByPath(path: string) {
   try {
     const result = await loadGitSnapshot(path)
     snapshot.value = result
+    remoteUrlDraft.value = result.repositoryState.remoteUrl ?? remoteUrlDraft.value
     reviewSelectedRaws.value = []
     localStorage.setItem(GIT_REPO_STORAGE_KEY, path)
+    rememberRecentRepo(result.repoRoot || path)
 
     try {
       await ensureGitProjectProfile(result.repoRoot || path)
@@ -606,6 +749,132 @@ async function loadSnapshotByPath(path: string) {
   } finally {
     loading.value = false
   }
+}
+
+function getRepoDisplayName(path: string) {
+  const normalized = normalizePath(path)
+  const parts = normalized.split('/').filter(Boolean)
+  return parts[parts.length - 1] || path
+}
+
+function loadRecentRepos() {
+  try {
+    const raw = localStorage.getItem(GIT_RECENT_REPOS_STORAGE_KEY)
+    if (!raw) {
+      recentRepos.value = []
+      return
+    }
+
+    const parsed = JSON.parse(raw) as Partial<RecentGitRepo>[]
+    recentRepos.value = parsed
+      .filter(repo => typeof repo.path === 'string' && repo.path.trim())
+      .map(repo => ({
+        path: repo.path as string,
+        name: typeof repo.name === 'string' && repo.name ? repo.name : getRepoDisplayName(repo.path as string),
+        openedAt: typeof repo.openedAt === 'number' ? repo.openedAt : 0,
+      }))
+      .sort((left, right) => right.openedAt - left.openedAt)
+      .slice(0, MAX_RECENT_REPOS)
+  } catch (err) {
+    console.error(err)
+    recentRepos.value = []
+  }
+}
+
+function persistRecentRepos() {
+  localStorage.setItem(GIT_RECENT_REPOS_STORAGE_KEY, JSON.stringify(recentRepos.value))
+}
+
+function rememberRecentRepo(path: string) {
+  const normalizedPath = path.trim()
+  if (!normalizedPath) return
+
+  const nextRepo: RecentGitRepo = {
+    path: normalizedPath,
+    name: getRepoDisplayName(normalizedPath),
+    openedAt: Date.now(),
+  }
+  recentRepos.value = [
+    nextRepo,
+    ...recentRepos.value.filter(repo => normalizePath(repo.path).toLowerCase() !== normalizePath(normalizedPath).toLowerCase()),
+  ].slice(0, MAX_RECENT_REPOS)
+  persistRecentRepos()
+}
+
+function loadCommitMessageHistory() {
+  try {
+    const raw = localStorage.getItem(GIT_COMMIT_MESSAGE_HISTORY_STORAGE_KEY)
+    if (!raw) {
+      commitMessageHistory.value = []
+      return
+    }
+
+    const parsed = JSON.parse(raw) as Partial<CommitMessageHistoryEntry>[]
+    commitMessageHistory.value = parsed
+      .filter(entry => typeof entry.title === 'string' && entry.title.trim())
+      .map(entry => ({
+        id: typeof entry.id === 'string' ? entry.id : createHistoryId(),
+        repoPath: typeof entry.repoPath === 'string' ? entry.repoPath : '',
+        repoName: typeof entry.repoName === 'string' ? entry.repoName : '',
+        title: entry.title as string,
+        body: typeof entry.body === 'string' ? entry.body : '',
+        source: entry.source === 'manual' ? 'manual' : 'ai',
+        selectedFileCount: typeof entry.selectedFileCount === 'number' ? entry.selectedFileCount : 0,
+        createdAt: typeof entry.createdAt === 'number' ? entry.createdAt : Date.now(),
+      }))
+      .sort((left, right) => right.createdAt - left.createdAt)
+      .slice(0, MAX_COMMIT_MESSAGE_HISTORY)
+  } catch (err) {
+    console.error(err)
+    commitMessageHistory.value = []
+  }
+}
+
+function persistCommitMessageHistory() {
+  localStorage.setItem(GIT_COMMIT_MESSAGE_HISTORY_STORAGE_KEY, JSON.stringify(commitMessageHistory.value))
+}
+
+function createHistoryId() {
+  return `commit-message-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
+}
+
+function saveCommitMessageHistory(source: 'ai' | 'manual') {
+  const title = commitTitle.value.trim()
+  const body = commitBody.value.trim()
+  if (!title && !body) return
+
+  const repo = displayRepoPath.value
+  const entry: CommitMessageHistoryEntry = {
+    id: createHistoryId(),
+    repoPath: repo,
+    repoName: getRepoDisplayName(repo),
+    title,
+    body,
+    source,
+    selectedFileCount: reviewSelectedRaws.value.length,
+    createdAt: Date.now(),
+  }
+
+  const duplicateKey = `${normalizePath(entry.repoPath).toLowerCase()}::${entry.title}::${entry.body}`
+  commitMessageHistory.value = [
+    entry,
+    ...commitMessageHistory.value.filter(item => `${normalizePath(item.repoPath).toLowerCase()}::${item.title}::${item.body}` !== duplicateKey),
+  ].slice(0, MAX_COMMIT_MESSAGE_HISTORY)
+  persistCommitMessageHistory()
+}
+
+function restoreCommitMessage(entry: CommitMessageHistoryEntry) {
+  commitTitle.value = entry.title
+  commitBody.value = entry.body
+  historyDrawerOpen.value = false
+}
+
+function formatHistoryTime(timestamp: number) {
+  return new Date(timestamp).toLocaleString()
+}
+
+function historySourceLabel(source: 'ai' | 'manual') {
+  return source === 'manual' ? t('gitAssistant.history.manual') : t('gitAssistant.history.ai')
 }
 
 async function handlePickDirectory() {
@@ -632,12 +901,60 @@ async function handleRefresh() {
   await loadSnapshotByPath(repoPath.value)
 }
 
+async function handleSwitchRecentRepo(path: string) {
+  if (!path || path === displayRepoPath.value) return
+  repoPath.value = path
+  await loadSnapshotByPath(path)
+}
+
+async function handleConfigureOrigin() {
+  if (!displayRepoPath.value || !remoteUrlDraft.value.trim()) return
+
+  remoteLoading.value = true
+  error.value = ''
+  const nextAction: '' | 'push' = repositoryState.value?.hasCommits ? 'push' : ''
+  startGitCommand(t('gitAssistant.gitCommand.remoteTitle'), t('gitAssistant.gitCommand.configuringRemote'), nextAction)
+  try {
+    const result = await configureGitOrigin(displayRepoPath.value, remoteUrlDraft.value)
+    finishGitCommand(result, nextAction === 'push' ? t('gitAssistant.gitCommand.pushNext') : '')
+    await loadSnapshotByPath(displayRepoPath.value)
+  } catch (err) {
+    console.error(err)
+    failGitCommand(err)
+  } finally {
+    remoteLoading.value = false
+  }
+}
+
+async function handleRepairUpstream() {
+  if (!displayRepoPath.value) return
+
+  remoteLoading.value = true
+  error.value = ''
+  startGitCommand(t('gitAssistant.gitCommand.upstreamTitle'), t('gitAssistant.gitCommand.repairingUpstream'), 'push')
+  try {
+    const result = await repairGitUpstream(displayRepoPath.value)
+    finishGitCommand(result, t('gitAssistant.gitCommand.pushNext'))
+    await loadSnapshotByPath(displayRepoPath.value)
+  } catch (err) {
+    console.error(err)
+    failGitCommand(err)
+  } finally {
+    remoteLoading.value = false
+  }
+}
+
 function handleStatusFilterChange(value: string) {
   statusFilter.value = value as GitAssistantStatusFilter
 }
 
 function handleSelectFile(raw: string) {
   activeFileRaw.value = raw
+}
+
+function handleOpenDiff(raw: string) {
+  activeFileRaw.value = raw
+  showDiff.value = true
 }
 
 function toggleReviewSelection(payload: { raw: string; checked: boolean }) {
@@ -656,6 +973,8 @@ function setReviewSelection(raws: string[]) {
 }
 
 onMounted(async () => {
+  loadRecentRepos()
+  loadCommitMessageHistory()
   const saved = localStorage.getItem(GIT_REPO_STORAGE_KEY)
   if (!saved) return
 
@@ -698,6 +1017,7 @@ async function handleGenerateAiAnalysis() {
       })
       commitTitle.value = result.title
       commitBody.value = result.body
+      saveCommitMessageHistory('ai')
     }
 
     promptDrawerOpen.value = true
@@ -739,7 +1059,7 @@ function stopPromptProgress() {
   promptGenerationStep.value = ''
 }
 
-function startGitCommand(title: string, phase: string, nextAction: '' | 'push' = '') {
+function startGitCommand(title: string, phase: string, nextAction: '' | 'push' | 'pull' = '') {
   gitCommandDialog.value = {
     visible: true,
     title,
@@ -772,6 +1092,13 @@ function finishGitCommand(result: GitCommandResult, nextActionLabel = '') {
 
 function failGitCommand(err: unknown) {
   const message = err instanceof Error ? err.message : String(err)
+  const lowerMessage = message.toLowerCase()
+  const nextAction: '' | 'push' | 'pull' =
+    lowerMessage.includes('non-fast-forward') || lowerMessage.includes('fetch first')
+      ? 'pull'
+      : lowerMessage.includes('远端还没有') || lowerMessage.includes('push -u') || lowerMessage.includes('publish')
+        ? 'push'
+        : ''
   gitCommandDialog.value = {
     ...gitCommandDialog.value,
     running: false,
@@ -779,9 +1106,14 @@ function failGitCommand(err: unknown) {
     stderr: message,
     message: t('gitAssistant.gitCommand.failed'),
     suggestion: '',
-    nextActionLabel: '',
+    nextActionLabel:
+      nextAction === 'pull'
+        ? t('gitAssistant.gitCommand.pullNext')
+        : nextAction === 'push'
+          ? t('gitAssistant.gitCommand.pushNext')
+          : '',
+    nextAction,
   }
-  error.value = message
 }
 
 async function handleCommit() {
@@ -797,6 +1129,7 @@ async function handleCommit() {
 
   commitLoading.value = true
   error.value = ''
+  saveCommitMessageHistory('manual')
   startGitCommand(t('gitAssistant.gitCommand.commitTitle'), t('gitAssistant.gitCommand.committing'), 'push')
 
   try {
@@ -815,6 +1148,7 @@ async function handleCommit() {
   } catch (err) {
     console.error(err)
     failGitCommand(err)
+    await loadSnapshotByPath(displayRepoPath.value)
   } finally {
     commitLoading.value = false
   }
@@ -859,6 +1193,8 @@ async function handlePull() {
 function handleCommandNextAction() {
   if (gitCommandDialog.value.nextAction === 'push') {
     void handlePush()
+  } else if (gitCommandDialog.value.nextAction === 'pull') {
+    void handlePull()
   }
 }
 </script>
@@ -866,7 +1202,7 @@ function handleCommandNextAction() {
 <style scoped lang="scss">
 .git-assistant-page {
   background:
-    linear-gradient(180deg, color-mix(in srgb, var(--lumina-surface-2) 78%, transparent), var(--lumina-bg)),
+    linear-gradient(180deg, color-mix(in srgb, var(--lumina-bg) 94%, #fff), var(--lumina-bg)),
     var(--lumina-bg);
   box-sizing: border-box;
   color: var(--lumina-text);
@@ -904,22 +1240,26 @@ function handleCommandNextAction() {
 .commit-area {
   display: grid;
   gap: 10px;
-  grid-template-columns: minmax(0, 1fr) 360px;
+  grid-template-columns: minmax(0, 1fr) minmax(390px, 430px);
   min-height: 0;
 }
 
 .commit-workbench {
-  background: var(--lumina-surface-1);
-  border: 1px solid var(--lumina-card-border);
-  border-radius: 10px;
-  box-shadow: var(--lumina-shadow-sm);
+  border: 1px solid color-mix(in srgb, var(--lumina-card-border) 78%, transparent);
+  border-radius: 12px;
+  box-shadow:
+    0 10px 28px rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.32);
 }
 
 .commit-side {
-  background: var(--lumina-surface-1);
-  border: 1px solid var(--lumina-card-border);
-  border-radius: 10px;
-  box-shadow: var(--lumina-shadow-sm);
+  background: color-mix(in srgb, var(--lumina-surface-1) 88%, transparent);
+  backdrop-filter: blur(18px);
+  border: 1px solid color-mix(in srgb, var(--lumina-card-border) 78%, transparent);
+  border-radius: 12px;
+  box-shadow:
+    0 10px 28px rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.32);
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -934,7 +1274,7 @@ function handleCommandNextAction() {
   span {
     color: var(--lumina-text);
     font-size: 14px;
-    font-weight: 700;
+    font-weight: 650;
   }
 
   strong {
@@ -953,20 +1293,14 @@ function handleCommandNextAction() {
     font-size: 11px;
   }
 
-  select {
-    background: var(--lumina-input-bg);
-    border: 1px solid var(--lumina-input-border);
-    border-radius: 8px;
-    color: var(--lumina-text);
-    height: 32px;
-    min-width: 0;
-    padding: 0 8px;
+  :deep(.model-select .n-base-selection) {
+    background: color-mix(in srgb, var(--lumina-input-bg) 92%, transparent);
+    border-radius: 7px;
+    min-height: 32px;
+  }
 
-    &:focus {
-      border-color: var(--lumina-primary);
-      box-shadow: 0 0 0 2px var(--lumina-accent-ring);
-      outline: none;
-    }
+  :deep(.model-select .n-base-selection-label) {
+    color: var(--lumina-text);
   }
 }
 
@@ -976,10 +1310,50 @@ function handleCommandNextAction() {
   gap: 6px;
 }
 
-.side-row {
-  background: var(--lumina-surface-2);
+.remote-tools {
+  background: color-mix(in srgb, var(--lumina-surface-2) 58%, transparent);
   border: 1px solid var(--lumina-card-border);
-  border-radius: 8px;
+  border-radius: 9px;
+  display: grid;
+  gap: 9px;
+  padding: 10px;
+
+  p {
+    color: var(--lumina-text-secondary);
+    font-size: 11px;
+    line-height: 1.45;
+    margin: 0;
+  }
+}
+
+.remote-tools__header {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+
+  span {
+    color: var(--lumina-text);
+    font-size: 12px;
+    font-weight: 650;
+  }
+
+  strong {
+    color: var(--lumina-warning);
+    font-size: 11px;
+    font-weight: 650;
+  }
+}
+
+.remote-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.side-row {
+  background: color-mix(in srgb, var(--lumina-surface-2) 58%, transparent);
+  border: 1px solid var(--lumina-card-border);
+  border-radius: 9px;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -1003,37 +1377,32 @@ function handleCommandNextAction() {
 }
 
 .ai-toggle {
-  align-items: center;
   color: var(--lumina-text-secondary);
-  cursor: pointer;
-  display: flex;
   font-size: 12px;
-  gap: 8px;
   min-height: 24px;
+}
 
-  input {
-    accent-color: var(--lumina-primary);
-    height: 14px;
-    margin: 0;
-    width: 14px;
-  }
+:deep(.ai-toggle .n-checkbox__label) {
+  color: var(--lumina-text-secondary);
+  font-size: 12px;
 }
 
 .ai-actions {
   display: grid;
   gap: 8px;
-  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  grid-template-columns: 1fr;
 }
 
 .ai-action,
 .secondary-btn {
-  background: var(--lumina-button-secondary-bg);
-  border: 1px solid var(--lumina-card-border);
-  border-radius: 8px;
+  background: color-mix(in srgb, var(--lumina-button-secondary-bg) 92%, transparent);
+  border: 1px solid color-mix(in srgb, var(--lumina-card-border) 88%, var(--lumina-text-secondary));
+  border-radius: 7px;
   color: var(--lumina-text);
   cursor: pointer;
-  height: 30px;
-  padding: 0 10px;
+  font-weight: 600;
+  min-height: 32px;
+  padding: 0 12px;
   width: 100%;
 
   &:disabled {
@@ -1073,8 +1442,9 @@ function handleCommandNextAction() {
 }
 
 .primary-action {
-  background: var(--lumina-primary);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--lumina-primary) 88%, #fff), var(--lumina-primary));
   border-color: var(--lumina-primary);
+  box-shadow: 0 6px 14px color-mix(in srgb, var(--lumina-primary) 18%, transparent);
   color: #fff;
 }
 
@@ -1084,6 +1454,22 @@ function handleCommandNextAction() {
 
 .diff-drawer {
   min-height: 260px;
+}
+
+.diff-window {
+  height: min(760px, 78vh);
+  width: min(1120px, 90vw);
+}
+
+:deep(.diff-modal.n-card) {
+  background: color-mix(in srgb, var(--lumina-surface-1) 94%, transparent);
+  backdrop-filter: blur(20px);
+  border-radius: 12px;
+  box-shadow: 0 24px 68px rgba(0, 0, 0, 0.24);
+}
+
+:deep(.diff-modal .n-card__content) {
+  padding: 0;
 }
 
 .prompt-drawer {
@@ -1098,6 +1484,127 @@ function handleCommandNextAction() {
   top: 0;
   width: min(1080px, 72vw);
   z-index: 20;
+}
+
+.history-drawer {
+  background: color-mix(in srgb, var(--lumina-surface-1) 94%, transparent);
+  backdrop-filter: blur(20px);
+  border-left: 1px solid var(--lumina-card-border);
+  bottom: 0;
+  box-shadow: -8px 0 24px rgba(0, 0, 0, 0.12);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: min(560px, 46vw);
+  z-index: 22;
+}
+
+.history-drawer__header {
+  align-items: flex-start;
+  border-bottom: 1px solid var(--lumina-card-border);
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
+  padding: 14px;
+
+  h3 {
+    font-size: 16px;
+    margin: 0 0 4px;
+  }
+
+  p {
+    color: var(--lumina-text-secondary);
+    font-size: 12px;
+    line-height: 1.5;
+    margin: 0;
+  }
+
+  button {
+    background: color-mix(in srgb, var(--lumina-button-secondary-bg) 92%, transparent);
+    border: 1px solid var(--lumina-card-border);
+    border-radius: 7px;
+    color: var(--lumina-text);
+    cursor: pointer;
+    height: 30px;
+    padding: 0 10px;
+  }
+}
+
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+  overflow: auto;
+  padding: 14px;
+}
+
+.history-item {
+  background: color-mix(in srgb, var(--lumina-surface-2) 58%, transparent);
+  border: 1px solid var(--lumina-card-border);
+  border-radius: 9px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 12px;
+
+  button {
+    align-self: start;
+    background: var(--lumina-primary);
+    border: 1px solid var(--lumina-primary);
+    border-radius: 7px;
+    color: #fff;
+    cursor: pointer;
+    height: 30px;
+    padding: 0 12px;
+  }
+}
+
+.history-item__main {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+
+  span,
+  small {
+    color: var(--lumina-text-secondary);
+    font-size: 11px;
+  }
+
+  strong {
+    color: var(--lumina-text);
+    font-size: 13px;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  p {
+    color: var(--lumina-text-secondary);
+    display: -webkit-box;
+    font-size: 12px;
+    line-height: 1.5;
+    margin: 0;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+  }
+}
+
+.history-empty {
+  align-items: center;
+  border: 1px dashed var(--lumina-card-border);
+  border-radius: 9px;
+  color: var(--lumina-text-secondary);
+  display: flex;
+  font-size: 12px;
+  justify-content: center;
+  min-height: 120px;
+  padding: 16px;
+  text-align: center;
 }
 
 .prompt-drawer__header {
@@ -1293,6 +1800,10 @@ function handleCommandNextAction() {
   }
 
   .prompt-drawer {
+    width: 100%;
+  }
+
+  .history-drawer {
     width: 100%;
   }
 }

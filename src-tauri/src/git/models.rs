@@ -6,10 +6,23 @@ pub struct GitSnapshot {
     pub repo_path: String,
     pub repo_root: String,
     pub branch: String,
+    pub repository_state: GitRepositoryState,
     pub status: Vec<String>,
     pub staged_files: Vec<String>,
     pub staged_diff: String,
     pub file_stats: Vec<GitFileStat>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GitRepositoryState {
+    pub has_commits: bool,
+    pub remote_name: Option<String>,
+    pub remote_url: Option<String>,
+    pub upstream: Option<String>,
+    pub upstream_gone: bool,
+    pub ahead: usize,
+    pub behind: usize,
 }
 
 #[derive(Debug, Serialize)]
@@ -54,6 +67,19 @@ pub struct GitPushPayload {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GitPullPayload {
+    pub repo_path: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GitConfigureRemotePayload {
+    pub repo_path: String,
+    pub remote_url: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GitRepairUpstreamPayload {
     pub repo_path: String,
 }
 

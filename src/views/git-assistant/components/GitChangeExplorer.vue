@@ -66,7 +66,7 @@
         class="file-row"
         :class="{ active: activeFileRaw === file.raw }"
         :style="gridStyle"
-        @dblclick="$emit('select-file', file.raw)"
+        @dblclick="$emit('open-diff', file.raw)"
         @click="$emit('select-file', file.raw)"
       >
         <label class="commit-check" @click.stop>
@@ -127,6 +127,7 @@ defineEmits<{
   (e: 'update:status-filter', value: string): void
   (e: 'update:recommended-only', value: boolean): void
   (e: 'select-file', raw: string): void
+  (e: 'open-diff', raw: string): void
   (e: 'toggle-review-selection', payload: { raw: string; checked: boolean }): void
   (e: 'set-review-selection', raws: string[]): void
 }>()
@@ -148,11 +149,11 @@ const modifiedRaws = computed(() => visibleFiles.value.filter(file => file.type 
 const headerCheckbox = ref<HTMLInputElement | null>(null)
 const columnWidths = reactive({
   path: 620,
-  extension: 92,
-  status: 96,
-  added: 78,
-  removed: 78,
-  score: 58,
+  extension: 104,
+  status: 110,
+  added: 112,
+  removed: 118,
+  score: 70,
 })
 
 const resizableColumns = [
@@ -191,7 +192,7 @@ function startColumnResize(column: ResizableColumnKey, event: MouseEvent) {
 function handleColumnResize(event: MouseEvent) {
   if (!resizingColumn) return
   const nextWidth = resizeStartWidth + event.clientX - resizeStartX
-  columnWidths[resizingColumn] = Math.max(48, nextWidth)
+  columnWidths[resizingColumn] = Math.max(getColumnMinWidth(resizingColumn), nextWidth)
 }
 
 function stopColumnResize() {
@@ -204,15 +205,25 @@ function formatLineCount(value: number | null) {
   return value === null ? '-' : String(value)
 }
 
+function getColumnMinWidth(column: ResizableColumnKey) {
+  if (column === 'path') return 220
+  if (column === 'added' || column === 'removed') return 104
+  if (column === 'extension' || column === 'status') return 92
+  return 64
+}
+
 onUnmounted(stopColumnResize)
 </script>
 
 <style scoped lang="scss">
 .change-explorer {
-  background: var(--lumina-surface-1);
-  border: 1px solid var(--lumina-card-border);
-  border-radius: 10px;
-  box-shadow: var(--lumina-shadow-sm);
+  background: color-mix(in srgb, var(--lumina-surface-1) 88%, transparent);
+  backdrop-filter: blur(18px);
+  border: 1px solid color-mix(in srgb, var(--lumina-card-border) 78%, transparent);
+  border-radius: 12px;
+  box-shadow:
+    0 10px 28px rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.32);
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr);
   min-height: 0;
@@ -223,8 +234,8 @@ onUnmounted(stopColumnResize)
   border-bottom: 1px solid var(--lumina-card-border);
   display: flex;
   justify-content: space-between;
-  min-height: 34px;
-  padding: 0 10px;
+  min-height: 38px;
+  padding: 0 12px;
 
   div {
     align-items: center;
@@ -235,7 +246,7 @@ onUnmounted(stopColumnResize)
 
   span {
     font-size: 13px;
-    font-weight: 700;
+    font-weight: 650;
   }
 
   small,
@@ -248,12 +259,13 @@ onUnmounted(stopColumnResize)
 
 .check-toolbar {
   align-items: center;
+  background: color-mix(in srgb, var(--lumina-surface-2) 54%, transparent);
   border-bottom: 1px solid var(--lumina-card-border);
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  min-height: 32px;
-  padding: 0 10px;
+  gap: 4px;
+  min-height: 36px;
+  padding: 5px 10px;
 
   span {
     color: var(--lumina-text-secondary);
@@ -261,16 +273,20 @@ onUnmounted(stopColumnResize)
   }
 
   button {
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 6px;
     color: var(--lumina-text);
     cursor: pointer;
     font-size: 12px;
-    font-weight: 700;
-    padding: 0;
+    font-weight: 600;
+    min-height: 24px;
+    padding: 0 7px;
 
     &:hover {
-      color: var(--lumina-primary);
-      text-decoration: underline;
-      text-underline-offset: 2px;
+      background: color-mix(in srgb, var(--lumina-surface-3) 72%, transparent);
+      border-color: var(--lumina-card-border);
+      color: var(--lumina-text);
     }
   }
 }
@@ -300,11 +316,12 @@ onUnmounted(stopColumnResize)
 }
 
 .table-header {
-  background: var(--lumina-surface-2);
+  background: color-mix(in srgb, var(--lumina-surface-2) 88%, transparent);
   border-bottom: 1px solid var(--lumina-card-border);
   color: var(--lumina-text-secondary);
   font-size: 11px;
-  height: 28px;
+  font-weight: 650;
+  height: 30px;
   position: sticky;
   top: 0;
   z-index: 1;
@@ -317,6 +334,7 @@ onUnmounted(stopColumnResize)
   min-width: 0;
   padding: 0 8px;
   position: relative;
+  white-space: nowrap;
 }
 
 .column-resizer {
@@ -332,14 +350,15 @@ onUnmounted(stopColumnResize)
 .file-row {
   border-bottom: 1px solid color-mix(in srgb, var(--lumina-card-border) 72%, transparent);
   cursor: default;
-  min-height: 28px;
+  min-height: 30px;
 
   &:hover {
-    background: var(--lumina-button-secondary-hover);
+    background: color-mix(in srgb, var(--lumina-button-secondary-hover) 78%, transparent);
   }
 
   &.active {
-    background: color-mix(in srgb, var(--lumina-primary-soft) 76%, transparent);
+    background: color-mix(in srgb, var(--lumina-primary-soft) 52%, transparent);
+    box-shadow: inset 3px 0 0 var(--lumina-primary);
   }
 }
 

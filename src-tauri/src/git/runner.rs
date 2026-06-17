@@ -1,8 +1,9 @@
+use std::path::Path;
 use std::process::Command;
 
 use crate::git::models::{
-    GitCommandResult, GitCommitPayload, GitFileDiffResponse, GitFileStat, GitPullPayload, GitPushPayload,
-    GitSnapshot,
+    GitCommandResult, GitCommitPayload, GitConfigureRemotePayload, GitFileDiffResponse, GitFileStat, GitPullPayload,
+    GitPushPayload, GitRepairUpstreamPayload, GitRepositoryState, GitSnapshot,
 };
 
 pub fn run_git(repo_path: &str, args: &[&str]) -> Result<String, String> {
@@ -99,6 +100,12 @@ fn git_error_suggestion(stderr: &str) -> Option<String> {
         Some("本地改动会被覆盖。请先提交、暂存或撤销相关改动后再拉取。".to_string())
     } else if lower.contains("non-fast-forward") || lower.contains("fetch first") {
         Some("远端包含本地没有的提交。请先拉取远端变更，再重新推送。".to_string())
+    } else if lower.contains("failed to connect")
+        || lower.contains("could not connect to server")
+        || lower.contains("connection timed out")
+        || lower.contains("unable to access")
+    {
+        Some("Git 已进入网络连接阶段，但无法连接远端服务器。请检查 GitHub/GitLab 网络、代理/VPN、公司防火墙，或在命令行执行 git ls-remote <remote-url> 验证连通性。若命令行可连接但客户端失败，通常是客户端启动环境没有继承代理，可重启客户端或配置 Git 的 http.proxy/https.proxy。这个错误通常不是 user.name/email 导致的。".to_string())
     } else {
         None
     }
@@ -112,9 +119,67 @@ fn clear_index_for_selected_commit(repo_path: &str) -> Result<GitCommandResult, 
     run_git_capture(repo_path, &["read-tree", "--empty"])
 }
 
+fn validate_selected_files(repo_path: &str, selected_files: &[String]) -> Result<(), String> {
+    for file in selected_files {
+        let normalized = file.trim();
+        if normalized.is_empty() {
+            return Err("选中文件路径为空，请刷新仓库状态后重新勾选文件。".to_string());
+        }
+
+        let exists_in_worktree = Path::new(repo_path).join(normalized).exists();
+        let tracked_by_git = run_git(repo_path, &["ls-files", "--error-unmatch", "--", normalized]).is_ok();
+        if !exists_in_worktree && !tracked_by_git {
+            return Err(format!(
+                "选中文件在当前仓库中不存在，也不是已跟踪文件: {}\n\n建议: 请刷新仓库状态后重新勾选文件。如果刚切换过项目，请确认当前仓库路径是否正确。",
+                normalized
+            ));
+        }
+    }
+
+    Ok(())
+}
+
+fn load_repository_state(repo_path: &str) -> GitRepositoryState {
+    let has_commits = run_git(repo_path, &["rev-parse", "--verify", "HEAD"]).is_ok();
+    let remote_url = run_git(repo_path, &["remote", "get-url", "origin"]).ok();
+    let upstream = if has_commits {
+        run_git(repo_path, &["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"]).ok()
+    } else {
+        None
+    };
+    let upstream_gone = upstream
+        .as_ref()
+        .is_some_and(|value| run_git(repo_path, &["rev-parse", "--verify", value]).is_err());
+
+    let (ahead, behind) = if has_commits && upstream.is_some() && !upstream_gone {
+        run_git(repo_path, &["rev-list", "--left-right", "--count", "HEAD...@{u}"])
+            .ok()
+            .and_then(|value| {
+                let mut parts = value.split_whitespace();
+                let ahead = parts.next()?.parse::<usize>().ok()?;
+                let behind = parts.next()?.parse::<usize>().ok()?;
+                Some((ahead, behind))
+            })
+            .unwrap_or((0, 0))
+    } else {
+        (0, 0)
+    };
+
+    GitRepositoryState {
+        has_commits,
+        remote_name: remote_url.as_ref().map(|_| "origin".to_string()),
+        remote_url,
+        upstream,
+        upstream_gone,
+        ahead,
+        behind,
+    }
+}
+
 pub fn load_git_snapshot(repo_path: &str) -> Result<GitSnapshot, String> {
     let repo_root = run_git(repo_path, &["rev-parse", "--show-toplevel"])?;
     let branch = run_git(repo_path, &["branch", "--show-current"])?;
+    let repository_state = load_repository_state(repo_path);
     let status_raw = run_git_raw(
     repo_path,
     &["status", "--porcelain=v1", "--untracked-files=all"],
@@ -142,6 +207,7 @@ pub fn load_git_snapshot(repo_path: &str) -> Result<GitSnapshot, String> {
         repo_path: repo_path.to_string(),
         repo_root,
         branch,
+        repository_state,
         status,
         staged_files,
         staged_diff,
@@ -268,6 +334,8 @@ pub fn commit_changes(payload: &GitCommitPayload) -> Result<GitCommandResult, St
         return Err("No files selected for commit".to_string());
     }
 
+    validate_selected_files(&payload.repo_path, &payload.selected_files)?;
+
     let mut stdout = String::new();
     let mut stderr = String::new();
     let mut commands = Vec::new();
@@ -311,12 +379,19 @@ pub fn push_changes(payload: &GitPushPayload) -> Result<GitCommandResult, String
     if branch.trim().is_empty() {
         return Err("Cannot push because current branch is detached".to_string());
     }
+    if run_git(&payload.repo_path, &["rev-parse", "--verify", "HEAD"]).is_err() {
+        return Err("当前仓库还没有首个提交，无法推送。\n\n建议: 请先提交勾选文件，再执行 Push。".to_string());
+    }
+    if run_git(&payload.repo_path, &["remote", "get-url", "origin"]).is_err() {
+        return Err("当前仓库没有配置 origin remote，无法推送。\n\n建议: 请先添加 GitHub 仓库地址，例如 git remote add origin <url>。".to_string());
+    }
 
     let upstream = run_git(&payload.repo_path, &["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"]);
-    let result = if upstream.is_ok() {
-        run_git_capture(&payload.repo_path, &["push"])?
-    } else {
-        run_git_capture(&payload.repo_path, &["push", "-u", "origin", branch.trim()])?
+    let result = match upstream {
+        Ok(value) if run_git(&payload.repo_path, &["rev-parse", "--verify", &value]).is_ok() => {
+            run_git_capture(&payload.repo_path, &["push"])?
+        }
+        _ => run_git_capture(&payload.repo_path, &["push", "-u", "origin", branch.trim()])?,
     };
     let message = if result.stdout.trim().is_empty() {
         "Push completed".to_string()
@@ -361,6 +436,66 @@ pub fn pull_changes(payload: &GitPullPayload) -> Result<GitCommandResult, String
         } else {
             stdout.trim().to_string()
         },
+        stdout,
+        stderr,
+        suggestion: None,
+    })
+}
+
+pub fn configure_origin_remote(payload: &GitConfigureRemotePayload) -> Result<GitCommandResult, String> {
+    let remote_url = payload.remote_url.trim();
+    if remote_url.is_empty() {
+        return Err("Remote URL cannot be empty".to_string());
+    }
+
+    let result = if run_git(&payload.repo_path, &["remote", "get-url", "origin"]).is_ok() {
+        run_git_capture(&payload.repo_path, &["remote", "set-url", "origin", remote_url])?
+    } else {
+        run_git_capture(&payload.repo_path, &["remote", "add", "origin", remote_url])?
+    };
+
+    Ok(GitCommandResult {
+        message: format!("origin configured: {}", remote_url),
+        ..result
+    })
+}
+
+pub fn repair_upstream(payload: &GitRepairUpstreamPayload) -> Result<GitCommandResult, String> {
+    let branch = run_git(&payload.repo_path, &["branch", "--show-current"])?;
+    let branch = branch.trim();
+    if branch.is_empty() {
+        return Err("Cannot repair upstream because current branch is detached".to_string());
+    }
+
+    if run_git(&payload.repo_path, &["remote", "get-url", "origin"]).is_err() {
+        return Err("当前仓库没有配置 origin remote，无法修复 upstream。\n\n建议: 请先添加 GitHub 仓库地址。".to_string());
+    }
+
+    let mut stdout = String::new();
+    let mut stderr = String::new();
+    let mut commands = Vec::new();
+
+    let fetch = run_git_capture(&payload.repo_path, &["fetch", "--prune", "origin"])?;
+    commands.push(fetch.command);
+    stdout.push_str(&fetch.stdout);
+    stderr.push_str(&fetch.stderr);
+
+    let upstream = format!("origin/{}", branch);
+    if run_git(&payload.repo_path, &["rev-parse", "--verify", &upstream]).is_err() {
+        return Err(format!(
+            "远端还没有 {} 分支，无法直接修复 upstream。\n\n建议: 请使用 Push 发布当前分支，系统会自动执行 git push -u origin {}。",
+            branch, branch
+        ));
+    }
+
+    let repair = run_git_capture(&payload.repo_path, &["branch", "--set-upstream-to", &upstream, branch])?;
+    commands.push(repair.command);
+    stdout.push_str(&repair.stdout);
+    stderr.push_str(&repair.stderr);
+
+    Ok(GitCommandResult {
+        command: commands.join("\n"),
+        message: format!("Upstream repaired: {}", upstream),
         stdout,
         stderr,
         suggestion: None,

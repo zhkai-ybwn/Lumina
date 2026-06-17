@@ -1,5 +1,9 @@
 import type { GitFileStatus } from '@/types/git'
-export { GIT_REPO_STORAGE_KEY } from '@/constants/git'
+export {
+  GIT_COMMIT_MESSAGE_HISTORY_STORAGE_KEY,
+  GIT_RECENT_REPOS_STORAGE_KEY,
+  GIT_REPO_STORAGE_KEY,
+} from '@/constants/git'
 import type { GitAssistantStatusFilter } from './git-assistant.types'
 
 export const STATUS_FILTER_OPTIONS: Array<{
