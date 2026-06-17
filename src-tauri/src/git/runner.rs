@@ -7,9 +7,8 @@ use crate::git::models::{
 };
 
 pub fn run_git(repo_path: &str, args: &[&str]) -> Result<String, String> {
-    let output = Command::new("git")
+    let output = git_command(repo_path)
         .args(args)
-        .current_dir(repo_path)
         .output()
         .map_err(|e| format!("执行 git 命令失败 {:?}: {}", args, e))?;
 
@@ -26,9 +25,8 @@ pub fn run_git(repo_path: &str, args: &[&str]) -> Result<String, String> {
 }
 
 pub fn run_git_raw(repo_path: &str, args: &[&str]) -> Result<String, String> {
-    let output = Command::new("git")
+    let output = git_command(repo_path)
         .args(args)
-        .current_dir(repo_path)
         .output()
         .map_err(|e| format!("执行 git 命令失败 {:?}: {}", args, e))?;
 
@@ -45,9 +43,8 @@ pub fn run_git_raw(repo_path: &str, args: &[&str]) -> Result<String, String> {
 }
 
 fn run_git_capture(repo_path: &str, args: &[&str]) -> Result<GitCommandResult, String> {
-    let output = Command::new("git")
+    let output = git_command(repo_path)
         .args(args)
-        .current_dir(repo_path)
         .output()
         .map_err(|e| format!("执行 git 命令失败 {:?}: {}", args, e))?;
     let stdout = String::from_utf8_lossy(&output.stdout).to_string();
@@ -70,6 +67,190 @@ fn run_git_capture(repo_path: &str, args: &[&str]) -> Result<GitCommandResult, S
         stderr,
         suggestion: None,
     })
+}
+
+fn git_command(repo_path: &str) -> Command {
+    let mut command = Command::new("git");
+    command.current_dir(repo_path);
+    apply_git_proxy_env(&mut command, repo_path);
+    command
+}
+
+fn apply_git_proxy_env(command: &mut Command, repo_path: &str) {
+    let proxy = resolve_git_proxy_env(repo_path);
+    set_proxy_env_pair(command, "HTTP_PROXY", "http_proxy", proxy.http.as_deref());
+    set_proxy_env_pair(command, "HTTPS_PROXY", "https_proxy", proxy.https.as_deref());
+    set_proxy_env_pair(command, "ALL_PROXY", "all_proxy", proxy.all.as_deref());
+}
+
+fn set_proxy_env_pair(command: &mut Command, upper: &str, lower: &str, value: Option<&str>) {
+    if let Some(value) = value {
+        command.env(upper, value);
+        command.env(lower, value);
+    }
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+struct GitProxyEnv {
+    http: Option<String>,
+    https: Option<String>,
+    all: Option<String>,
+}
+
+fn resolve_git_proxy_env(_repo_path: &str) -> GitProxyEnv {
+    let mut proxy = GitProxyEnv {
+        http: env_proxy(&["HTTP_PROXY", "http_proxy"]),
+        https: env_proxy(&["HTTPS_PROXY", "https_proxy"]),
+        all: env_proxy(&["ALL_PROXY", "all_proxy"]),
+    };
+
+    if proxy.http.is_none() && proxy.https.is_none() && proxy.all.is_none() {
+        if let Some(system_proxy) = windows_system_proxy() {
+            proxy = system_proxy;
+        }
+    }
+
+    if proxy.https.is_none() {
+        proxy.https = proxy.http.clone().or_else(|| proxy.all.clone());
+    }
+    if proxy.http.is_none() {
+        proxy.http = proxy.https.clone().or_else(|| proxy.all.clone());
+    }
+    if proxy.all.is_none() {
+        proxy.all = proxy.https.clone().or_else(|| proxy.http.clone());
+    }
+
+    proxy
+}
+
+fn env_proxy(keys: &[&str]) -> Option<String> {
+    keys.iter().find_map(|key| {
+        std::env::var(key)
+            .ok()
+            .and_then(|value| normalize_http_proxy_value(&value))
+    })
+}
+
+fn normalize_http_proxy_value(value: &str) -> Option<String> {
+    let value = value.trim();
+    if value.is_empty() {
+        return None;
+    }
+    if value.contains("://") {
+        return Some(value.to_string());
+    }
+
+    Some(format!("http://{}", value))
+}
+
+fn normalize_socks_proxy_value(value: &str) -> Option<String> {
+    let value = value.trim();
+    if value.is_empty() {
+        return None;
+    }
+    if value.contains("://") {
+        return Some(value.to_string());
+    }
+
+    Some(format!("socks5://{}", value))
+}
+
+#[cfg(windows)]
+fn windows_system_proxy() -> Option<GitProxyEnv> {
+    let output = Command::new("reg")
+        .args([
+            "query",
+            r"HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings",
+        ])
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+
+    let text = String::from_utf8_lossy(&output.stdout);
+    let enabled = registry_value(&text, "ProxyEnable")
+        .is_some_and(|value| value == "0x1" || value == "1");
+    if !enabled {
+        return None;
+    }
+
+    registry_value(&text, "ProxyServer")
+        .and_then(|value| proxy_env_from_windows_proxy_server(&value))
+}
+
+#[cfg(not(windows))]
+fn windows_system_proxy() -> Option<GitProxyEnv> {
+    None
+}
+
+fn registry_value(text: &str, name: &str) -> Option<String> {
+    text.lines().find_map(|line| {
+        let line = line.trim();
+        if !line.starts_with(name) {
+            return None;
+        }
+
+        let mut parts = line.split_whitespace();
+        let value_name = parts.next()?;
+        if value_name != name {
+            return None;
+        }
+
+        let _value_type = parts.next()?;
+        let value = parts.collect::<Vec<_>>().join(" ");
+        if value.trim().is_empty() {
+            None
+        } else {
+            Some(value)
+        }
+    })
+}
+
+fn proxy_env_from_windows_proxy_server(value: &str) -> Option<GitProxyEnv> {
+    let value = value.trim();
+    if value.is_empty() {
+        return None;
+    }
+
+    if !value.contains('=') {
+        let proxy = normalize_http_proxy_value(value)?;
+        return Some(GitProxyEnv {
+            http: Some(proxy.clone()),
+            https: Some(proxy.clone()),
+            all: Some(proxy),
+        });
+    }
+
+    let mut proxy = GitProxyEnv::default();
+    for part in value.split(';') {
+        let Some((kind, address)) = part.split_once('=') else {
+            continue;
+        };
+        let kind = kind.trim().to_ascii_lowercase();
+        match kind.as_str() {
+            "http" => proxy.http = normalize_http_proxy_value(address),
+            "https" => proxy.https = normalize_http_proxy_value(address),
+            "socks" => proxy.all = normalize_socks_proxy_value(address),
+            _ => {}
+        }
+    }
+
+    if proxy.https.is_none() {
+        proxy.https = proxy.http.clone().or_else(|| proxy.all.clone());
+    }
+    if proxy.http.is_none() {
+        proxy.http = proxy.https.clone().or_else(|| proxy.all.clone());
+    }
+    if proxy.all.is_none() {
+        proxy.all = proxy.https.clone().or_else(|| proxy.http.clone());
+    }
+
+    if proxy.http.is_none() && proxy.https.is_none() && proxy.all.is_none() {
+        None
+    } else {
+        Some(proxy)
+    }
 }
 
 fn format_command_error(command: &str, stdout: &str, stderr: &str, suggestion: Option<&str>) -> String {
@@ -500,4 +681,45 @@ pub fn repair_upstream(payload: &GitRepairUpstreamPayload) -> Result<GitCommandR
         stderr,
         suggestion: None,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn normalizes_plain_windows_proxy_server() {
+        let proxy = proxy_env_from_windows_proxy_server("127.0.0.1:10808").expect("proxy");
+
+        assert_eq!(proxy.http.as_deref(), Some("http://127.0.0.1:10808"));
+        assert_eq!(proxy.https.as_deref(), Some("http://127.0.0.1:10808"));
+        assert_eq!(proxy.all.as_deref(), Some("http://127.0.0.1:10808"));
+    }
+
+    #[test]
+    fn parses_split_windows_proxy_server() {
+        let proxy = proxy_env_from_windows_proxy_server(
+            "http=127.0.0.1:7890;https=127.0.0.1:7891;socks=127.0.0.1:7892",
+        )
+        .expect("proxy");
+
+        assert_eq!(proxy.http.as_deref(), Some("http://127.0.0.1:7890"));
+        assert_eq!(proxy.https.as_deref(), Some("http://127.0.0.1:7891"));
+        assert_eq!(proxy.all.as_deref(), Some("socks5://127.0.0.1:7892"));
+    }
+
+    #[test]
+    fn parses_registry_values() {
+        let registry_output = r#"
+HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Internet Settings
+    ProxyEnable    REG_DWORD    0x1
+    ProxyServer    REG_SZ    127.0.0.1:10808
+"#;
+
+        assert_eq!(registry_value(registry_output, "ProxyEnable").as_deref(), Some("0x1"));
+        assert_eq!(
+            registry_value(registry_output, "ProxyServer").as_deref(),
+            Some("127.0.0.1:10808")
+        );
+    }
 }
