@@ -1,9 +1,12 @@
+use std::collections::HashMap;
 use std::path::Path;
 use std::process::Command;
 
 use crate::git::models::{
-    GitCommandResult, GitCommitPayload, GitConfigureRemotePayload, GitFileDiffResponse, GitFileStat, GitPullPayload,
-    GitPushPayload, GitRepairUpstreamPayload, GitRepositoryState, GitSnapshot,
+    GitCommandResult, GitCommitChangedFile, GitCommitDetail, GitCommitDetailPayload, GitCommitFileDiffPayload,
+    GitCommitFileDiffResponse, GitCommitPayload, GitConfigureRemotePayload, GitFileActionPayload,
+    GitFileDiffResponse, GitFileStat, GitFilesActionPayload, GitLogEntry, GitLogPayload, GitPullPayload,
+    GitPushPayload, GitRepoPayload, GitRepairUpstreamPayload, GitRepositoryState, GitSnapshot,
 };
 
 pub fn run_git(repo_path: &str, args: &[&str]) -> Result<String, String> {
@@ -25,6 +28,24 @@ pub fn run_git(repo_path: &str, args: &[&str]) -> Result<String, String> {
 }
 
 pub fn run_git_raw(repo_path: &str, args: &[&str]) -> Result<String, String> {
+    let output = git_command(repo_path)
+        .args(args)
+        .output()
+        .map_err(|e| format!("执行 git 命令失败 {:?}: {}", args, e))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        return Err(if stderr.is_empty() {
+            format!("git {:?} 执行失败", args)
+        } else {
+            stderr
+        });
+    }
+
+    Ok(String::from_utf8_lossy(&output.stdout).to_string())
+}
+
+fn run_git_raw_owned(repo_path: &str, args: &[String]) -> Result<String, String> {
     let output = git_command(repo_path)
         .args(args)
         .output()
@@ -485,6 +506,16 @@ pub fn load_file_diff(repo_path: &str, file_path: &str, staged: bool) -> Result<
     })
 }
 
+pub fn load_file_head_diff(payload: &GitFileActionPayload) -> Result<GitFileDiffResponse, String> {
+    let diff = load_selected_file_diff(&payload.repo_path, &payload.file_path)?;
+
+    Ok(GitFileDiffResponse {
+        file_path: payload.file_path.clone(),
+        staged: false,
+        diff,
+    })
+}
+
 pub fn load_selected_file_diff(repo_path: &str, file_path: &str) -> Result<String, String> {
     let unstaged = run_git_raw(repo_path, &["diff", "--unified=3", "--no-color", "--", file_path])?;
     let staged = run_git_raw(repo_path, &["diff", "--cached", "--unified=3", "--no-color", "--", file_path])?;
@@ -647,6 +678,19 @@ pub fn pull_changes(payload: &GitPullPayload) -> Result<GitCommandResult, String
     })
 }
 
+pub fn fetch_changes(payload: &GitRepoPayload) -> Result<GitCommandResult, String> {
+    let result = run_git_capture(&payload.repo_path, &["fetch", "--prune"])?;
+
+    Ok(GitCommandResult {
+        message: if result.stdout.trim().is_empty() {
+            "Fetch completed".to_string()
+        } else {
+            result.stdout.trim().to_string()
+        },
+        ..result
+    })
+}
+
 pub fn configure_origin_remote(payload: &GitConfigureRemotePayload) -> Result<GitCommandResult, String> {
     let remote_url = payload.remote_url.trim();
     if remote_url.is_empty() {
@@ -704,6 +748,232 @@ pub fn repair_upstream(payload: &GitRepairUpstreamPayload) -> Result<GitCommandR
         stdout,
         stderr,
         suggestion: None,
+    })
+}
+
+pub fn open_file_external(payload: &GitFileActionPayload) -> Result<GitCommandResult, String> {
+    let file_path = payload.file_path.trim();
+    if file_path.is_empty() {
+        return Err("文件路径为空，无法打开外部编辑器。".to_string());
+    }
+
+    let target_path = Path::new(&payload.repo_path).join(file_path);
+    if !target_path.exists() {
+        return Err(format!("文件不存在，无法打开外部编辑器: {}", file_path));
+    }
+
+    let (program, mut command) = if cfg!(target_os = "windows") {
+        ("explorer", Command::new("explorer"))
+    } else if cfg!(target_os = "macos") {
+        ("open", Command::new("open"))
+    } else {
+        ("xdg-open", Command::new("xdg-open"))
+    };
+
+    command
+        .arg(&target_path)
+        .spawn()
+        .map_err(|e| format!("打开外部编辑器失败 {}: {}", file_path, e))?;
+
+    Ok(GitCommandResult {
+        command: format!("{} {}", program, target_path.display()),
+        message: format!("已打开外部编辑器: {}", file_path),
+        stdout: String::new(),
+        stderr: String::new(),
+        suggestion: None,
+    })
+}
+
+pub fn mark_files_resolved(payload: &GitFilesActionPayload) -> Result<GitCommandResult, String> {
+    let files = payload
+        .file_paths
+        .iter()
+        .map(|file| file.trim())
+        .filter(|file| !file.is_empty())
+        .collect::<Vec<_>>();
+
+    if files.is_empty() {
+        return Err("请选择需要标记为已解决的冲突文件。".to_string());
+    }
+
+    let mut stdout = String::new();
+    let mut stderr = String::new();
+    let mut commands = Vec::new();
+
+    for file in files {
+        let result = run_git_capture(&payload.repo_path, &["add", "-A", "--", file])?;
+        commands.push(result.command);
+        stdout.push_str(&result.stdout);
+        stderr.push_str(&result.stderr);
+    }
+
+    Ok(GitCommandResult {
+        command: commands.join("\n"),
+        message: "冲突文件已标记为已解决".to_string(),
+        stdout,
+        stderr,
+        suggestion: None,
+    })
+}
+
+pub fn abort_merge(payload: &GitRepoPayload) -> Result<GitCommandResult, String> {
+    let result = run_git_capture(&payload.repo_path, &["merge", "--abort"])?;
+
+    Ok(GitCommandResult {
+        message: "Merge 已中止".to_string(),
+        ..result
+    })
+}
+
+pub fn load_git_log(payload: &GitLogPayload) -> Result<Vec<GitLogEntry>, String> {
+    if run_git(&payload.repo_path, &["rev-parse", "--verify", "HEAD"]).is_err() {
+        return Ok(vec![]);
+    }
+
+    let mut args = vec![
+        "log".to_string(),
+        "--max-count=1000".to_string(),
+        "--date=iso-strict".to_string(),
+        "--pretty=format:%H%x1f%h%x1f%an%x1f%ae%x1f%ad%x1f%s".to_string(),
+    ];
+
+    if let Some(file_path) = payload
+        .file_path
+        .as_ref()
+        .map(|file| file.trim())
+        .filter(|file| !file.is_empty())
+    {
+        args.push("--follow".to_string());
+        args.push("--".to_string());
+        args.push(file_path.to_string());
+    }
+
+    let raw = run_git_raw_owned(&payload.repo_path, &args)?;
+
+    Ok(raw
+        .lines()
+        .filter_map(parse_log_line)
+        .collect::<Vec<_>>())
+}
+
+pub fn load_git_commit_detail(payload: &GitCommitDetailPayload) -> Result<GitCommitDetail, String> {
+    let hash = payload.hash.trim();
+    if hash.is_empty() {
+        return Err("Commit hash cannot be empty".to_string());
+    }
+
+    let meta = run_git_raw(
+        &payload.repo_path,
+        &[
+            "show",
+            "-s",
+            "--date=iso-strict",
+            "--pretty=format:%H%x1f%h%x1f%an%x1f%ae%x1f%ad%x1f%s%x1f%b",
+            hash,
+        ],
+    )?;
+    let mut parts = meta.splitn(7, '\x1f');
+    let changed_files_raw = run_git_raw(&payload.repo_path, &["show", "--format=", "--name-status", "-M", hash])?;
+    let numstat_raw = run_git_raw(&payload.repo_path, &["show", "--format=", "--numstat", "-M", hash])?;
+    let file_stats = parse_commit_numstat(&numstat_raw);
+    let short_stat = run_git_raw(&payload.repo_path, &["show", "--format=", "--shortstat", hash])?;
+
+    Ok(GitCommitDetail {
+        hash: parts.next().unwrap_or_default().to_string(),
+        short_hash: parts.next().unwrap_or_default().to_string(),
+        author_name: parts.next().unwrap_or_default().to_string(),
+        author_email: parts.next().unwrap_or_default().to_string(),
+        date: parts.next().unwrap_or_default().to_string(),
+        subject: parts.next().unwrap_or_default().to_string(),
+        body: parts.next().unwrap_or_default().trim().to_string(),
+        short_stat: short_stat.trim().to_string(),
+        changed_files: changed_files_raw
+            .lines()
+            .filter_map(|line| parse_commit_changed_file(line, &file_stats))
+            .collect::<Vec<_>>(),
+    })
+}
+
+pub fn load_git_commit_file_diff(payload: &GitCommitFileDiffPayload) -> Result<GitCommitFileDiffResponse, String> {
+    let hash = payload.hash.trim();
+    let file_path = payload.file_path.trim();
+    if hash.is_empty() {
+        return Err("Commit hash cannot be empty".to_string());
+    }
+    if file_path.is_empty() {
+        return Err("File path cannot be empty".to_string());
+    }
+
+    let diff = run_git_raw(
+        &payload.repo_path,
+        &["show", "--format=", "--unified=3", "--no-color", hash, "--", file_path],
+    )?;
+
+    Ok(GitCommitFileDiffResponse {
+        hash: hash.to_string(),
+        file_path: file_path.to_string(),
+        diff,
+    })
+}
+
+fn parse_log_line(line: &str) -> Option<GitLogEntry> {
+    let mut parts = line.splitn(6, '\x1f');
+    Some(GitLogEntry {
+        hash: parts.next()?.to_string(),
+        short_hash: parts.next()?.to_string(),
+        author_name: parts.next()?.to_string(),
+        author_email: parts.next()?.to_string(),
+        date: parts.next()?.to_string(),
+        subject: parts.next()?.to_string(),
+    })
+}
+
+fn parse_commit_numstat(raw: &str) -> HashMap<String, (Option<usize>, Option<usize>)> {
+    raw.lines()
+        .filter_map(|line| {
+            let mut parts = line.split('\t');
+            let added = parse_optional_line_count(parts.next()?);
+            let removed = parse_optional_line_count(parts.next()?);
+            let path = parts.next()?.to_string();
+            Some((path, (added, removed)))
+        })
+        .collect()
+}
+
+fn parse_optional_line_count(value: &str) -> Option<usize> {
+    value.parse::<usize>().ok()
+}
+
+fn parse_commit_changed_file(
+    line: &str,
+    file_stats: &HashMap<String, (Option<usize>, Option<usize>)>,
+) -> Option<GitCommitChangedFile> {
+    let parts = line.split('\t').collect::<Vec<_>>();
+    let status = parts.first()?.trim();
+    if status.is_empty() {
+        return None;
+    }
+
+    if status.starts_with('R') || status.starts_with('C') {
+        let path = parts.get(2).unwrap_or(parts.get(1)?).to_string();
+        let (added, removed) = file_stats.get(&path).copied().unwrap_or((None, None));
+        return Some(GitCommitChangedFile {
+            status: status.to_string(),
+            original_path: parts.get(1).map(|path| (*path).to_string()),
+            path,
+            added,
+            removed,
+        });
+    }
+
+    let path = parts.get(1)?.to_string();
+    let (added, removed) = file_stats.get(&path).copied().unwrap_or((None, None));
+    Some(GitCommitChangedFile {
+        status: status.to_string(),
+        path,
+        original_path: None,
+        added,
+        removed,
     })
 }
 
@@ -782,6 +1052,19 @@ HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Internet Settings
             registry_value(registry_output, "ProxyServer").as_deref(),
             Some("127.0.0.1:10808")
         );
+    }
+
+    #[test]
+    fn parses_commit_changed_file_rename() {
+        let mut stats = HashMap::new();
+        stats.insert("src/new.ts".to_string(), (Some(2), Some(1)));
+        let parsed = parse_commit_changed_file("R100\tsrc/old.ts\tsrc/new.ts", &stats).expect("changed file");
+
+        assert_eq!(parsed.status, "R100");
+        assert_eq!(parsed.original_path.as_deref(), Some("src/old.ts"));
+        assert_eq!(parsed.path, "src/new.ts");
+        assert_eq!(parsed.added, Some(2));
+        assert_eq!(parsed.removed, Some(1));
     }
 
     #[test]

@@ -1,15 +1,12 @@
 <template>
   <section class="status-bar">
     <div class="status-bar__main">
-      <div class="context-pill mono" :title="repoPath || t('gitAssistant.repo.emptyPath')">
-        <span class="context-label">{{ t('gitAssistant.repo.currentRepoShort') }}</span>
-        <span class="context-value">{{ repoName || t('gitAssistant.repo.emptyPath') }}</span>
-      </div>
-
-      <div class="recent-repo-field" :title="repoPath || t('gitAssistant.repo.emptyPath')">
-        <span>{{ t('gitAssistant.repo.recentRepos') }}</span>
-        <strong>{{ currentRecentLabel }}</strong>
-        <button class="recent-repo-manage" type="button" :title="t('gitAssistant.repo.recentRepoManage')" @click="$emit('manage-repos')">
+      <div class="repo-switcher" :title="repoPath || t('gitAssistant.repo.emptyPath')">
+        <button class="repo-switcher__main" type="button" @click="$emit('manage-repos')">
+          <span>{{ t('gitAssistant.repo.currentRepoShort') }}</span>
+          <strong>{{ currentRecentLabel }}</strong>
+        </button>
+        <button class="repo-switcher__manage" type="button" :title="t('gitAssistant.repo.recentRepoManage')" @click="$emit('manage-repos')">
           <Icon icon="solar:settings-linear" />
         </button>
       </div>
@@ -35,6 +32,10 @@
         <span>{{ t('gitAssistant.repo.summaryUntracked') }}</span>
         <strong>{{ summary.untracked }}</strong>
       </div>
+      <div v-if="summary.conflicted" class="metric-pill metric-pill--danger">
+        <span>{{ t('gitAssistant.repo.summaryConflicted') }}</span>
+        <strong>{{ summary.conflicted }}</strong>
+      </div>
       <div class="metric-pill metric-pill--accent">
         <span>{{ t('gitAssistant.repo.summaryRecommended') }}</span>
         <strong>{{ recommendedCount }}</strong>
@@ -48,6 +49,9 @@
       </span>
       <button class="tool-btn" :disabled="pullDisabled" @click="$emit('pull')">
         {{ pulling ? t('gitAssistant.ai.pulling') : t('gitAssistant.ai.pull') }}
+      </button>
+      <button class="tool-btn" :disabled="fetchDisabled" @click="$emit('fetch')">
+        {{ fetching ? t('gitAssistant.ai.fetching') : t('gitAssistant.ai.fetch') }}
       </button>
       <button class="tool-btn" :disabled="pushDisabled" @click="$emit('push')">
         {{ pushing ? t('gitAssistant.ai.pushing') : t('gitAssistant.ai.push') }}
@@ -70,6 +74,7 @@ const props = defineProps<{
   repoPath: string
   branch: string
   loading: boolean
+  fetching: boolean
   pushing: boolean
   pulling: boolean
   summary: GitAssistantSummary
@@ -81,6 +86,7 @@ const props = defineProps<{
 defineEmits<{
   (e: 'pick-directory'): void
   (e: 'refresh'): void
+  (e: 'fetch'): void
   (e: 'pull'): void
   (e: 'push'): void
   (e: 'manage-repos'): void
@@ -120,10 +126,13 @@ const syncTone = computed(() => {
 })
 
 const pushDisabled = computed(() =>
-  props.pushing || props.pulling || props.loading || !props.repositoryState?.hasCommits || !props.repositoryState.remoteName,
+  props.pushing || props.pulling || props.fetching || props.loading || !props.repositoryState?.hasCommits || !props.repositoryState.remoteName,
 )
 const pullDisabled = computed(() =>
-  props.pulling || props.pushing || props.loading || !props.repositoryState?.upstream || props.repositoryState.upstreamGone,
+  props.pulling || props.pushing || props.fetching || props.loading || !props.repositoryState?.upstream || props.repositoryState.upstreamGone,
+)
+const fetchDisabled = computed(() =>
+  props.fetching || props.pulling || props.pushing || props.loading || !props.repositoryState?.remoteName,
 )
 
 export interface RecentGitRepo {
@@ -169,7 +178,7 @@ function normalizePath(path: string) {
 }
 
 .context-pill,
-.recent-repo-field,
+.repo-switcher,
 .metric-pill,
 .tool-btn,
 .sync-pill {
@@ -180,7 +189,6 @@ function normalizePath(path: string) {
 }
 
 .context-pill,
-.recent-repo-field,
 .metric-pill {
   align-items: center;
   background: color-mix(in srgb, var(--lumina-surface-3) 82%, transparent);
@@ -229,13 +237,29 @@ function normalizePath(path: string) {
   min-width: 0;
 }
 
-.recent-repo-field {
+.repo-switcher {
   align-items: center;
+  background: color-mix(in srgb, var(--lumina-surface-3) 82%, transparent);
   display: inline-flex;
+  max-width: 320px;
+  min-width: 230px;
+  overflow: hidden;
+  padding: 0 4px 0 0;
+}
+
+.repo-switcher__main {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  flex: 1;
   gap: 8px;
-  max-width: 280px;
-  min-width: 220px;
-  padding: 0 4px 0 10px;
+  height: 100%;
+  min-width: 0;
+  padding: 0 6px 0 10px;
+  text-align: left;
 
   span {
     color: var(--lumina-text-secondary);
@@ -251,9 +275,13 @@ function normalizePath(path: string) {
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+
+  &:hover {
+    background: color-mix(in srgb, var(--lumina-button-secondary-hover) 70%, transparent);
+  }
 }
 
-.recent-repo-manage {
+.repo-switcher__manage {
   align-items: center;
   background: transparent;
   border: 0;
@@ -297,6 +325,15 @@ function normalizePath(path: string) {
 
 .metric-pill--accent {
   background: var(--lumina-primary-soft);
+}
+
+.metric-pill--danger {
+  background: color-mix(in srgb, var(--lumina-danger) 12%, transparent);
+  color: var(--lumina-danger);
+
+  strong {
+    color: var(--lumina-danger);
+  }
 }
 
 .tool-btn {

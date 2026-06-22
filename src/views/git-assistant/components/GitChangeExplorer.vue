@@ -31,6 +31,9 @@
       <button type="button" @click="$emit('set-review-selection', modifiedRaws)">
         {{ t('gitAssistant.files.filters.modified') }}
       </button>
+      <button type="button" @click="$emit('set-review-selection', conflictedRaws)">
+        {{ t('gitAssistant.files.filters.conflicted') }}
+      </button>
       <button type="button" @click="$emit('set-review-selection', visibleRaws)">
         {{ t('gitAssistant.files.filters.files') }}
       </button>
@@ -66,6 +69,7 @@
         class="file-row"
         :class="{ active: activeFileRaw === file.raw }"
         :style="gridStyle"
+        @contextmenu.prevent="handleFileContextMenu(file.raw, $event)"
         @dblclick="$emit('open-diff', file.raw)"
         @click="$emit('select-file', file.raw)"
       >
@@ -95,11 +99,23 @@
         <div class="score-cell">{{ file.score }}</div>
       </div>
     </div>
+
+    <NDropdown
+      trigger="manual"
+      placement="bottom-start"
+      :show="contextMenu.show"
+      :x="contextMenu.x"
+      :y="contextMenu.y"
+      :options="contextMenuOptions"
+      @clickoutside="contextMenu.show = false"
+      @select="handleContextMenuSelect"
+    />
   </section>
 </template>
 
 <script setup lang="ts">
 import { computed, onUnmounted, reactive, ref, watchEffect } from 'vue'
+import { NDropdown } from 'naive-ui'
 import { useLocale } from '@/hooks/useLocale'
 import { STATUS_META } from '../git-assistant.config'
 import type {
@@ -122,12 +138,13 @@ const props = defineProps<{
   reviewSelectedRaws: string[]
 }>()
 
-defineEmits<{
+const emit = defineEmits<{
   (e: 'update:keyword', value: string): void
   (e: 'update:status-filter', value: string): void
   (e: 'update:recommended-only', value: boolean): void
   (e: 'select-file', raw: string): void
   (e: 'open-diff', raw: string): void
+  (e: 'file-action', payload: { action: 'open-diff' | 'diff-previous' | 'file-history' | 'open-external' | 'mark-resolved'; raw: string }): void
   (e: 'toggle-review-selection', payload: { raw: string; checked: boolean }): void
   (e: 'set-review-selection', raws: string[]): void
 }>()
@@ -146,7 +163,14 @@ const versionedRaws = computed(() => visibleFiles.value.filter(file => file.type
 const addedRaws = computed(() => visibleFiles.value.filter(file => file.type === 'added').map(file => file.raw))
 const deletedRaws = computed(() => visibleFiles.value.filter(file => file.type === 'deleted').map(file => file.raw))
 const modifiedRaws = computed(() => visibleFiles.value.filter(file => file.type === 'modified').map(file => file.raw))
+const conflictedRaws = computed(() => visibleFiles.value.filter(file => file.type === 'updated-but-unmerged').map(file => file.raw))
 const headerCheckbox = ref<HTMLInputElement | null>(null)
+const contextFileRaw = ref('')
+const contextMenu = reactive({
+  show: false,
+  x: 0,
+  y: 0,
+})
 const columnWidths = reactive({
   path: 620,
   extension: 104,
@@ -170,6 +194,44 @@ type ResizableColumnKey = keyof typeof columnWidths
 const gridStyle = computed(() => ({
   gridTemplateColumns: `34px minmax(160px, ${columnWidths.path}px) ${columnWidths.extension}px ${columnWidths.status}px ${columnWidths.added}px ${columnWidths.removed}px ${columnWidths.score}px`,
 }))
+const contextFile = computed(() => visibleFiles.value.find(file => file.raw === contextFileRaw.value) ?? null)
+const contextMenuOptions = computed(() => [
+  {
+    label: t('gitAssistant.files.menu.openDiff'),
+    key: 'open-diff',
+  },
+  {
+    label: t('gitAssistant.files.menu.diffPrevious'),
+    key: 'diff-previous',
+    disabled: contextFile.value?.type === 'untracked',
+  },
+  {
+    label: t('gitAssistant.files.menu.fileHistory'),
+    key: 'file-history',
+  },
+  {
+    label: t('gitAssistant.files.menu.openExternal'),
+    key: 'open-external',
+    disabled: contextFile.value?.type === 'deleted',
+  },
+  {
+    type: 'divider',
+    key: 'divider-conflict',
+  },
+  {
+    label: t('gitAssistant.files.menu.markResolved'),
+    key: 'mark-resolved',
+    disabled: contextFile.value?.type !== 'updated-but-unmerged',
+  },
+  {
+    type: 'divider',
+    key: 'divider-path',
+  },
+  {
+    label: t('gitAssistant.files.menu.copyPath'),
+    key: 'copy-path',
+  },
+])
 
 watchEffect(() => {
   if (headerCheckbox.value) {
@@ -210,6 +272,29 @@ function getColumnMinWidth(column: ResizableColumnKey) {
   if (column === 'added' || column === 'removed') return 104
   if (column === 'extension' || column === 'status') return 92
   return 64
+}
+
+function handleFileContextMenu(raw: string, event: MouseEvent) {
+  contextFileRaw.value = raw
+  contextMenu.x = event.clientX
+  contextMenu.y = event.clientY
+  contextMenu.show = true
+  emit('select-file', raw)
+}
+
+function handleContextMenuSelect(key: string | number) {
+  const file = contextFile.value
+  contextMenu.show = false
+  if (!file) return
+
+  if (key === 'copy-path') {
+    void navigator.clipboard?.writeText(file.path)
+    return
+  }
+
+  if (key === 'open-diff' || key === 'diff-previous' || key === 'file-history' || key === 'open-external' || key === 'mark-resolved') {
+    emit('file-action', { action: key, raw: file.raw })
+  }
 }
 
 onUnmounted(stopColumnResize)

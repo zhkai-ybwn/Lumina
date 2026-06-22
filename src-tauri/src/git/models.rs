@@ -83,6 +83,48 @@ pub struct GitRepairUpstreamPayload {
     pub repo_path: String,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GitFileActionPayload {
+    pub repo_path: String,
+    pub file_path: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GitFilesActionPayload {
+    pub repo_path: String,
+    pub file_paths: Vec<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GitRepoPayload {
+    pub repo_path: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GitLogPayload {
+    pub repo_path: String,
+    pub file_path: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GitCommitDetailPayload {
+    pub repo_path: String,
+    pub hash: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GitCommitFileDiffPayload {
+    pub repo_path: String,
+    pub hash: String,
+    pub file_path: String,
+}
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GitCommandResult {
@@ -91,6 +133,49 @@ pub struct GitCommandResult {
     pub stdout: String,
     pub stderr: String,
     pub suggestion: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GitLogEntry {
+    pub hash: String,
+    pub short_hash: String,
+    pub author_name: String,
+    pub author_email: String,
+    pub date: String,
+    pub subject: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GitCommitChangedFile {
+    pub status: String,
+    pub path: String,
+    pub original_path: Option<String>,
+    pub added: Option<usize>,
+    pub removed: Option<usize>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GitCommitDetail {
+    pub hash: String,
+    pub short_hash: String,
+    pub author_name: String,
+    pub author_email: String,
+    pub date: String,
+    pub subject: String,
+    pub body: String,
+    pub short_stat: String,
+    pub changed_files: Vec<GitCommitChangedFile>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GitCommitFileDiffResponse {
+    pub hash: String,
+    pub file_path: String,
+    pub diff: String,
 }
 
 #[derive(Debug, Deserialize)]

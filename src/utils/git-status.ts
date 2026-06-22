@@ -39,6 +39,7 @@ export function parseGitStatusLine(line: string): GitFileStatus {
   const x = line[0] ?? ' '
   const y = line[1] ?? ' '
   const body = line.slice(3)
+  const unmerged = isUnmergedStatus(x, y)
 
   // 处理 rename: old -> new
   if ((x === 'R' || y === 'R') && body.includes(' -> ')) {
@@ -54,6 +55,18 @@ export function parseGitStatusLine(line: string): GitFileStatus {
       type,
       staged: x !== ' ',
       unstaged: y !== ' ',
+    }
+  }
+
+  if (unmerged) {
+    return {
+      raw,
+      x,
+      y,
+      path: body,
+      type: 'updated-but-unmerged',
+      staged: false,
+      unstaged: true,
     }
   }
 
@@ -73,4 +86,8 @@ export function parseGitStatusLine(line: string): GitFileStatus {
 
 export function parseGitStatusList(lines: string[]): GitFileStatus[] {
   return lines.filter(line => !!line).map(line => parseGitStatusLine(line))
+}
+
+function isUnmergedStatus(x: string, y: string) {
+  return ['DD', 'AU', 'UD', 'UA', 'DU', 'AA', 'UU'].includes(`${x}${y}`)
 }

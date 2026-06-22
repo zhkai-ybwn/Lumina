@@ -8,6 +8,7 @@
       :repo-path="displayRepoPath"
       :branch="snapshot?.branch ?? ''"
       :loading="loading"
+      :fetching="fetchLoading"
       :pushing="pushLoading"
       :pulling="pullLoading"
       :summary="summary"
@@ -16,6 +17,7 @@
       :recent-repos="recentRepos"
       @pick-directory="handlePickDirectory"
       @refresh="handleRefresh"
+      @fetch="handleFetch"
       @push="handlePush"
       @pull="handlePull"
       @manage-repos="recentRepoManagerOpen = true"
@@ -100,6 +102,33 @@
             <p>{{ remoteToolHint }}</p>
           </section>
 
+          <section v-if="conflictedFiles.length" class="conflict-tools">
+            <div class="conflict-tools__header">
+              <span>{{ t('gitAssistant.conflict.title') }}</span>
+              <strong>{{ t('gitAssistant.conflict.count', { count: conflictedFiles.length }) }}</strong>
+            </div>
+            <p>{{ t('gitAssistant.conflict.description') }}</p>
+            <div class="conflict-tools__actions">
+              <NButton
+                size="small"
+                type="primary"
+                :disabled="!selectedConflictedFiles.length || conflictLoading"
+                @click="handleMarkSelectedResolved"
+              >
+                {{ t('gitAssistant.conflict.markSelectedResolved') }}
+              </NButton>
+              <NButton
+                size="small"
+                type="error"
+                tertiary
+                :disabled="conflictLoading"
+                @click="handleAbortMerge"
+              >
+                {{ t('gitAssistant.conflict.abortMerge') }}
+              </NButton>
+            </div>
+          </section>
+
           <div class="ai-actions">
             <button class="ai-action primary-action" type="button" :disabled="!snapshot || aiLoading" @click="handleGenerateAiAnalysis">
               {{ aiLoading ? t('gitAssistant.ai.generating') : t('gitAssistant.ai.generate') }}
@@ -109,6 +138,9 @@
             </button>
             <button class="ai-action" type="button" :disabled="!filteredCommitMessageHistory.length" @click="historyDrawerOpen = true">
               {{ t('gitAssistant.history.open') }}
+            </button>
+            <button class="ai-action" type="button" :disabled="!snapshot || logLoading" @click="handleOpenLog()">
+              {{ logLoading ? t('gitAssistant.log.loading') : t('gitAssistant.log.open') }}
             </button>
           </div>
           <div v-if="aiLoading" class="ai-progress">
@@ -139,6 +171,7 @@
         @update:recommended-only="recommendedOnly = $event"
         @select-file="handleSelectFile"
         @open-diff="handleOpenDiff"
+        @file-action="handleFileAction"
         @toggle-review-selection="toggleReviewSelection"
         @set-review-selection="setReviewSelection"
       />
@@ -156,6 +189,22 @@
             :loading="diffLoading"
             :current-mode="diffMode"
             @update:mode="diffMode = $event"
+          />
+        </section>
+      </NModal>
+
+      <NModal v-model:show="showLogFileDiff" class="diff-modal" :mask-closable="true">
+        <section class="diff-dialog">
+          <button class="modal-close-button" type="button" :aria-label="t('gitAssistant.prompt.close')" @click="showLogFileDiff = false">
+            &times;
+          </button>
+          <GitDiffViewer
+            class="diff-window"
+            :has-snapshot="Boolean(snapshot)"
+            :active-file="logDiffFileView"
+            :diff-text="logFileDiff"
+            :loading="logFileDiffLoading"
+            current-mode="head"
           />
         </section>
       </NModal>
@@ -196,6 +245,130 @@
           <div v-else class="recent-repo-empty">
             {{ t('gitAssistant.repo.recentRepoEmpty') }}
           </div>
+        </section>
+      </NModal>
+
+      <NModal v-model:show="gitLogOpen" class="git-log-modal" :mask-closable="true">
+        <section class="git-log-dialog">
+          <button class="modal-close-button" type="button" :aria-label="t('gitAssistant.prompt.close')" @click="gitLogOpen = false">
+            &times;
+          </button>
+          <header class="git-log-dialog__header">
+            <div class="git-log-title">
+              <strong>{{ gitLogFilePath ? t('gitAssistant.log.fileTitle') : t('gitAssistant.log.title') }}</strong>
+              <span>{{ gitLogFilePath || snapshot?.branch || '' }}</span>
+            </div>
+            <div class="git-log-toolbar">
+              <NDatePicker
+                v-model:value="logDateFrom"
+                class="git-log-date"
+                type="date"
+                size="small"
+                clearable
+                :placeholder="t('gitAssistant.log.from')"
+              />
+              <NDatePicker
+                v-model:value="logDateTo"
+                class="git-log-date"
+                type="date"
+                size="small"
+                clearable
+                :placeholder="t('gitAssistant.log.to')"
+              />
+              <NInput
+                v-model:value="logKeyword"
+                class="git-log-search"
+                size="small"
+                clearable
+                :placeholder="t('gitAssistant.log.searchPlaceholder')"
+              />
+              <NSelect
+                v-model:value="logAuthorFilter"
+                class="git-log-author"
+                size="small"
+                :consistent-menu-width="false"
+                :options="logAuthorOptions"
+              />
+              <span class="git-log-count">{{ t('gitAssistant.log.visibleCount', { count: filteredGitLogEntries.length, total: gitLogEntries.length }) }}</span>
+            </div>
+          </header>
+          <section v-if="logLoading" class="git-log-empty">
+            {{ t('gitAssistant.log.loading') }}
+          </section>
+          <section v-else-if="!gitLogEntries.length" class="git-log-empty">
+            {{ t('gitAssistant.log.empty') }}
+          </section>
+          <section v-else-if="!filteredGitLogEntries.length" class="git-log-empty">
+            {{ t('gitAssistant.log.noMatch') }}
+          </section>
+          <section v-else class="git-log-content">
+            <section class="git-log-revision-table">
+              <div class="git-log-table-head">
+                <span>{{ t('gitAssistant.log.columnGraph') }}</span>
+                <span>{{ t('gitAssistant.log.columnMessage') }}</span>
+                <span>{{ t('gitAssistant.log.columnAuthor') }}</span>
+                <span>{{ t('gitAssistant.log.columnDate') }}</span>
+                <span>{{ t('gitAssistant.log.columnHash') }}</span>
+              </div>
+              <button
+                v-for="entry in filteredGitLogEntries"
+                :key="entry.hash"
+                class="git-log-row"
+                :class="{ active: activeLogHash === entry.hash }"
+                type="button"
+                @click="handleSelectLogEntry(entry.hash)"
+              >
+                <span class="git-log-graph"><i></i></span>
+                <strong>{{ entry.subject }}</strong>
+                <span>{{ entry.authorName }}</span>
+                <span>{{ formatLogDate(entry.date) }}</span>
+                <code>{{ entry.shortHash }}</code>
+              </button>
+            </section>
+
+            <section class="git-log-selected">
+              <template v-if="gitLogDetail">
+                <div class="git-log-selected__summary">
+                  <div>
+                    <div class="git-log-selected__sha mono">SHA-1: {{ gitLogDetail.hash }}</div>
+                    <strong>{{ gitLogDetail.subject }}</strong>
+                  </div>
+                  <span>{{ gitLogDetail.authorName }} &lt;{{ gitLogDetail.authorEmail }}&gt; · {{ formatLogDate(gitLogDetail.date) }}</span>
+                  <small>{{ gitLogDetail.shortStat || t('gitAssistant.log.changedFiles') }}</small>
+                </div>
+                <pre v-if="gitLogDetail.body" class="git-log-selected__body">{{ gitLogDetail.body }}</pre>
+              </template>
+              <div v-else class="git-log-empty git-log-empty--compact">
+                {{ logDetailLoading ? t('gitAssistant.log.detailLoading') : t('gitAssistant.log.selectCommit') }}
+              </div>
+            </section>
+
+            <section class="git-log-bottom">
+              <section class="git-log-file-table">
+                <div class="git-log-file-head">
+                  <span>{{ t('gitAssistant.log.columnPath') }}</span>
+                  <span>{{ t('gitAssistant.log.columnExtension') }}</span>
+                  <span>{{ t('gitAssistant.log.columnStatus') }}</span>
+                  <span>{{ t('gitAssistant.log.columnAdded') }}</span>
+                  <span>{{ t('gitAssistant.log.columnRemoved') }}</span>
+                </div>
+                <button
+                  v-for="file in gitLogDetail?.changedFiles ?? []"
+                  :key="`${file.status}-${file.path}`"
+                  class="git-log-file-row"
+                  :class="{ active: activeLogFilePath === file.path }"
+                  type="button"
+                  @click="handleOpenLogFileDiff(file)"
+                >
+                  <span class="mono" :title="file.path">{{ file.path }}</span>
+                  <span>{{ getFileExtension(file.path) || '-' }}</span>
+                  <span>{{ file.status }}</span>
+                  <span class="added-lines">{{ formatCommitLineCount(file.added) }}</span>
+                  <span class="removed-lines">{{ formatCommitLineCount(file.removed) }}</span>
+                </button>
+              </section>
+            </section>
+          </section>
         </section>
       </NModal>
     </section>
@@ -330,9 +503,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, defineAsyncComponent, onMounted, ref, watch } from 'vue'
 import { open } from '@tauri-apps/plugin-dialog'
-import { NButton, NCheckbox, NInput, NModal, NSelect } from 'naive-ui'
+import { NButton, NCheckbox, NDatePicker, NInput, NModal, NSelect } from 'naive-ui'
 import { useLocale } from '@/hooks/useLocale'
 import {
   buildGitCommitPrompt,
@@ -341,11 +514,22 @@ import {
   type GitCommitPromptPreview,
 } from '@/services/git/git-ai-service'
 import {
+  abortGitMerge,
   commitGitChanges,
   configureGitOrigin,
+  fetchGitChanges,
   type GitCommandResult,
+  type GitCommitChangedFile,
+  type GitCommitDetail,
+  type GitLogEntry,
+  loadGitCommitDetail,
+  loadGitCommitFileDiff,
+  loadGitFileHeadDiff,
+  loadGitLog,
   loadGitFileDiff,
   loadGitSnapshot,
+  markGitFilesResolved,
+  openGitFileExternal,
   pullGitChanges,
   pushGitChanges,
   repairGitUpstream,
@@ -358,7 +542,6 @@ import { parseGitStatusList } from '@/utils/git-status'
 import GitChangeExplorer from './components/GitChangeExplorer.vue'
 import GitCommandDialog from './components/GitCommandDialog.vue'
 import GitCommitAssistant from './components/GitCommitAssistant.vue'
-import GitDiffViewer from './components/GitDiffViewer.vue'
 import GitStatusBar from './components/GitStatusBar.vue'
 import {
   ATTENTION_SCORE_CONFIG,
@@ -372,17 +555,31 @@ import type {
   GitAssistantStatusFilter,
 } from './git-assistant.types'
 
+const GitDiffViewer = defineAsyncComponent(() => import('./components/GitDiffViewer.vue'))
+
 const loading = ref(false)
 const diffLoading = ref(false)
 const aiLoading = ref(false)
 const commitLoading = ref(false)
+const fetchLoading = ref(false)
 const pushLoading = ref(false)
 const pullLoading = ref(false)
 const remoteLoading = ref(false)
+const conflictLoading = ref(false)
+const logLoading = ref(false)
 const error = ref('')
 const repoPath = ref('')
 const snapshot = ref<GitSnapshot | null>(null)
 const recentRepos = ref<RecentGitRepo[]>([])
+const gitLogEntries = ref<GitLogEntry[]>([])
+const gitLogDetail = ref<GitCommitDetail | null>(null)
+const gitLogFilePath = ref('')
+const activeLogHash = ref('')
+const activeLogFilePath = ref('')
+const logKeyword = ref('')
+const logAuthorFilter = ref('all')
+const logDateFrom = ref<number | null>(null)
+const logDateTo = ref<number | null>(null)
 const remoteUrlDraft = ref('')
 
 const keyword = ref('')
@@ -392,8 +589,12 @@ const activeFileRaw = ref<string | null>(null)
 const reviewSelectedRaws = ref<string[]>([])
 
 const currentDiff = ref('')
-const diffMode = ref<'staged' | 'unstaged'>('unstaged')
+const diffMode = ref<'head' | 'staged' | 'unstaged'>('unstaged')
 const showDiff = ref(false)
+const showLogFileDiff = ref(false)
+const logFileDiff = ref('')
+const logFileDiffLoading = ref(false)
+const logDiffFileView = ref<GitAssistantFileView | null>(null)
 
 const commitTitle = ref('')
 const commitBody = ref('')
@@ -401,6 +602,8 @@ const promptPreview = ref<GitCommitPromptPreview | null>(null)
 const promptDrawerOpen = ref(false)
 const historyDrawerOpen = ref(false)
 const recentRepoManagerOpen = ref(false)
+const gitLogOpen = ref(false)
+const logDetailLoading = ref(false)
 const promptGenerationStep = ref('')
 const autoSendPromptToApi = ref(true)
 let promptProgressTimers: number[] = []
@@ -459,6 +662,7 @@ const summary = computed(() => {
     renamed: files.filter(file => file.type === 'renamed').length,
     copied: files.filter(file => file.type === 'copied').length,
     untracked: files.filter(file => file.type === 'untracked').length,
+    conflicted: files.filter(file => file.type === 'updated-but-unmerged').length,
     staged: files.filter(file => file.staged).length,
     unstaged: files.filter(file => file.unstaged).length,
   }
@@ -470,6 +674,11 @@ const repositoryState = computed(() => snapshot.value?.repositoryState ?? null)
 const recommendedFiles = computed(() => {
   return [...allFiles.value].filter(file => file.recommended).sort((left, right) => right.score - left.score)
 })
+const conflictedFiles = computed(() => allFiles.value.filter(file => file.type === 'updated-but-unmerged'))
+const selectedFileViews = computed(() => allFiles.value.filter(file => reviewSelectedRaws.value.includes(file.raw)))
+const selectedConflictedFiles = computed(() =>
+  selectedFileViews.value.filter(file => file.type === 'updated-but-unmerged'),
+)
 
 const promptFileGroups = computed(() => {
   if (!promptPreview.value) {
@@ -558,6 +767,40 @@ const modelSelectOptions = computed(() => {
     value: model.id,
   }))
 })
+const logAuthorOptions = computed(() => {
+  const authors = [...new Set(gitLogEntries.value.map(entry => entry.authorName).filter(Boolean))]
+    .sort((left, right) => left.localeCompare(right))
+
+  return [
+    { label: t('gitAssistant.log.allAuthors'), value: 'all' },
+    ...authors.map(author => ({ label: author, value: author })),
+  ]
+})
+const filteredGitLogEntries = computed(() => {
+  const normalizedKeyword = logKeyword.value.trim().toLowerCase()
+  const fromTime = logDateFrom.value ? startOfDay(logDateFrom.value) : null
+  const toTime = logDateTo.value ? endOfDay(logDateTo.value) : null
+
+  return gitLogEntries.value.filter(entry => {
+    const authorMatched = logAuthorFilter.value === 'all' || entry.authorName === logAuthorFilter.value
+    if (!authorMatched) return false
+
+    const entryTime = parseGitLogDate(entry.date)
+    if (fromTime !== null && entryTime !== null && entryTime < fromTime) return false
+    if (toTime !== null && entryTime !== null && entryTime > toTime) return false
+
+    if (!normalizedKeyword) return true
+
+    return [
+      entry.subject,
+      entry.authorName,
+      entry.authorEmail,
+      entry.hash,
+      entry.shortHash,
+      entry.date,
+    ].some(value => value.toLowerCase().includes(normalizedKeyword))
+  })
+})
 const filteredCommitMessageHistory = computed(() => {
   const currentRepo = normalizePath(displayRepoPath.value).toLowerCase()
   return commitMessageHistory.value.filter(entry => !currentRepo || normalizePath(entry.repoPath).toLowerCase() === currentRepo)
@@ -644,6 +887,10 @@ watch(
 watch(
   selectedFile,
   file => {
+    if (diffMode.value === 'head') {
+      return
+    }
+
     if (!file) {
       diffMode.value = 'unstaged'
       return
@@ -658,9 +905,42 @@ watch(
   { immediate: true },
 )
 
+watch(
+  filteredGitLogEntries,
+  entries => {
+    if (!gitLogOpen.value) return
+
+    if (!entries.length) {
+      activeLogHash.value = ''
+      activeLogFilePath.value = ''
+      gitLogDetail.value = null
+      return
+    }
+
+    if (!entries.some(entry => entry.hash === activeLogHash.value)) {
+      void handleSelectLogEntry(entries[0].hash)
+    }
+  },
+)
+
 watch([selectedFile, diffMode, showDiff], async ([file, mode, visible]) => {
   if (!visible || !file || !displayRepoPath.value) {
     currentDiff.value = ''
+    return
+  }
+
+  if (mode === 'head') {
+    diffLoading.value = true
+    try {
+      const result = await loadGitFileHeadDiff(displayRepoPath.value, file.path)
+      currentDiff.value = result.diff
+    } catch (err) {
+      console.error(err)
+      currentDiff.value = ''
+      error.value = err instanceof Error ? err.message : t('gitAssistant.errorFallback')
+    } finally {
+      diffLoading.value = false
+    }
     return
   }
 
@@ -903,6 +1183,43 @@ function formatHistoryTime(timestamp: number) {
   return new Date(timestamp).toLocaleString()
 }
 
+function formatLogDate(date: string) {
+  const parsed = new Date(date)
+  if (Number.isNaN(parsed.getTime())) return date
+  return parsed.toLocaleString()
+}
+
+function parseGitLogDate(date: string) {
+  const timestamp = Date.parse(date.replace(/\//g, '-'))
+  return Number.isNaN(timestamp) ? null : timestamp
+}
+
+function startOfDay(timestamp: number) {
+  const date = new Date(timestamp)
+  date.setHours(0, 0, 0, 0)
+  return date.getTime()
+}
+
+function endOfDay(timestamp: number) {
+  const date = new Date(timestamp)
+  date.setHours(23, 59, 59, 999)
+  return date.getTime()
+}
+
+function setDefaultLogDateRange(entries: GitLogEntry[]) {
+  const timestamps = entries
+    .map(entry => parseGitLogDate(entry.date))
+    .filter((timestamp): timestamp is number => timestamp !== null)
+    .sort((left, right) => left - right)
+
+  logDateFrom.value = timestamps[0] ?? null
+  logDateTo.value = Date.now()
+}
+
+function formatCommitLineCount(value: number | null) {
+  return value === null ? '-' : String(value)
+}
+
 function historySourceLabel(source: 'ai' | 'manual') {
   return source === 'manual' ? t('gitAssistant.history.manual') : t('gitAssistant.history.ai')
 }
@@ -989,7 +1306,191 @@ function handleSelectFile(raw: string) {
 
 function handleOpenDiff(raw: string) {
   activeFileRaw.value = raw
+  const file = allFiles.value.find(item => item.raw === raw)
+  diffMode.value = file?.unstaged || !file?.staged ? 'unstaged' : 'staged'
   showDiff.value = true
+}
+
+async function handleFileAction(payload: { action: 'open-diff' | 'diff-previous' | 'file-history' | 'open-external' | 'mark-resolved'; raw: string }) {
+  const file = allFiles.value.find(item => item.raw === payload.raw)
+  if (!file) return
+
+  if (payload.action === 'open-diff') {
+    handleOpenDiff(payload.raw)
+    return
+  }
+
+  if (payload.action === 'diff-previous') {
+    activeFileRaw.value = payload.raw
+    diffMode.value = 'head'
+    showDiff.value = true
+    return
+  }
+
+  if (payload.action === 'file-history') {
+    await handleOpenLog(file.path)
+    return
+  }
+
+  if (payload.action === 'open-external') {
+    await handleOpenExternalFile(file.path)
+    return
+  }
+
+  if (payload.action === 'mark-resolved') {
+    await handleMarkResolved([file.path])
+  }
+}
+
+async function handleOpenExternalFile(filePath: string) {
+  if (!displayRepoPath.value) return
+
+  try {
+    await openGitFileExternal(displayRepoPath.value, filePath)
+  } catch (err) {
+    console.error(err)
+    error.value = err instanceof Error ? err.message : t('gitAssistant.errorFallback')
+  }
+}
+
+async function handleMarkSelectedResolved() {
+  await handleMarkResolved(selectedConflictedFiles.value.map(file => file.path))
+}
+
+async function handleMarkResolved(filePaths: string[]) {
+  if (!displayRepoPath.value || !filePaths.length) return
+
+  conflictLoading.value = true
+  error.value = ''
+  startGitCommand(t('gitAssistant.gitCommand.resolveTitle'), t('gitAssistant.gitCommand.resolvingConflicts'))
+  try {
+    const result = await markGitFilesResolved(displayRepoPath.value, filePaths)
+    finishGitCommand(result)
+    await loadSnapshotByPath(displayRepoPath.value)
+  } catch (err) {
+    console.error(err)
+    failGitCommand(err)
+  } finally {
+    conflictLoading.value = false
+  }
+}
+
+async function handleAbortMerge() {
+  if (!displayRepoPath.value || !window.confirm(t('gitAssistant.conflict.abortConfirm'))) return
+
+  conflictLoading.value = true
+  error.value = ''
+  startGitCommand(t('gitAssistant.gitCommand.abortMergeTitle'), t('gitAssistant.gitCommand.abortingMerge'))
+  try {
+    const result = await abortGitMerge(displayRepoPath.value)
+    finishGitCommand(result)
+    reviewSelectedRaws.value = []
+    await loadSnapshotByPath(displayRepoPath.value)
+  } catch (err) {
+    console.error(err)
+    failGitCommand(err)
+  } finally {
+    conflictLoading.value = false
+  }
+}
+
+async function handleOpenLog(filePath = '') {
+  if (!displayRepoPath.value) return
+
+  gitLogOpen.value = true
+  logLoading.value = true
+  gitLogFilePath.value = filePath
+  gitLogDetail.value = null
+  activeLogHash.value = ''
+  activeLogFilePath.value = ''
+  logKeyword.value = ''
+  logAuthorFilter.value = 'all'
+  logDateFrom.value = null
+  logDateTo.value = null
+  error.value = ''
+  try {
+    gitLogEntries.value = await loadGitLog(displayRepoPath.value, filePath)
+    setDefaultLogDateRange(gitLogEntries.value)
+    if (gitLogEntries.value.length) {
+      await handleSelectLogEntry(gitLogEntries.value[0].hash)
+    }
+  } catch (err) {
+    console.error(err)
+    error.value = err instanceof Error ? err.message : t('gitAssistant.errorFallback')
+    gitLogEntries.value = []
+  } finally {
+    logLoading.value = false
+  }
+}
+
+async function handleSelectLogEntry(hash: string) {
+  if (!displayRepoPath.value || !hash) return
+
+  activeLogHash.value = hash
+  activeLogFilePath.value = ''
+  logDetailLoading.value = true
+  try {
+    const detail = await loadGitCommitDetail(displayRepoPath.value, hash)
+    gitLogDetail.value = detail
+    activeLogFilePath.value = gitLogFilePath.value || detail.changedFiles[0]?.path || ''
+  } catch (err) {
+    console.error(err)
+    error.value = err instanceof Error ? err.message : t('gitAssistant.errorFallback')
+    gitLogDetail.value = null
+  } finally {
+    logDetailLoading.value = false
+  }
+}
+
+async function handleOpenLogFileDiff(file: GitCommitChangedFile) {
+  if (!displayRepoPath.value || !activeLogHash.value || !file.path) return
+
+  activeLogFilePath.value = file.path
+  showLogFileDiff.value = true
+  logFileDiffLoading.value = true
+  logFileDiff.value = ''
+  logDiffFileView.value = createLogDiffFileView(file)
+  try {
+    const result = await loadGitCommitFileDiff(displayRepoPath.value, activeLogHash.value, file.path)
+    logFileDiff.value = result.diff
+  } catch (err) {
+    console.error(err)
+    error.value = err instanceof Error ? err.message : t('gitAssistant.errorFallback')
+  } finally {
+    logFileDiffLoading.value = false
+  }
+}
+
+function createLogDiffFileView(file: GitCommitChangedFile): GitAssistantFileView {
+  const fileName = getFileName(file.path)
+  const directory = file.path.slice(0, Math.max(0, file.path.length - fileName.length)).replace(/[\\/]$/, '')
+  return {
+    raw: `${file.status} ${file.path}`,
+    x: file.status.slice(0, 1),
+    y: ' ',
+    path: file.path,
+    originalPath: file.originalPath ?? undefined,
+    type: mapCommitStatusToFileType(file.status),
+    staged: false,
+    unstaged: false,
+    fileName,
+    directory,
+    extension: getFileExtension(file.path),
+    addedLines: file.added,
+    removedLines: file.removed,
+    score: 0,
+    recommended: false,
+  }
+}
+
+function mapCommitStatusToFileType(status: string): GitFileStatus['type'] {
+  const code = status.slice(0, 1)
+  if (code === 'A') return 'added'
+  if (code === 'D') return 'deleted'
+  if (code === 'R') return 'renamed'
+  if (code === 'C') return 'copied'
+  if (code === 'M') return 'modified'
+  return 'unknown'
 }
 
 function toggleReviewSelection(payload: { raw: string; checked: boolean }) {
@@ -1020,9 +1521,12 @@ onMounted(async () => {
 async function handleGenerateAiAnalysis() {
   if (!snapshot.value || !displayRepoPath.value) return
 
-  const selectedFiles = allFiles.value
-    .filter(file => reviewSelectedRaws.value.includes(file.raw))
-    .map(file => file.path)
+  if (selectedConflictedFiles.value.length) {
+    error.value = t('gitAssistant.conflict.resolveBeforeCommit')
+    return
+  }
+
+  const selectedFiles = selectedFileViews.value.map(file => file.path)
 
   if (!selectedFiles.length) {
     error.value = t('gitAssistant.ai.noSelectedFiles')
@@ -1153,9 +1657,13 @@ function failGitCommand(err: unknown) {
 
 async function handleCommit() {
   if (!displayRepoPath.value || !commitTitle.value.trim()) return
-  const selectedFiles = allFiles.value
-    .filter(file => reviewSelectedRaws.value.includes(file.raw))
-    .map(file => file.path)
+
+  if (selectedConflictedFiles.value.length) {
+    error.value = t('gitAssistant.conflict.resolveBeforeCommit')
+    return
+  }
+
+  const selectedFiles = selectedFileViews.value.map(file => file.path)
 
   if (!selectedFiles.length) {
     error.value = t('gitAssistant.ai.noSelectedFiles')
@@ -1204,6 +1712,24 @@ async function handlePush() {
     failGitCommand(err)
   } finally {
     pushLoading.value = false
+  }
+}
+
+async function handleFetch() {
+  if (!displayRepoPath.value) return
+
+  fetchLoading.value = true
+  error.value = ''
+  startGitCommand(t('gitAssistant.gitCommand.fetchTitle'), t('gitAssistant.gitCommand.fetching'))
+  try {
+    const result = await fetchGitChanges(displayRepoPath.value)
+    finishGitCommand(result)
+    await loadSnapshotByPath(displayRepoPath.value)
+  } catch (err) {
+    console.error(err)
+    failGitCommand(err)
+  } finally {
+    fetchLoading.value = false
   }
 }
 
@@ -1367,6 +1893,50 @@ function handleCommandNextAction() {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.conflict-tools {
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--lumina-danger) 7%, transparent), transparent),
+    color-mix(in srgb, var(--lumina-surface-2) 66%, transparent);
+  border: 1px solid color-mix(in srgb, var(--lumina-danger) 28%, var(--lumina-card-border));
+  border-radius: 10px;
+  display: grid;
+  gap: 9px;
+  padding: 10px;
+
+  p {
+    color: var(--lumina-text-secondary);
+    font-size: 11px;
+    line-height: 1.45;
+    margin: 0;
+  }
+}
+
+.conflict-tools__header,
+.conflict-tools__actions {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.conflict-tools__header {
+  span {
+    color: var(--lumina-text);
+    font-size: 12px;
+    font-weight: 650;
+  }
+
+  strong {
+    color: var(--lumina-danger);
+    font-size: 11px;
+    font-weight: 650;
+  }
+}
+
+.conflict-tools__actions {
+  justify-content: flex-start;
 }
 
 .ai-toggle {
@@ -1587,6 +2157,326 @@ function handleCommandNextAction() {
   justify-content: center;
   min-height: 180px;
   padding: 20px;
+}
+
+.git-log-dialog {
+  background: var(--lumina-surface-1);
+  border: 1px solid var(--lumina-card-border);
+  border-radius: 8px;
+  box-shadow: 0 18px 46px rgba(0, 0, 0, 0.22);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  height: min(820px, calc(100vh - 72px));
+  overflow: hidden;
+  position: relative;
+  width: min(1560px, calc(100vw - 44px));
+}
+
+.git-log-dialog__header {
+  align-items: center;
+  background: var(--lumina-surface-2);
+  border-bottom: 1px solid var(--lumina-card-border);
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  min-height: 48px;
+  padding: 8px 52px 8px 12px;
+}
+
+.git-log-title {
+  align-items: baseline;
+  display: flex;
+  flex: 0 0 auto;
+  gap: 10px;
+  min-width: 0;
+
+  strong {
+    color: var(--lumina-text);
+    font-size: 14px;
+    font-weight: 700;
+  }
+
+  span {
+    color: var(--lumina-text-secondary);
+    font-size: 12px;
+    max-width: 420px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.git-log-toolbar {
+  align-items: center;
+  display: flex;
+  flex: 1 1 auto;
+  gap: 8px;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+.git-log-search {
+  max-width: 440px;
+  min-width: 220px;
+}
+
+.git-log-author {
+  width: 150px;
+}
+
+.git-log-date {
+  flex: 0 0 auto;
+  width: 128px;
+}
+
+.git-log-count {
+  color: var(--lumina-text-secondary);
+  flex: 0 0 auto;
+  font-size: 12px;
+}
+
+.git-log-content {
+  display: grid;
+  grid-template-rows: minmax(240px, 1fr) minmax(78px, auto) minmax(170px, 32%);
+  min-height: 0;
+}
+
+.git-log-revision-table {
+  min-height: 0;
+  overflow: auto;
+}
+
+.git-log-table-head,
+.git-log-row {
+  display: grid;
+  grid-template-columns: 46px 720px 170px 190px 96px;
+  min-width: 100%;
+  width: max-content;
+}
+
+.git-log-table-head {
+  background: var(--lumina-surface-2);
+  border-bottom: 1px solid var(--lumina-card-border);
+  color: var(--lumina-text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+  height: 28px;
+  position: sticky;
+  top: 0;
+  z-index: 3;
+
+  span {
+    align-items: center;
+    border-right: 1px solid var(--lumina-card-border);
+    display: flex;
+    min-width: 0;
+    padding: 0 8px;
+  }
+}
+
+.git-log-row {
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--lumina-card-border) 72%, transparent);
+  color: var(--lumina-text);
+  cursor: pointer;
+  font: inherit;
+  min-height: 28px;
+  padding: 0;
+  text-align: left;
+  transition:
+    background 0.12s ease,
+    color 0.12s ease;
+
+  &:hover,
+  &.active {
+    background: color-mix(in srgb, var(--lumina-primary-soft) 72%, transparent);
+  }
+
+  > span,
+  > strong,
+  > code {
+    align-items: center;
+    border-right: 1px solid color-mix(in srgb, var(--lumina-card-border) 64%, transparent);
+    display: flex;
+    min-width: 0;
+    overflow: hidden;
+    padding: 0 8px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  > strong {
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  > span {
+    color: var(--lumina-text-secondary);
+    font-size: 12px;
+  }
+
+  > code {
+    background: transparent;
+    color: var(--lumina-text-secondary);
+    font-size: 11px;
+  }
+}
+
+.git-log-graph {
+  justify-content: center;
+
+  i {
+    background: var(--lumina-primary);
+    border-radius: 999px;
+    height: 7px;
+    width: 7px;
+  }
+}
+
+.git-log-selected {
+  background: linear-gradient(180deg, var(--lumina-surface-1), var(--lumina-surface-2));
+  border-bottom: 1px solid color-mix(in srgb, var(--lumina-card-border) 82%, var(--lumina-text-secondary));
+  border-top: 1px solid color-mix(in srgb, var(--lumina-card-border) 82%, var(--lumina-text-secondary));
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, #fff 64%, transparent),
+    inset 0 -1px 0 color-mix(in srgb, var(--lumina-card-border) 72%, transparent);
+  display: grid;
+  gap: 6px;
+  min-height: 0;
+  overflow: hidden;
+  padding: 8px 10px;
+}
+
+.git-log-selected__sha {
+  color: var(--lumina-text-secondary);
+  font-size: 11px;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.git-log-selected__summary {
+  align-items: start;
+  display: grid;
+  gap: 6px;
+  grid-template-columns: minmax(360px, 1fr) minmax(220px, auto) minmax(170px, auto);
+  min-width: 0;
+
+  strong,
+  span,
+  small {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  strong {
+    color: var(--lumina-text);
+    display: block;
+    font-size: 13px;
+    margin-top: 2px;
+  }
+
+  span,
+  small {
+    color: var(--lumina-text-secondary);
+    font-size: 11px;
+  }
+}
+
+.git-log-selected__body {
+  color: var(--lumina-text-secondary);
+  font-family: inherit;
+  font-size: 11px;
+  line-height: 1.45;
+  margin: 0;
+  max-height: 52px;
+  min-width: 0;
+  overflow: auto;
+  white-space: pre-wrap;
+}
+
+.git-log-empty {
+  align-items: center;
+  color: var(--lumina-text-secondary);
+  display: flex;
+  font-size: 12px;
+  justify-content: center;
+  min-height: 220px;
+  padding: 20px;
+}
+
+.git-log-empty--compact {
+  min-height: 0;
+  padding: 8px 10px;
+}
+
+.git-log-bottom {
+  min-height: 0;
+}
+
+.git-log-file-table {
+  min-height: 0;
+  overflow: auto;
+}
+
+.git-log-file-head,
+.git-log-file-row {
+  display: grid;
+  grid-template-columns: 760px 96px 96px 84px 94px;
+  min-width: 100%;
+  width: max-content;
+}
+
+.git-log-file-head {
+  background: var(--lumina-surface-2);
+  border-bottom: 1px solid var(--lumina-card-border);
+  color: var(--lumina-text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+  height: 28px;
+  position: sticky;
+  top: 0;
+  z-index: 3;
+
+  span {
+    align-items: center;
+    border-right: 1px solid var(--lumina-card-border);
+    display: flex;
+    min-width: 0;
+    padding: 0 8px;
+  }
+}
+
+.git-log-file-row {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--lumina-card-border) 70%, transparent);
+  color: var(--lumina-text);
+  cursor: pointer;
+  display: grid;
+  min-height: 28px;
+  padding: 0;
+  text-align: left;
+
+  span {
+    align-items: center;
+    border-right: 1px solid color-mix(in srgb, var(--lumina-card-border) 64%, transparent);
+    display: flex;
+    font-size: 12px;
+    min-width: 0;
+    overflow: hidden;
+    padding: 0 8px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &:hover,
+  &.active {
+    background: color-mix(in srgb, var(--lumina-primary-soft) 62%, transparent);
+  }
 }
 
 .prompt-drawer {

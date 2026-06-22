@@ -9,6 +9,7 @@ export type GitAssistantStatusFilter =
   | 'renamed'
   | 'copied'
   | 'untracked'
+  | 'updated-but-unmerged'
   | 'staged'
   | 'unstaged'
   | 'versioned'
@@ -22,6 +23,7 @@ export interface GitAssistantSummary {
   renamed: number
   copied: number
   untracked: number
+  conflicted: number
   staged: number
   unstaged: number
 }

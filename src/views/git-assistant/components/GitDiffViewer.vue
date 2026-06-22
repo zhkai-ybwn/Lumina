@@ -17,6 +17,14 @@
 
       <div v-if="activeFile && hasToggle" class="diff-switches">
         <button
+          v-if="currentMode === 'head'"
+          class="switch-btn active"
+          type="button"
+          @click="$emit('update:mode', 'head')"
+        >
+          {{ t('gitAssistant.detail.previousView') }}
+        </button>
+        <button
           v-if="activeFile.staged"
           class="switch-btn"
           :class="{ active: currentMode === 'staged' }"
@@ -42,50 +50,62 @@
     <div v-else-if="loading" class="panel-empty">{{ t('gitAssistant.detail.diffLoading') }}</div>
     <div v-else-if="!diffText" class="panel-empty">{{ t('gitAssistant.detail.diffEmpty') }}</div>
 
-    <div v-else class="diff-body mono">
-      <div
-        v-for="(line, index) in lines"
-        :key="`${index}-${line}`"
-        class="diff-line"
-        :class="getLineClass(line)"
-      >
-        {{ line || ' ' }}
-      </div>
+    <div v-else class="diff-body">
+      <div class="diff2html-host" v-html="diffHtml"></div>
     </div>
   </section>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { ref, watch } from 'vue'
 import { useLocale } from '@/hooks/useLocale'
 import { STATUS_META } from '../git-assistant.config'
 import type { GitAssistantFileView } from '../git-assistant.types'
+import 'diff2html/bundles/css/diff2html.min.css'
 
 const props = defineProps<{
   hasSnapshot: boolean
   activeFile: GitAssistantFileView | null
   diffText: string
   loading: boolean
-  currentMode: 'staged' | 'unstaged'
+  currentMode: 'head' | 'staged' | 'unstaged'
 }>()
 
 defineEmits<{
-  (e: 'update:mode', value: 'staged' | 'unstaged'): void
+  (e: 'update:mode', value: 'head' | 'staged' | 'unstaged'): void
 }>()
 
 const statusMeta = STATUS_META
 const { t } = useLocale()
 
-const lines = computed(() => props.diffText.split('\n'))
-const hasToggle = computed(() => Boolean(props.activeFile?.staged && props.activeFile?.unstaged))
+const hasToggle = ref(false)
+const diffHtml = ref('')
 
-function getLineClass(line: string) {
-  if (line.startsWith('+++') || line.startsWith('---')) return 'diff-line--file'
-  if (line.startsWith('@@')) return 'diff-line--hunk'
-  if (line.startsWith('+')) return 'diff-line--add'
-  if (line.startsWith('-')) return 'diff-line--remove'
-  return ''
-}
+watch(
+  () => [props.currentMode, props.activeFile?.staged, props.activeFile?.unstaged] as const,
+  () => {
+    hasToggle.value = Boolean(props.currentMode === 'head' || (props.activeFile?.staged && props.activeFile?.unstaged))
+  },
+  { immediate: true },
+)
+
+watch(
+  () => props.diffText,
+  async diffText => {
+    if (!diffText) {
+      diffHtml.value = ''
+      return
+    }
+
+    const { html } = await import('diff2html')
+    diffHtml.value = html(diffText, {
+      drawFileList: false,
+      matching: 'lines',
+      outputFormat: 'line-by-line',
+    })
+  },
+  { immediate: true },
+)
 </script>
 
 <style scoped lang="scss">
@@ -180,34 +200,58 @@ h2 {
   background: var(--lumina-diff-bg);
   min-height: 0;
   overflow: auto;
-  padding: 12px 0;
+  padding: 0;
 }
 
-.diff-line {
-  font-size: 12px;
-  line-height: 1.7;
-  padding: 0 14px;
-  white-space: pre;
-}
+.diff2html-host {
+  min-width: max-content;
 
-.diff-line--file {
-  background: var(--lumina-diff-file-bg);
-  color: var(--lumina-diff-file-text);
-}
+  :deep(.d2h-wrapper) {
+    color: var(--lumina-text);
+    font-family: SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
+  }
 
-.diff-line--hunk {
-  background: var(--lumina-diff-hunk-bg);
-  color: var(--lumina-diff-hunk-text);
-}
+  :deep(.d2h-file-wrapper) {
+    border: 0;
+    border-radius: 0;
+    margin-bottom: 0;
+  }
 
-.diff-line--add {
-  background: var(--lumina-diff-add-bg);
-  color: var(--lumina-diff-add-text);
-}
+  :deep(.d2h-file-header) {
+    background: color-mix(in srgb, var(--lumina-surface-2) 90%, transparent);
+    border-bottom: 1px solid var(--lumina-card-border);
+    color: var(--lumina-text-secondary);
+    font-family: inherit;
+    height: 34px;
+  }
 
-.diff-line--remove {
-  background: var(--lumina-diff-remove-bg);
-  color: var(--lumina-diff-remove-text);
+  :deep(.d2h-code-line),
+  :deep(.d2h-code-side-line),
+  :deep(.d2h-code-linenumber),
+  :deep(.d2h-code-side-linenumber) {
+    font-family: SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
+    font-size: 12px;
+    line-height: 1.65;
+  }
+
+  :deep(.d2h-code-linenumber),
+  :deep(.d2h-code-side-linenumber) {
+    background: color-mix(in srgb, var(--lumina-surface-2) 76%, transparent);
+    color: var(--lumina-text-secondary);
+  }
+
+  :deep(.d2h-ins) {
+    background: var(--lumina-diff-add-bg);
+  }
+
+  :deep(.d2h-del) {
+    background: var(--lumina-diff-remove-bg);
+  }
+
+  :deep(.d2h-info) {
+    background: var(--lumina-diff-hunk-bg);
+    color: var(--lumina-diff-hunk-text);
+  }
 }
 
 .tone-warning {
