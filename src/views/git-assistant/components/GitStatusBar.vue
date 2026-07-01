@@ -1,72 +1,61 @@
 <template>
-  <section class="status-bar">
-    <div class="status-bar__main">
-      <div class="repo-switcher" :title="repoPath || t('gitAssistant.repo.emptyPath')">
-        <button class="repo-switcher__main" type="button" @click="$emit('manage-repos')">
-          <span>{{ t('gitAssistant.repo.currentRepoShort') }}</span>
-          <strong>{{ currentRecentLabel }}</strong>
-        </button>
-        <button class="repo-switcher__manage" type="button" :title="t('gitAssistant.repo.recentRepoManage')" @click="$emit('manage-repos')">
-          <Icon icon="solar:settings-linear" />
-        </button>
-      </div>
+  <WorkbenchTopbar>
+    <WorkbenchIdentity :label="t('gitAssistant.repo.currentRepoShort')" :value="currentRecentLabel" :title="repoPath || t('gitAssistant.repo.emptyPath')">
+      <button class="repo-switcher-manage" type="button" :title="t('gitAssistant.repo.recentRepoManage')" @click="$emit('manage-repos')">
+        <Icon icon="solar:settings-linear" />
+      </button>
+    </WorkbenchIdentity>
 
-      <div class="context-pill">
-        <span class="context-label">{{ t('gitAssistant.repo.branchShort') }}</span>
-        <span class="context-value">{{ branch || '--' }}</span>
-      </div>
+    <WorkbenchSwitch
+      active-key="git"
+      :aria-label="t('workbench.switcherLabel')"
+      :items="workbenchSwitchItems"
+      @select="handleWorkbenchSelect"
+    />
 
-      <div class="metric-pill">
-        <span>{{ t('gitAssistant.repo.summaryTotal') }}</span>
-        <strong>{{ summary.total }}</strong>
-      </div>
-      <div class="metric-pill">
-        <span>{{ t('gitAssistant.repo.summaryStaged') }}</span>
-        <strong>{{ summary.staged }}</strong>
-      </div>
-      <div class="metric-pill">
-        <span>{{ t('gitAssistant.repo.summaryUnstaged') }}</span>
-        <strong>{{ summary.unstaged }}</strong>
-      </div>
-      <div class="metric-pill">
-        <span>{{ t('gitAssistant.repo.summaryUntracked') }}</span>
-        <strong>{{ summary.untracked }}</strong>
-      </div>
-      <div v-if="summary.conflicted" class="metric-pill metric-pill--danger">
-        <span>{{ t('gitAssistant.repo.summaryConflicted') }}</span>
-        <strong>{{ summary.conflicted }}</strong>
-      </div>
-      <div class="metric-pill metric-pill--accent">
-        <span>{{ t('gitAssistant.repo.summaryRecommended') }}</span>
-        <strong>{{ recommendedCount }}</strong>
-      </div>
-    </div>
+    <WorkbenchTag :label="t('gitAssistant.repo.branchShort')" :value="branch || '--'" />
+    <WorkbenchTag :label="t('gitAssistant.repo.summaryTotal')" :value="summary.total" />
+    <WorkbenchTag :label="t('gitAssistant.repo.summaryStaged')" :value="summary.staged" />
+    <WorkbenchTag :label="t('gitAssistant.repo.summaryUnstaged')" :value="summary.unstaged" />
+    <WorkbenchTag :label="t('gitAssistant.repo.summaryUntracked')" :value="summary.untracked" />
+    <WorkbenchTag v-if="summary.conflicted" :label="t('gitAssistant.repo.summaryConflicted')" :value="summary.conflicted" tone="danger" />
+    <WorkbenchTag :label="t('gitAssistant.repo.summaryRecommended')" :value="recommendedCount" tone="primary" />
 
-    <div class="status-bar__actions">
+    <template #actions>
       <span class="sync-pill" :class="syncTone">
         <span class="sync-dot"></span>
         {{ syncLabel }}
       </span>
-      <button class="tool-btn" :disabled="pullDisabled" @click="$emit('pull')">
-        {{ pulling ? t('gitAssistant.ai.pulling') : t('gitAssistant.ai.pull') }}
-      </button>
-      <button class="tool-btn" :disabled="fetchDisabled" @click="$emit('fetch')">
-        {{ fetching ? t('gitAssistant.ai.fetching') : t('gitAssistant.ai.fetch') }}
-      </button>
-      <button class="tool-btn" :disabled="pushDisabled" @click="$emit('push')">
-        {{ pushing ? t('gitAssistant.ai.pushing') : t('gitAssistant.ai.push') }}
-      </button>
-      <button class="tool-btn" @click="$emit('pick-directory')">{{ t('gitAssistant.repo.chooseDirectory') }}</button>
-      <button class="tool-btn primary" :disabled="loading || !repoPath" @click="$emit('refresh')">
-        {{ loading ? t('gitAssistant.repo.refreshing') : t('gitAssistant.repo.refreshRepo') }}
-      </button>
-    </div>
-  </section>
+      <div class="action-group">
+        <WorkbenchButton :disabled="pullDisabled" @click="$emit('pull')">
+          {{ pulling ? t('gitAssistant.ai.pulling') : t('gitAssistant.ai.pull') }}
+        </WorkbenchButton>
+        <WorkbenchButton :disabled="fetchDisabled" @click="$emit('fetch')">
+          {{ fetching ? t('gitAssistant.ai.fetching') : t('gitAssistant.ai.fetch') }}
+        </WorkbenchButton>
+        <WorkbenchButton :disabled="pushDisabled" @click="$emit('push')">
+          {{ pushing ? t('gitAssistant.ai.pushing') : t('gitAssistant.ai.push') }}
+        </WorkbenchButton>
+      </div>
+      <div class="action-group action-group-project">
+        <WorkbenchButton @click="$emit('pick-directory')">{{ t('gitAssistant.repo.chooseDirectory') }}</WorkbenchButton>
+        <WorkbenchButton variant="primary" :disabled="loading || !repoPath" @click="$emit('refresh')">
+          {{ loading ? t('gitAssistant.repo.refreshing') : t('gitAssistant.repo.refreshRepo') }}
+        </WorkbenchButton>
+      </div>
+    </template>
+  </WorkbenchTopbar>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useRouter } from 'vue-router'
 import { useLocale } from '@/hooks/useLocale'
+import WorkbenchButton from '@/components/workbench/WorkbenchButton.vue'
+import WorkbenchIdentity from '@/components/workbench/WorkbenchIdentity.vue'
+import WorkbenchSwitch from '@/components/workbench/WorkbenchSwitch.vue'
+import WorkbenchTag from '@/components/workbench/WorkbenchTag.vue'
+import WorkbenchTopbar from '@/components/workbench/WorkbenchTopbar.vue'
 import type { GitRepositoryState } from '@/services/git/git-service'
 import type { GitAssistantSummary } from '../git-assistant.types'
 
@@ -93,6 +82,11 @@ defineEmits<{
 }>()
 
 const { t } = useLocale()
+const router = useRouter()
+const workbenchSwitchItems = computed(() => [
+  { key: 'git', label: t('workbench.git') },
+  { key: 'devdock', label: t('workbench.devdock') },
+])
 
 const repoName = computed(() => {
   const normalized = props.repoPath.replace(/\\/g, '/')
@@ -143,67 +137,41 @@ export interface RecentGitRepo {
 function normalizePath(path: string) {
   return path.replace(/\\/g, '/').toLowerCase()
 }
+
+function openDevDock() {
+  router.push({ name: 'devdock' })
+}
+
+function handleWorkbenchSelect(key: string) {
+  if (key === 'devdock') {
+    openDevDock()
+  }
+}
 </script>
 
 <style scoped lang="scss">
-.status-bar {
+.action-group {
   align-items: center;
-  background: var(--lumina-surface-2);
-  border: 1px solid var(--lumina-card-border);
-  border-radius: 14px;
-  box-shadow: var(--lumina-shadow-sm);
-  display: flex;
-  gap: 10px;
-  justify-content: space-between;
-  min-height: 42px;
-  overflow: hidden;
-  padding: 6px 10px;
-}
-
-.status-bar__main,
-.status-bar__actions {
-  align-items: center;
-  display: flex;
-  gap: 8px;
-  min-width: 0;
-}
-
-.status-bar__main {
-  flex: 1;
-  overflow: hidden;
-}
-
-.status-bar__actions {
-  flex-shrink: 0;
-}
-
-.context-pill,
-.repo-switcher,
-.metric-pill,
-.tool-btn,
-.sync-pill {
-  border: 1px solid var(--lumina-card-border);
-  border-radius: 8px;
-  font-size: 11px;
-  height: 28px;
-}
-
-.context-pill,
-.metric-pill {
-  align-items: center;
-  background: color-mix(in srgb, var(--lumina-surface-3) 82%, transparent);
   display: inline-flex;
-  gap: 8px;
-  padding: 0 10px;
-  white-space: nowrap;
+  gap: 6px;
+}
+
+.action-group-project {
+  border-left: 1px solid var(--lumina-card-border);
+  margin-left: 2px;
+  padding-left: 8px;
 }
 
 .sync-pill {
   align-items: center;
   background: color-mix(in srgb, var(--lumina-surface-3) 82%, transparent);
+  border: 1px solid var(--lumina-card-border);
+  border-radius: var(--lumina-radius-sm);
   color: var(--lumina-text-secondary);
   display: inline-flex;
+  font-size: 11px;
   gap: 7px;
+  height: 28px;
   padding: 0 10px;
   white-space: nowrap;
 
@@ -212,7 +180,7 @@ function normalizePath(path: string) {
   }
 
   &.accent {
-    background: var(--lumina-primary-soft);
+    background: color-mix(in srgb, var(--lumina-primary-soft) 60%, var(--lumina-surface-2));
     color: var(--lumina-primary);
   }
 
@@ -226,62 +194,13 @@ function normalizePath(path: string) {
 }
 
 .sync-dot {
-  background: currentColor;
+  background: currentcolor;
   border-radius: 999px;
   height: 6px;
   width: 6px;
 }
 
-.context-pill {
-  max-width: 240px;
-  min-width: 0;
-}
-
-.repo-switcher {
-  align-items: center;
-  background: color-mix(in srgb, var(--lumina-surface-3) 82%, transparent);
-  display: inline-flex;
-  max-width: 320px;
-  min-width: 230px;
-  overflow: hidden;
-  padding: 0 4px 0 0;
-}
-
-.repo-switcher__main {
-  align-items: center;
-  background: transparent;
-  border: 0;
-  color: inherit;
-  cursor: pointer;
-  display: inline-flex;
-  flex: 1;
-  gap: 8px;
-  height: 100%;
-  min-width: 0;
-  padding: 0 6px 0 10px;
-  text-align: left;
-
-  span {
-    color: var(--lumina-text-secondary);
-    flex: 0 0 auto;
-  }
-
-  strong {
-    flex: 1;
-    font-weight: 500;
-    min-width: 0;
-    overflow: hidden;
-    text-align: left;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  &:hover {
-    background: color-mix(in srgb, var(--lumina-button-secondary-hover) 70%, transparent);
-  }
-}
-
-.repo-switcher__manage {
+.repo-switcher-manage {
   align-items: center;
   background: transparent;
   border: 0;
@@ -298,7 +217,7 @@ function normalizePath(path: string) {
     color 0.18s ease;
   width: 22px;
 
-  :deep(svg) {
+  svg {
     height: 15px;
     width: 15px;
   }
@@ -307,64 +226,5 @@ function normalizePath(path: string) {
     background: color-mix(in srgb, var(--lumina-button-secondary-hover) 82%, transparent);
     color: var(--lumina-text);
   }
-}
-
-.context-label {
-  color: var(--lumina-text-secondary);
-}
-
-.context-value {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.metric-pill strong {
-  color: var(--lumina-text);
-}
-
-.metric-pill--accent {
-  background: var(--lumina-primary-soft);
-}
-
-.metric-pill--danger {
-  background: color-mix(in srgb, var(--lumina-danger) 12%, transparent);
-  color: var(--lumina-danger);
-
-  strong {
-    color: var(--lumina-danger);
-  }
-}
-
-.tool-btn {
-  align-items: center;
-  background: color-mix(in srgb, var(--lumina-button-secondary-bg) 92%, transparent);
-  color: var(--lumina-text);
-  cursor: pointer;
-  display: inline-flex;
-  padding: 0 10px;
-  transition:
-    background 0.18s ease,
-    border-color 0.18s ease,
-    color 0.18s ease;
-
-  &:hover {
-    background: var(--lumina-button-secondary-hover);
-  }
-
-  &:disabled {
-    cursor: not-allowed;
-    opacity: 0.52;
-  }
-}
-
-.primary {
-  background: var(--lumina-primary);
-  border-color: var(--lumina-primary);
-  color: #fff;
-}
-
-.mono {
-  font-family: SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
 }
 </style>

@@ -1,7 +1,7 @@
 <template>
   <div class="layout-root">
     <header class="window-titlebar" data-tauri-drag-region @dblclick="toggleMaximize">
-      <div class="window-title" data-tauri-drag-region>Lumina - Git Assistant</div>
+      <div class="window-title" data-tauri-drag-region>{{ windowTitle }}</div>
 
       <div class="window-actions" @mousedown.stop @dblclick.stop>
         <button
@@ -51,6 +51,11 @@ const appWindow = getCurrentWindow()
 const isMaximized = ref(false)
 let unlistenResize: UnlistenFn | null = null
 
+const windowTitle = computed(() => {
+  if (route.name === 'devdock') return t('topbar.titleDevDock')
+  if (route.name === 'settings') return t('topbar.titleSettings')
+  return t('topbar.titleGit')
+})
 const maximizeTitle = computed(() => (isMaximized.value ? t('topbar.restore') : t('topbar.maximize')))
 
 onMounted(async () => {
@@ -95,7 +100,9 @@ async function refreshMaximizedState() {
 
 <style scoped lang="scss">
 .layout-root {
-  background: var(--lumina-bg);
+  background:
+    linear-gradient(180deg, var(--lumina-surface-2), var(--lumina-bg) 72px),
+    var(--lumina-bg);
   background-position: center;
   background-size: cover;
   color: var(--lumina-text);
@@ -110,7 +117,7 @@ async function refreshMaximizedState() {
 
 .window-titlebar {
   align-items: center;
-  background: var(--lumina-surface-2);
+  background: color-mix(in srgb, var(--lumina-surface-2) 92%, var(--lumina-bg));
   border-bottom: 1px solid var(--lumina-card-border);
   display: flex;
   flex: 0 0 auto;
@@ -152,7 +159,7 @@ async function refreshMaximizedState() {
 
   &:hover,
   &.active {
-    background: var(--lumina-primary-soft);
+    background: var(--lumina-button-secondary-hover);
     color: var(--lumina-primary);
   }
 

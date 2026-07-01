@@ -7,6 +7,14 @@
       </div>
     </header>
 
+    <div class="commit-flow" :class="{ 'commit-flow--ready': selectedCount > 0 }">
+      <span class="commit-flow__step">1</span>
+      <span>{{ selectedCount ? t('gitAssistant.ai.filesSelected', { count: selectedCount }) : t('gitAssistant.ai.selectFilesFirst') }}</span>
+      <i aria-hidden="true"></i>
+      <span class="commit-flow__step">2</span>
+      <span>{{ t('gitAssistant.ai.writeMessageNext') }}</span>
+    </div>
+
     <div class="commit-form">
       <label class="field">
         <span class="field-label">{{ t('gitAssistant.ai.editTitle') }}</span>
@@ -45,6 +53,7 @@ defineProps<{
   pushing: boolean
   pulling: boolean
   submitDisabled: boolean
+  selectedCount: number
   title: string
   body: string
 }>()
@@ -60,13 +69,12 @@ const { t } = useLocale()
 
 <style scoped lang="scss">
 .panel-shell {
-  background: color-mix(in srgb, var(--lumina-surface-1) 88%, transparent);
-  backdrop-filter: blur(18px);
+  background: var(--lumina-surface-1);
   overflow: hidden;
   position: relative;
 
   &::before {
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.26), transparent 68%);
+    background: linear-gradient(180deg, color-mix(in srgb, var(--lumina-surface-1) 64%, transparent), transparent 68%);
     content: '';
     inset: 0;
     pointer-events: none;
@@ -76,13 +84,50 @@ const { t } = useLocale()
 
 .commit-panel {
   display: grid;
-  gap: 12px;
-  grid-template-rows: auto auto auto;
+  gap: 10px;
+  grid-template-rows: auto auto auto auto;
   padding: 14px 14px 12px;
 
   > * {
     position: relative;
   }
+}
+
+.commit-flow {
+  align-items: center;
+  background: color-mix(in srgb, var(--lumina-surface-2) 78%, transparent);
+  border: 1px solid var(--lumina-card-border);
+  border-radius: var(--lumina-radius-sm);
+  color: var(--lumina-text-secondary);
+  display: flex;
+  gap: 8px;
+  min-height: 32px;
+  padding: 0 10px;
+  width: fit-content;
+
+  i {
+    background: var(--lumina-card-border);
+    height: 1px;
+    width: 18px;
+  }
+}
+
+.commit-flow--ready {
+  background: color-mix(in srgb, var(--lumina-primary-soft) 48%, var(--lumina-surface-2));
+  color: var(--lumina-text);
+}
+
+.commit-flow__step {
+  align-items: center;
+  background: var(--lumina-surface-1);
+  border: 1px solid var(--lumina-card-border);
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 700;
+  height: 20px;
+  justify-content: center;
+  width: 20px;
 }
 
 .commit-header,
@@ -129,9 +174,9 @@ h3 {
 
 .field-input,
 .field-textarea {
-  background: color-mix(in srgb, var(--lumina-input-bg) 92%, transparent);
+  background: var(--lumina-input-bg);
   border: 1px solid var(--lumina-input-border);
-  border-radius: 7px;
+  border-radius: var(--lumina-radius-sm);
   box-sizing: border-box;
   color: var(--lumina-text);
   padding: 10px 12px;
@@ -150,9 +195,9 @@ h3 {
 }
 
 .action-btn {
-  background: color-mix(in srgb, var(--lumina-button-secondary-bg) 92%, transparent);
-  border: 1px solid color-mix(in srgb, var(--lumina-card-border) 88%, var(--lumina-text-secondary));
-  border-radius: 7px;
+  background: var(--lumina-button-secondary-bg);
+  border: 1px solid var(--lumina-card-border);
+  border-radius: var(--lumina-radius-sm);
   color: var(--lumina-text);
   cursor: pointer;
   font-weight: 600;
@@ -175,9 +220,9 @@ h3 {
 }
 
 .primary {
-  background: linear-gradient(180deg, color-mix(in srgb, var(--lumina-primary) 88%, #fff), var(--lumina-primary));
+  background: var(--lumina-primary);
   border-color: var(--lumina-primary);
-  box-shadow: 0 6px 14px color-mix(in srgb, var(--lumina-primary) 18%, transparent);
+  box-shadow: none;
   color: #fff;
   min-width: 108px;
 }

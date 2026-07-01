@@ -1,0 +1,89 @@
+.wb-table {
+  min-height: 0;
+  overflow: auto;
+}
+
+.wb-table-head,
+.wb-table-row {
+  display: grid;
+}
+
+.wb-table-head {
+  background: color-mix(in srgb, var(--lumina-surface-2) 82%, var(--lumina-surface-1));
+  border-bottom: 1px solid var(--lumina-card-border);
+  color: var(--lumina-text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+  min-height: 28px;
+  position: sticky;
+  top: 0;
+  z-index: 3;
+}
+
+.wb-table-row {
+  border-bottom: 1px solid color-mix(in srgb, var(--lumina-card-border) 68%, transparent);
+  color: var(--lumina-text);
+  min-height: 28px;
+
+  &:hover {
+    background: var(--lumina-button-secondary-hover);
+  }
+
+  &.active {
+    background: color-mix(in srgb, var(--lumina-primary-soft) 52%, var(--lumina-surface-2));
+  }
+}
+
+.wb-table-cell {
+  align-items: center;
+  border-right: 1px solid color-mix(in srgb, var(--lumina-card-border) 64%, transparent);
+  display: flex;
+  min-width: 0;
+  overflow: hidden;
+  padding: 0 8px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wb-log {
+  background: #101418;
+  color: #d7dde4;
+  display: grid;
+  gap: 0;
+  grid-auto-rows: min-content;
+  min-height: 0;
+  overflow: auto;
+  padding: 8px 10px 10px;
+}
+
+.wb-log-line {
+  display: grid;
+  font-family: SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
+  font-size: 11px;
+  gap: 6px;
+  grid-template-columns: 38px minmax(0, 1fr);
+  line-height: 1.32;
+  margin: 0;
+  overflow-wrap: anywhere;
+  padding: 0;
+  white-space: pre-wrap;
+}
+
+.wb-log-stream {
+  color: #7e8b98;
+  font-size: 10px;
+  line-height: 1.32;
+  text-transform: uppercase;
+  user-select: none;
+}
+
+.wb-empty {
+  align-items: center;
+  color: var(--lumina-text-secondary);
+  display: flex;
+  font-size: 12px;
+  justify-content: center;
+  min-height: 120px;
+  padding: 16px;
+  text-align: center;
+}

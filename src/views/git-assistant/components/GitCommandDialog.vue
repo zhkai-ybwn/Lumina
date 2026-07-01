@@ -120,8 +120,7 @@ const logLineCount = computed(() => logText.value.split('\n').filter(Boolean).le
 <style scoped lang="scss">
 .dialog-mask {
   align-items: center;
-  background: rgba(18, 22, 25, 0.28);
-  backdrop-filter: blur(10px);
+  background: rgba(18, 22, 25, 0.36);
   display: flex;
   inset: 0;
   justify-content: center;
@@ -131,13 +130,10 @@ const logLineCount = computed(() => logText.value.split('\n').filter(Boolean).le
 }
 
 .command-dialog {
-  background: color-mix(in srgb, var(--lumina-surface-1) 92%, transparent);
-  backdrop-filter: blur(22px);
-  border: 1px solid color-mix(in srgb, var(--lumina-card-border) 78%, transparent);
-  border-radius: 12px;
-  box-shadow:
-    0 24px 68px rgba(0, 0, 0, 0.24),
-    inset 0 1px 0 rgba(255, 255, 255, 0.32);
+  background: var(--lumina-surface-1);
+  border: 1px solid var(--lumina-card-border);
+  border-radius: var(--lumina-radius-lg);
+  box-shadow: var(--lumina-shadow-md);
   display: grid;
   gap: 14px;
   grid-template-rows: auto auto auto minmax(240px, 1fr) auto;
@@ -217,7 +213,7 @@ const logLineCount = computed(() => logText.value.split('\n').filter(Boolean).le
 }
 
 .stage-node {
-  background: color-mix(in srgb, var(--lumina-surface-2) 62%, transparent);
+  background: var(--lumina-surface-2);
   border: 1px solid var(--lumina-card-border);
   border-radius: 9px;
   display: grid;
@@ -276,8 +272,8 @@ const logLineCount = computed(() => logText.value.split('\n').filter(Boolean).le
 }
 
 .progress-track {
-  background: color-mix(in srgb, var(--lumina-surface-2) 62%, transparent);
-  border: 1px solid color-mix(in srgb, var(--lumina-card-border) 82%, transparent);
+  background: var(--lumina-surface-2);
+  border: 1px solid var(--lumina-card-border);
   border-radius: 999px;
   height: 12px;
   margin: 0 18px;
@@ -314,7 +310,7 @@ const logLineCount = computed(() => logText.value.split('\n').filter(Boolean).le
 }
 
 .log-panel {
-  background: color-mix(in srgb, var(--lumina-diff-bg) 94%, transparent);
+  background: var(--lumina-diff-bg);
   border: 1px solid var(--lumina-card-border);
   border-radius: 10px;
   display: grid;
@@ -354,9 +350,9 @@ const logLineCount = computed(() => logText.value.split('\n').filter(Boolean).le
 }
 
 .action-btn {
-  background: color-mix(in srgb, var(--lumina-button-secondary-bg) 92%, transparent);
-  border: 1px solid color-mix(in srgb, var(--lumina-card-border) 86%, var(--lumina-text-secondary));
-  border-radius: 8px;
+  background: var(--lumina-button-secondary-bg);
+  border: 1px solid var(--lumina-card-border);
+  border-radius: var(--lumina-radius-sm);
   color: var(--lumina-text);
   cursor: pointer;
   height: 34px;
@@ -374,9 +370,9 @@ const logLineCount = computed(() => logText.value.split('\n').filter(Boolean).le
 }
 
 .primary {
-  background: linear-gradient(180deg, color-mix(in srgb, var(--lumina-primary) 88%, #fff), var(--lumina-primary));
+  background: var(--lumina-primary);
   border-color: var(--lumina-primary);
-  box-shadow: 0 8px 18px color-mix(in srgb, var(--lumina-primary) 24%, transparent);
+  box-shadow: none;
   color: #fff;
 }
 

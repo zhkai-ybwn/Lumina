@@ -23,6 +23,8 @@ pub struct GitRepositoryState {
     pub upstream_gone: bool,
     pub ahead: usize,
     pub behind: usize,
+    pub merge_in_progress: bool,
+    pub rebase_in_progress: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -67,6 +69,12 @@ pub struct GitPushPayload {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GitPullPayload {
+    pub repo_path: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GitRebasePayload {
     pub repo_path: String,
 }
 
@@ -133,6 +141,29 @@ pub struct GitCommandResult {
     pub stdout: String,
     pub stderr: String,
     pub suggestion: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GitSyncStatus {
+    pub command: String,
+    pub message: String,
+    pub stdout: String,
+    pub stderr: String,
+    pub suggestion: Option<String>,
+    pub state: GitRepositoryState,
+    pub recommended_action: GitSyncRecommendedAction,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum GitSyncRecommendedAction {
+    Push,
+    Pull,
+    ResolveDivergence,
+    ConfigureRemote,
+    PublishBranch,
+    None,
 }
 
 #[derive(Debug, Serialize)]

@@ -5,8 +5,8 @@ use crate::git::models::{
     GitCommitPromptPayload, GitCommitPromptPreview, GitFileDiffPayload, GitFileDiffResponse,
     GitCommandResult, GitCommitDetail, GitCommitDetailPayload, GitCommitFileDiffPayload,
     GitCommitFileDiffResponse, GitConfigureRemotePayload, GitFileActionPayload, GitFilesActionPayload,
-    GitLogEntry, GitLogPayload, GitPromptAiPayload, GitPullPayload, GitPushPayload, GitRepoPayload,
-    GitRepairUpstreamPayload, GitSnapshot,
+    GitLogEntry, GitLogPayload, GitPromptAiPayload, GitPullPayload, GitPushPayload, GitRebasePayload, GitRepoPayload,
+    GitRepairUpstreamPayload, GitSnapshot, GitSyncStatus,
 };
 use crate::git::prompt::{build_analysis_prompt, build_selected_commit_prompt};
 use crate::git::profile::{self, GitProjectProfileFile};
@@ -51,8 +51,18 @@ pub async fn pull_git_changes(payload: GitPullPayload) -> Result<GitCommandResul
 }
 
 #[tauri::command]
+pub async fn rebase_git_changes(payload: GitRebasePayload) -> Result<GitCommandResult, String> {
+    run_git_task("Rebase 变更", move || runner::rebase_changes(&payload)).await
+}
+
+#[tauri::command]
 pub async fn fetch_git_changes(payload: GitRepoPayload) -> Result<GitCommandResult, String> {
     run_git_task("Fetch 远端变更", move || runner::fetch_changes(&payload)).await
+}
+
+#[tauri::command]
+pub async fn sync_git_status(payload: GitRepoPayload) -> Result<GitSyncStatus, String> {
+    run_git_task("检查远端同步状态", move || runner::sync_status(&payload)).await
 }
 
 #[tauri::command]
@@ -78,6 +88,21 @@ pub async fn mark_git_files_resolved(payload: GitFilesActionPayload) -> Result<G
 #[tauri::command]
 pub async fn abort_git_merge(payload: GitRepoPayload) -> Result<GitCommandResult, String> {
     run_git_task("中止 merge", move || runner::abort_merge(&payload)).await
+}
+
+#[tauri::command]
+pub async fn continue_git_merge(payload: GitRepoPayload) -> Result<GitCommandResult, String> {
+    run_git_task("继续 merge", move || runner::continue_merge(&payload)).await
+}
+
+#[tauri::command]
+pub async fn continue_git_rebase(payload: GitRepoPayload) -> Result<GitCommandResult, String> {
+    run_git_task("继续 rebase", move || runner::continue_rebase(&payload)).await
+}
+
+#[tauri::command]
+pub async fn abort_git_rebase(payload: GitRepoPayload) -> Result<GitCommandResult, String> {
+    run_git_task("中止 rebase", move || runner::abort_rebase(&payload)).await
 }
 
 #[tauri::command]

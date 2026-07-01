@@ -19,6 +19,7 @@
     "@tauri-apps/api": "^2.9.0",
     "@tauri-apps/plugin-dialog": "^2.6.0",
     "@vicons/ionicons5": "^0.13.0",
+    "ansi_up": "^6.0.6",
     "diff2html": "^3.4.56",
     "naive-ui": "^2.43.1",
     "or": "^0.2.0",

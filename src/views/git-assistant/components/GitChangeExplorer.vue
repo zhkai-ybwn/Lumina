@@ -39,9 +39,19 @@
       </button>
     </div>
 
-    <div v-if="!hasSnapshot && !loading" class="panel-empty">{{ t('gitAssistant.files.emptyNoRepo') }}</div>
-    <div v-else-if="loading" class="panel-empty">{{ t('gitAssistant.files.emptyLoading') }}</div>
-    <div v-else-if="!groups.length" class="panel-empty">{{ t('gitAssistant.files.emptyNoMatch') }}</div>
+    <div v-if="!hasSnapshot && !loading" class="panel-empty">
+      <strong>{{ t('gitAssistant.files.emptyNoRepoTitle') }}</strong>
+      <span>{{ t('gitAssistant.files.emptyNoRepo') }}</span>
+    </div>
+    <div v-else-if="loading" class="panel-empty">
+      <strong>{{ t('gitAssistant.files.emptyLoadingTitle') }}</strong>
+      <span>{{ t('gitAssistant.files.emptyLoading') }}</span>
+    </div>
+    <div v-else-if="!groups.length" class="panel-empty">
+      <strong>{{ totalCount ? t('gitAssistant.files.emptyNoMatchTitle') : t('gitAssistant.files.emptyCleanTitle') }}</strong>
+      <span>{{ totalCount ? t('gitAssistant.files.emptyNoMatch') : t('gitAssistant.files.emptyClean') }}</span>
+      <button type="button" @click="$emit('request-refresh')">{{ t('gitAssistant.repo.refreshRepo') }}</button>
+    </div>
 
     <div v-else class="file-table">
       <div class="table-header" :style="gridStyle">
@@ -144,6 +154,7 @@ const emit = defineEmits<{
   (e: 'update:recommended-only', value: boolean): void
   (e: 'select-file', raw: string): void
   (e: 'open-diff', raw: string): void
+  (e: 'request-refresh'): void
   (e: 'file-action', payload: { action: 'open-diff' | 'diff-previous' | 'file-history' | 'open-external' | 'mark-resolved'; raw: string }): void
   (e: 'toggle-review-selection', payload: { raw: string; checked: boolean }): void
   (e: 'set-review-selection', raws: string[]): void
@@ -302,13 +313,10 @@ onUnmounted(stopColumnResize)
 
 <style scoped lang="scss">
 .change-explorer {
-  background: color-mix(in srgb, var(--lumina-surface-1) 88%, transparent);
-  backdrop-filter: blur(18px);
-  border: 1px solid color-mix(in srgb, var(--lumina-card-border) 78%, transparent);
-  border-radius: 12px;
-  box-shadow:
-    0 10px 28px rgba(0, 0, 0, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.32);
+  background: var(--lumina-surface-1);
+  border: 1px solid var(--lumina-card-border);
+  border-radius: var(--lumina-radius-lg);
+  box-shadow: var(--lumina-shadow-sm);
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr);
   min-height: 0;
@@ -344,7 +352,7 @@ onUnmounted(stopColumnResize)
 
 .check-toolbar {
   align-items: center;
-  background: color-mix(in srgb, var(--lumina-surface-2) 54%, transparent);
+  background: var(--lumina-surface-2);
   border-bottom: 1px solid var(--lumina-card-border);
   display: flex;
   flex-wrap: wrap;
@@ -382,12 +390,38 @@ onUnmounted(stopColumnResize)
   border: 1px dashed var(--lumina-empty-border);
   border-radius: 8px;
   color: var(--lumina-text-secondary);
-  display: flex;
+  display: grid;
   font-size: 12px;
+  gap: 8px;
   justify-content: center;
   margin: 10px;
-  padding: 18px;
+  min-height: 180px;
+  padding: 24px;
   text-align: center;
+
+  strong {
+    color: var(--lumina-text);
+    font-size: 14px;
+  }
+
+  span {
+    max-width: 420px;
+  }
+
+  button {
+    background: var(--lumina-button-secondary-bg);
+    border: 1px solid var(--lumina-card-border);
+    border-radius: var(--lumina-radius-sm);
+    color: var(--lumina-text);
+    cursor: pointer;
+    height: 30px;
+    justify-self: center;
+    padding: 0 12px;
+
+    &:hover {
+      background: var(--lumina-button-secondary-hover);
+    }
+  }
 }
 
 .file-table {
@@ -401,7 +435,7 @@ onUnmounted(stopColumnResize)
 }
 
 .table-header {
-  background: color-mix(in srgb, var(--lumina-surface-2) 88%, transparent);
+  background: var(--lumina-surface-2);
   border-bottom: 1px solid var(--lumina-card-border);
   color: var(--lumina-text-secondary);
   font-size: 11px;
@@ -409,7 +443,7 @@ onUnmounted(stopColumnResize)
   height: 30px;
   position: sticky;
   top: 0;
-  z-index: 1;
+  z-index: 3;
 }
 
 .header-cell {
@@ -438,12 +472,12 @@ onUnmounted(stopColumnResize)
   min-height: 30px;
 
   &:hover {
-    background: color-mix(in srgb, var(--lumina-button-secondary-hover) 78%, transparent);
+    background: var(--lumina-button-secondary-hover);
   }
 
   &.active {
-    background: color-mix(in srgb, var(--lumina-primary-soft) 52%, transparent);
-    box-shadow: inset 3px 0 0 var(--lumina-primary);
+    background: color-mix(in srgb, var(--lumina-primary-soft) 42%, var(--lumina-surface-2));
+    box-shadow: inset 2px 0 0 var(--lumina-primary);
   }
 }
 
@@ -501,7 +535,7 @@ onUnmounted(stopColumnResize)
 .attention-dot {
   background: var(--lumina-primary);
   border-radius: 999px;
-  box-shadow: 0 0 0 3px var(--lumina-primary-soft);
+  box-shadow: 0 0 0 2px var(--lumina-primary-soft);
   flex: 0 0 auto;
   height: 6px;
   width: 6px;

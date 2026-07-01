@@ -41,7 +41,7 @@ ol {
 html,
 body,
 * {
-  scrollbar-color: color-mix(in srgb, var(--lumina-primary, #3f9e85) 45%, transparent) transparent;
+  scrollbar-color: color-mix(in srgb, var(--lumina-primary, #3f6f68) 45%, transparent) transparent;
   scrollbar-width: thin;
 }
 
@@ -55,12 +55,12 @@ body,
 }
 
 ::-webkit-scrollbar-thumb {
-  background: color-mix(in srgb, var(--lumina-primary, #3f9e85) 35%, transparent);
+  background: color-mix(in srgb, var(--lumina-primary, #3f6f68) 35%, transparent);
   background-clip: padding-box;
   border: 2px solid transparent;
   border-radius: 999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: color-mix(in srgb, var(--lumina-primary, #3f9e85) 55%, transparent);
+  background: color-mix(in srgb, var(--lumina-primary, #3f6f68) 55%, transparent);
 }

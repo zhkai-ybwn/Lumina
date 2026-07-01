@@ -112,7 +112,7 @@ watch(
 .panel-shell {
   background: var(--lumina-surface-1);
   border: 1px solid var(--lumina-card-border);
-  border-radius: 16px;
+  border-radius: var(--lumina-radius-lg);
   box-shadow: var(--lumina-shadow-sm);
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
@@ -161,7 +161,7 @@ h2 {
 
 .meta-pill--accent,
 .switch-btn.active {
-  background: var(--lumina-primary-soft);
+  background: color-mix(in srgb, var(--lumina-primary-soft) 58%, var(--lumina-surface-2));
   border-color: var(--lumina-primary);
   color: var(--lumina-primary);
 }
@@ -187,7 +187,7 @@ h2 {
   align-items: center;
   background: var(--lumina-empty-bg);
   border: 1px dashed var(--lumina-empty-border);
-  border-radius: 12px;
+  border-radius: var(--lumina-radius-md);
   color: var(--lumina-text-secondary);
   display: flex;
   font-size: 12px;
@@ -218,7 +218,7 @@ h2 {
   }
 
   :deep(.d2h-file-header) {
-    background: color-mix(in srgb, var(--lumina-surface-2) 90%, transparent);
+    background: var(--lumina-surface-2);
     border-bottom: 1px solid var(--lumina-card-border);
     color: var(--lumina-text-secondary);
     font-family: inherit;
@@ -236,7 +236,7 @@ h2 {
 
   :deep(.d2h-code-linenumber),
   :deep(.d2h-code-side-linenumber) {
-    background: color-mix(in srgb, var(--lumina-surface-2) 76%, transparent);
+    background: var(--lumina-surface-2);
     color: var(--lumina-text-secondary);
   }
 

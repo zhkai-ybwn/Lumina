@@ -3,6 +3,7 @@
   "productName": "Lumina",
   "version": "0.1.0",
   "identifier": "com.yubei.lumina",
+  "mainBinaryName": "Lumina",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:5173",
@@ -30,7 +31,13 @@
     "active": true,
     "targets": "all",
     "icon": [
-      "icons/logo.ico"
-    ]
+      "icons/logo.ico",
+      "icons/logo.png"
+    ],
+    "windows": {
+      "nsis": {
+        "installerIcon": "icons/logo.ico"
+      }
+    }
   }
 }

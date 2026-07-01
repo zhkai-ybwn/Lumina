@@ -15,6 +15,11 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/views/git-assistant/GitAssistantView.vue')
       },
       {
+        path: 'devdock',
+        name: 'devdock',
+        component: () => import('@/views/devdock/DevDockView.vue')
+      },
+      {
         path: 'settings',
         name: 'settings',
         component: () => import('@/views/settings/SettingsView.vue')

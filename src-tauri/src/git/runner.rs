@@ -1,13 +1,21 @@
 use std::collections::HashMap;
+use std::net::IpAddr;
 use std::path::Path;
 use std::process::Command;
+
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
 
 use crate::git::models::{
     GitCommandResult, GitCommitChangedFile, GitCommitDetail, GitCommitDetailPayload, GitCommitFileDiffPayload,
     GitCommitFileDiffResponse, GitCommitPayload, GitConfigureRemotePayload, GitFileActionPayload,
     GitFileDiffResponse, GitFileStat, GitFilesActionPayload, GitLogEntry, GitLogPayload, GitPullPayload,
-    GitPushPayload, GitRepoPayload, GitRepairUpstreamPayload, GitRepositoryState, GitSnapshot,
+    GitPushPayload, GitRebasePayload, GitRepoPayload, GitRepairUpstreamPayload, GitRepositoryState, GitSnapshot,
+    GitSyncRecommendedAction, GitSyncStatus,
 };
+
+#[cfg(windows)]
+const CREATE_NO_WINDOW: u32 = 0x08000000;
 
 pub fn run_git(repo_path: &str, args: &[&str]) -> Result<String, String> {
     let output = git_command(repo_path)
@@ -90,18 +98,81 @@ fn run_git_capture(repo_path: &str, args: &[&str]) -> Result<GitCommandResult, S
     })
 }
 
+fn run_git_capture_status(repo_path: &str, args: &[&str]) -> Result<(bool, GitCommandResult), String> {
+    let output = git_command(repo_path)
+        .args(args)
+        .output()
+        .map_err(|e| format!("执行 git 命令失败 {:?}: {}", args, e))?;
+    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+    let command = format!("git {}", args.join(" "));
+    let success = output.status.success();
+    let message = if stdout.trim().is_empty() {
+        if success {
+            "Command completed".to_string()
+        } else {
+            "Command failed".to_string()
+        }
+    } else {
+        stdout.trim().to_string()
+    };
+
+    Ok((
+        success,
+        GitCommandResult {
+            command,
+            message,
+            stdout,
+            stderr,
+            suggestion: None,
+        },
+    ))
+}
+
 fn git_command(repo_path: &str) -> Command {
-    let mut command = Command::new("git");
+    let mut command = silent_command("git");
     command.current_dir(repo_path);
     apply_git_proxy_env(&mut command, repo_path);
     command
 }
 
+fn silent_command(program: &str) -> Command {
+    let mut command = Command::new(program);
+    hide_command_window(&mut command);
+    command
+}
+
+#[cfg(windows)]
+fn hide_command_window(command: &mut Command) {
+    command.creation_flags(CREATE_NO_WINDOW);
+}
+
+#[cfg(not(windows))]
+fn hide_command_window(_command: &mut Command) {}
+
 fn apply_git_proxy_env(command: &mut Command, repo_path: &str) {
+    if should_bypass_proxy_for_repo(repo_path) {
+        clear_proxy_env(command);
+        return;
+    }
+
     let proxy = resolve_git_proxy_env(repo_path);
     set_proxy_env_pair(command, "HTTP_PROXY", "http_proxy", proxy.http.as_deref());
     set_proxy_env_pair(command, "HTTPS_PROXY", "https_proxy", proxy.https.as_deref());
     set_proxy_env_pair(command, "ALL_PROXY", "all_proxy", proxy.all.as_deref());
+}
+
+fn clear_proxy_env(command: &mut Command) {
+    for key in [
+        "HTTP_PROXY",
+        "http_proxy",
+        "HTTPS_PROXY",
+        "https_proxy",
+        "ALL_PROXY",
+        "all_proxy",
+    ] {
+        command.env_remove(key);
+    }
 }
 
 fn set_proxy_env_pair(command: &mut Command, upper: &str, lower: &str, value: Option<&str>) {
@@ -144,6 +215,139 @@ fn resolve_git_proxy_env(_repo_path: &str) -> GitProxyEnv {
     proxy
 }
 
+fn should_bypass_proxy_for_repo(repo_path: &str) -> bool {
+    let Some(remote_url) = remote_origin_url(repo_path) else {
+        return false;
+    };
+    let Some(host) = remote_host_from_url(&remote_url) else {
+        return false;
+    };
+
+    is_proxy_bypass_host(&host) || host_matches_no_proxy(&host)
+}
+
+fn remote_origin_url(repo_path: &str) -> Option<String> {
+    let output = silent_command("git")
+        .args(["config", "--get", "remote.origin.url"])
+        .current_dir(repo_path)
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+
+    let value = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    if value.is_empty() {
+        None
+    } else {
+        Some(value)
+    }
+}
+
+fn remote_host_from_url(remote_url: &str) -> Option<String> {
+    let remote_url = remote_url.trim();
+    if remote_url.is_empty() {
+        return None;
+    }
+
+    if let Some((_, rest)) = remote_url.split_once("://") {
+        let authority = rest.split(['/', '?', '#']).next()?.trim();
+        let host_port = authority.rsplit_once('@').map_or(authority, |(_, host)| host);
+        return Some(strip_port(host_port)?.to_ascii_lowercase());
+    }
+
+    if let Some((user_host, _path)) = remote_url.split_once(':') {
+        if let Some((_, host)) = user_host.rsplit_once('@') {
+            return Some(host.trim().to_ascii_lowercase());
+        }
+    }
+
+    None
+}
+
+fn strip_port(host_port: &str) -> Option<&str> {
+    let host_port = host_port.trim();
+    if host_port.is_empty() {
+        return None;
+    }
+    if let Some(rest) = host_port.strip_prefix('[') {
+        let (host, _) = rest.split_once(']')?;
+        return Some(host);
+    }
+
+    Some(host_port.split(':').next().unwrap_or(host_port))
+}
+
+fn is_proxy_bypass_host(host: &str) -> bool {
+    let host = host.trim().trim_end_matches('.').to_ascii_lowercase();
+    if host.is_empty() {
+        return false;
+    }
+    if host == "localhost" || host.ends_with(".local") || !host.contains('.') {
+        return true;
+    }
+
+    if let Ok(IpAddr::V4(ip)) = host.parse::<IpAddr>() {
+        let octets = ip.octets();
+        return octets[0] == 10
+            || (octets[0] == 172 && (16..=31).contains(&octets[1]))
+            || (octets[0] == 192 && octets[1] == 168)
+            || octets[0] == 127
+            || (octets[0] == 169 && octets[1] == 254);
+    }
+
+    false
+}
+
+fn host_matches_no_proxy(host: &str) -> bool {
+    let host = host.trim().trim_end_matches('.').to_ascii_lowercase();
+    if host.is_empty() {
+        return false;
+    }
+
+    let no_proxy = [
+        std::env::var("NO_PROXY").ok(),
+        std::env::var("no_proxy").ok(),
+        windows_proxy_override(),
+    ]
+    .into_iter()
+    .flatten()
+    .collect::<Vec<_>>()
+    .join(",");
+
+    no_proxy
+        .split([',', ';', ' '])
+        .filter_map(|item| {
+            let item = item.trim().trim_end_matches('.').to_ascii_lowercase();
+            if item.is_empty() {
+                None
+            } else {
+                Some(item)
+            }
+        })
+        .any(|rule| no_proxy_rule_matches_host(&rule, &host))
+}
+
+fn no_proxy_rule_matches_host(rule: &str, host: &str) -> bool {
+    if rule == "*" {
+        return true;
+    }
+    if rule == "<local>" {
+        return !host.contains('.');
+    }
+    if let Some(prefix) = rule.strip_suffix('*') {
+        return host.starts_with(prefix);
+    }
+    if let Some(suffix) = rule.strip_prefix("*.") {
+        return host == suffix || host.ends_with(&format!(".{}", suffix));
+    }
+    if let Some(suffix) = rule.strip_prefix('.') {
+        return host == suffix || host.ends_with(&format!(".{}", suffix));
+    }
+
+    host == rule
+}
+
 fn env_proxy(keys: &[&str]) -> Option<String> {
     keys.iter().find_map(|key| {
         std::env::var(key)
@@ -178,7 +382,7 @@ fn normalize_socks_proxy_value(value: &str) -> Option<String> {
 
 #[cfg(windows)]
 fn windows_system_proxy() -> Option<GitProxyEnv> {
-    let output = Command::new("reg")
+    let output = silent_command("reg")
         .args([
             "query",
             r"HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings",
@@ -198,6 +402,28 @@ fn windows_system_proxy() -> Option<GitProxyEnv> {
 
     registry_value(&text, "ProxyServer")
         .and_then(|value| proxy_env_from_windows_proxy_server(&value))
+}
+
+#[cfg(windows)]
+fn windows_proxy_override() -> Option<String> {
+    let output = silent_command("reg")
+        .args([
+            "query",
+            r"HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings",
+        ])
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+
+    let text = String::from_utf8_lossy(&output.stdout);
+    registry_value(&text, "ProxyOverride")
+}
+
+#[cfg(not(windows))]
+fn windows_proxy_override() -> Option<String> {
+    None
 }
 
 #[cfg(not(windows))]
@@ -365,6 +591,25 @@ fn stage_selected_file_for_commit(repo_path: &str, file_path: &str) -> Result<Gi
     run_git_capture(repo_path, &["add", "--", file_path])
 }
 
+fn has_unmerged_files(repo_path: &str) -> bool {
+    let Ok(status_raw) = run_git_raw(repo_path, &["status", "--porcelain=v1", "--untracked-files=all"]) else {
+        return false;
+    };
+
+    status_raw.lines().any(|line| {
+        let status = line.get(0..2).unwrap_or_default();
+        matches!(status, "DD" | "AU" | "UD" | "UA" | "DU" | "AA" | "UU")
+    })
+}
+
+fn git_path_exists(repo_path: &str, git_path: &str) -> bool {
+    let Ok(relative_path) = run_git(repo_path, &["rev-parse", "--git-path", git_path]) else {
+        return false;
+    };
+
+    Path::new(repo_path).join(relative_path.trim()).exists()
+}
+
 fn load_repository_state(repo_path: &str) -> GitRepositoryState {
     let has_commits = run_git(repo_path, &["rev-parse", "--verify", "HEAD"]).is_ok();
     let remote_url = run_git(repo_path, &["remote", "get-url", "origin"]).ok();
@@ -399,7 +644,78 @@ fn load_repository_state(repo_path: &str) -> GitRepositoryState {
         upstream_gone,
         ahead,
         behind,
+        merge_in_progress: git_path_exists(repo_path, "MERGE_HEAD"),
+        rebase_in_progress: git_path_exists(repo_path, "rebase-merge")
+            || git_path_exists(repo_path, "rebase-apply"),
     }
+}
+
+fn recommended_sync_action(state: &GitRepositoryState) -> GitSyncRecommendedAction {
+    if !state.has_commits {
+        return GitSyncRecommendedAction::None;
+    }
+    if state.remote_url.is_none() {
+        return GitSyncRecommendedAction::ConfigureRemote;
+    }
+    if state.upstream.is_none() || state.upstream_gone {
+        return GitSyncRecommendedAction::PublishBranch;
+    }
+    if state.ahead > 0 && state.behind > 0 {
+        return GitSyncRecommendedAction::ResolveDivergence;
+    }
+    if state.behind > 0 {
+        return GitSyncRecommendedAction::Pull;
+    }
+    if state.ahead > 0 {
+        return GitSyncRecommendedAction::Push;
+    }
+
+    GitSyncRecommendedAction::None
+}
+
+fn sync_status_message(state: &GitRepositoryState, action: &GitSyncRecommendedAction) -> String {
+    let upstream = state.upstream.as_deref().unwrap_or("未设置");
+    let base = format!(
+        "远端检查完成\nupstream: {}\nahead: {}\nbehind: {}",
+        upstream, state.ahead, state.behind
+    );
+
+    let advice = match action {
+        GitSyncRecommendedAction::Push => "本地有待推送提交，可以继续 Push。",
+        GitSyncRecommendedAction::Pull => "远端有本地没有的提交，请先 Pull，再 Push。",
+        GitSyncRecommendedAction::ResolveDivergence => {
+            "本地和远端都有新提交，不能直接 Push。请先 Pull 或打开 Log 确认分叉后再处理。"
+        }
+        GitSyncRecommendedAction::ConfigureRemote => "当前仓库没有 origin remote，请先配置远端。",
+        GitSyncRecommendedAction::PublishBranch => "当前分支没有可用 upstream，可以发布当前分支并设置 upstream。",
+        GitSyncRecommendedAction::None => "本地与远端已同步。",
+    };
+
+    format!("{}\n{}", base, advice)
+}
+
+pub fn sync_status(payload: &GitRepoPayload) -> Result<GitSyncStatus, String> {
+    let fetch = run_git_capture(&payload.repo_path, &["fetch", "--prune"])?;
+    let state = load_repository_state(&payload.repo_path);
+    let recommended_action = recommended_sync_action(&state);
+    let message = sync_status_message(&state, &recommended_action);
+    let suggestion = match recommended_action {
+        GitSyncRecommendedAction::Pull => Some("远端有本地没有的提交。请先 Pull，同步后再 Push。".to_string()),
+        GitSyncRecommendedAction::ResolveDivergence => Some("当前分支已分叉。请先 Pull 并处理可能的冲突，或打开 Log 确认差异。".to_string()),
+        GitSyncRecommendedAction::ConfigureRemote => Some("当前仓库没有 origin remote，推送前需要先连接远端仓库。".to_string()),
+        GitSyncRecommendedAction::PublishBranch => Some("当前分支没有 upstream。Push 会使用 -u 发布当前分支。".to_string()),
+        _ => None,
+    };
+
+    Ok(GitSyncStatus {
+        command: fetch.command,
+        message,
+        stdout: fetch.stdout,
+        stderr: fetch.stderr,
+        suggestion,
+        state,
+        recommended_action,
+    })
 }
 
 pub fn load_git_snapshot(repo_path: &str) -> Result<GitSnapshot, String> {
@@ -540,7 +856,7 @@ pub fn load_selected_file_diff(repo_path: &str, file_path: &str) -> Result<Strin
 }
 
 fn load_untracked_file_diff(repo_path: &str, file_path: &str) -> Result<String, String> {
-    let output = Command::new("git")
+    let output = silent_command("git")
         .args(["diff", "--no-index", "--unified=3", "--no-color", "--", "/dev/null", file_path])
         .current_dir(repo_path)
         .output()
@@ -622,13 +938,23 @@ pub fn push_changes(payload: &GitPushPayload) -> Result<GitCommandResult, String
         return Err("当前仓库没有配置 origin remote，无法推送。\n\n建议: 请先添加 GitHub 仓库地址，例如 git remote add origin <url>。".to_string());
     }
 
+    let fetch = run_git_capture(&payload.repo_path, &["fetch", "--prune"])?;
+    let state = load_repository_state(&payload.repo_path);
+    let action = recommended_sync_action(&state);
+    if matches!(action, GitSyncRecommendedAction::Pull | GitSyncRecommendedAction::ResolveDivergence) {
+        return Err(sync_status_message(&state, &action));
+    }
+
     let upstream = run_git(&payload.repo_path, &["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"]);
-    let result = match upstream {
+    let mut result = match upstream {
         Ok(value) if run_git(&payload.repo_path, &["rev-parse", "--verify", &value]).is_ok() => {
             run_git_capture(&payload.repo_path, &["push"])?
         }
         _ => run_git_capture(&payload.repo_path, &["push", "-u", "origin", branch.trim()])?,
     };
+    result.command = format!("{}\n{}", fetch.command, result.command);
+    result.stdout = format!("{}{}", fetch.stdout, result.stdout);
+    result.stderr = format!("{}{}", fetch.stderr, result.stderr);
     let message = if result.stdout.trim().is_empty() {
         "Push completed".to_string()
     } else {
@@ -660,10 +986,31 @@ pub fn pull_changes(payload: &GitPullPayload) -> Result<GitCommandResult, String
         ));
     }
 
-    let merge = run_git_capture(&payload.repo_path, &["merge", "--ff-only", &upstream])?;
+    let (merge_success, merge) =
+        run_git_capture_status(&payload.repo_path, &["merge", "--no-edit", &upstream])?;
     commands.push(merge.command);
     stdout.push_str(&merge.stdout);
     stderr.push_str(&merge.stderr);
+
+    if !merge_success {
+        if has_unmerged_files(&payload.repo_path) {
+            return Ok(GitCommandResult {
+                command: commands.join("\n"),
+                message: "Pull 已拉取远端变更，但合并产生冲突。请解决冲突后标记 resolved，再提交合并结果。".to_string(),
+                stdout,
+                stderr,
+                suggestion: Some("远端代码已经进入本地工作区。请在冲突列表中打开文件解决冲突，然后标记已解决并完成提交。".to_string()),
+            });
+        }
+
+        let suggestion = git_error_suggestion(&stderr);
+        return Err(format_command_error(
+            &commands.join("\n"),
+            &stdout,
+            &stderr,
+            suggestion.as_deref(),
+        ));
+    }
 
     Ok(GitCommandResult {
         command: commands.join("\n"),
@@ -675,6 +1022,114 @@ pub fn pull_changes(payload: &GitPullPayload) -> Result<GitCommandResult, String
         stdout,
         stderr,
         suggestion: None,
+    })
+}
+
+pub fn rebase_changes(payload: &GitRebasePayload) -> Result<GitCommandResult, String> {
+    let mut stdout = String::new();
+    let mut stderr = String::new();
+    let mut commands = Vec::new();
+    let upstream = run_git(
+        &payload.repo_path,
+        &["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"],
+    )
+    .map_err(|e| format!("当前分支没有 upstream，无法 rebase。\n{}\n\n建议: 请先推送并设置 upstream，或手动设置上游分支。", e))?;
+
+    let fetch = run_git_capture(&payload.repo_path, &["fetch", "--prune"])?;
+    commands.push(fetch.command);
+    stdout.push_str(&fetch.stdout);
+    stderr.push_str(&fetch.stderr);
+
+    if run_git(&payload.repo_path, &["rev-parse", "--verify", &upstream]).is_err() {
+        return Err(format!(
+            "当前分支配置的 upstream 是 {}，但 fetch 后没有找到这个远端引用。\n\n建议: 请检查远端分支是否存在，或重新设置当前分支的 upstream。",
+            upstream
+        ));
+    }
+
+    let (rebase_success, rebase) = run_git_capture_status(&payload.repo_path, &["rebase", &upstream])?;
+    commands.push(rebase.command);
+    stdout.push_str(&rebase.stdout);
+    stderr.push_str(&rebase.stderr);
+
+    if !rebase_success {
+        if has_unmerged_files(&payload.repo_path) || load_repository_state(&payload.repo_path).rebase_in_progress {
+            return Ok(GitCommandResult {
+                command: commands.join("\n"),
+                message: "Rebase 已开始，但产生冲突。请解决冲突后标记 resolved，再继续 rebase。".to_string(),
+                stdout,
+                stderr,
+                suggestion: Some("远端代码已经拉取，本地提交正在重放。请解决冲突后点击 Continue Rebase，或 Abort Rebase 回到 rebase 前状态。".to_string()),
+            });
+        }
+
+        let suggestion = git_error_suggestion(&stderr);
+        return Err(format_command_error(
+            &commands.join("\n"),
+            &stdout,
+            &stderr,
+            suggestion.as_deref(),
+        ));
+    }
+
+    Ok(GitCommandResult {
+        command: commands.join("\n"),
+        message: if stdout.trim().is_empty() {
+            "Rebase completed".to_string()
+        } else {
+            stdout.trim().to_string()
+        },
+        stdout,
+        stderr,
+        suggestion: None,
+    })
+}
+
+pub fn continue_rebase(payload: &GitRepoPayload) -> Result<GitCommandResult, String> {
+    let (success, result) = run_git_capture_status(&payload.repo_path, &["rebase", "--continue"])?;
+    if success {
+        return Ok(GitCommandResult {
+            message: if result.stdout.trim().is_empty() {
+                "Rebase continued".to_string()
+            } else {
+                result.stdout.trim().to_string()
+            },
+            ..result
+        });
+    }
+
+    if has_unmerged_files(&payload.repo_path) || load_repository_state(&payload.repo_path).rebase_in_progress {
+        return Ok(GitCommandResult {
+            message: "Rebase 仍有冲突或待处理步骤。请继续解决冲突后再执行 Continue Rebase。".to_string(),
+            suggestion: Some("如果不想继续 rebase，可以执行 Abort Rebase。".to_string()),
+            ..result
+        });
+    }
+
+    let suggestion = git_error_suggestion(&result.stderr);
+    Err(format_command_error(
+        &result.command,
+        &result.stdout,
+        &result.stderr,
+        suggestion.as_deref(),
+    ))
+}
+
+pub fn abort_rebase(payload: &GitRepoPayload) -> Result<GitCommandResult, String> {
+    let result = run_git_capture(&payload.repo_path, &["rebase", "--abort"])?;
+
+    Ok(GitCommandResult {
+        message: "Rebase 已中止".to_string(),
+        ..result
+    })
+}
+
+pub fn continue_merge(payload: &GitRepoPayload) -> Result<GitCommandResult, String> {
+    let result = run_git_capture(&payload.repo_path, &["commit", "--no-edit"])?;
+
+    Ok(GitCommandResult {
+        message: "Merge commit 已完成".to_string(),
+        ..result
     })
 }
 
@@ -1052,6 +1507,71 @@ HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Internet Settings
             registry_value(registry_output, "ProxyServer").as_deref(),
             Some("127.0.0.1:10808")
         );
+    }
+
+    #[test]
+    fn extracts_remote_hosts() {
+        assert_eq!(
+            remote_host_from_url("http://192.168.0.127:9980/AMI/frontenddeveloper/ami-simulator.git").as_deref(),
+            Some("192.168.0.127")
+        );
+        assert_eq!(
+            remote_host_from_url("https://github.com/zhkai-ybwn/Lumina.git").as_deref(),
+            Some("github.com")
+        );
+        assert_eq!(
+            remote_host_from_url("git@github.com:zhkai-ybwn/Lumina.git").as_deref(),
+            Some("github.com")
+        );
+    }
+
+    #[test]
+    fn bypasses_private_git_hosts() {
+        assert!(is_proxy_bypass_host("192.168.0.127"));
+        assert!(is_proxy_bypass_host("172.17.182.113"));
+        assert!(is_proxy_bypass_host("10.0.8.12"));
+        assert!(is_proxy_bypass_host("localhost"));
+        assert!(!is_proxy_bypass_host("github.com"));
+    }
+
+    #[test]
+    fn matches_no_proxy_rules() {
+        assert!(no_proxy_rule_matches_host("*.corp.local", "git.corp.local"));
+        assert!(no_proxy_rule_matches_host(".example.com", "git.example.com"));
+        assert!(no_proxy_rule_matches_host("192.168.*", "192.168.0.127"));
+        assert!(no_proxy_rule_matches_host("<local>", "gitlab"));
+        assert!(!no_proxy_rule_matches_host("<local>", "github.com"));
+    }
+
+    #[test]
+    fn recommends_sync_actions_from_ahead_behind() {
+        let mut state = GitRepositoryState {
+            has_commits: true,
+            remote_name: Some("origin".to_string()),
+            remote_url: Some("http://example.test/repo.git".to_string()),
+            upstream: Some("origin/main".to_string()),
+            upstream_gone: false,
+            ahead: 1,
+            behind: 0,
+            merge_in_progress: false,
+            rebase_in_progress: false,
+        };
+        assert_eq!(recommended_sync_action(&state), GitSyncRecommendedAction::Push);
+
+        state.ahead = 0;
+        state.behind = 1;
+        assert_eq!(recommended_sync_action(&state), GitSyncRecommendedAction::Pull);
+
+        state.ahead = 1;
+        state.behind = 1;
+        assert_eq!(
+            recommended_sync_action(&state),
+            GitSyncRecommendedAction::ResolveDivergence
+        );
+
+        state.ahead = 0;
+        state.behind = 0;
+        assert_eq!(recommended_sync_action(&state), GitSyncRecommendedAction::None);
     }
 
     #[test]

@@ -19,6 +19,8 @@ export interface GitRepositoryState {
   upstreamGone: boolean
   ahead: number
   behind: number
+  mergeInProgress: boolean
+  rebaseInProgress: boolean
 }
 
 export interface GitFileStat {
@@ -66,6 +68,13 @@ export interface GitCommandResult {
   suggestion?: string | null
 }
 
+export type GitSyncRecommendedAction = 'push' | 'pull' | 'resolveDivergence' | 'configureRemote' | 'publishBranch' | 'none'
+
+export interface GitSyncStatus extends GitCommandResult {
+  state: GitRepositoryState
+  recommendedAction: GitSyncRecommendedAction
+}
+
 export interface GitLogEntry {
   hash: string
   shortHash: string
@@ -99,12 +108,20 @@ export async function fetchGitChanges(repoPath: string): Promise<GitCommandResul
   return await invoke<GitCommandResult>('fetch_git_changes', { payload: { repoPath } })
 }
 
+export async function syncGitStatus(repoPath: string): Promise<GitSyncStatus> {
+  return await invoke<GitSyncStatus>('sync_git_status', { payload: { repoPath } })
+}
+
 export async function pushGitChanges(repoPath: string): Promise<GitCommandResult> {
   return await invoke<GitCommandResult>('push_git_changes', { payload: { repoPath } })
 }
 
 export async function pullGitChanges(repoPath: string): Promise<GitCommandResult> {
   return await invoke<GitCommandResult>('pull_git_changes', { payload: { repoPath } })
+}
+
+export async function rebaseGitChanges(repoPath: string): Promise<GitCommandResult> {
+  return await invoke<GitCommandResult>('rebase_git_changes', { payload: { repoPath } })
 }
 
 export async function configureGitOrigin(repoPath: string, remoteUrl: string): Promise<GitCommandResult> {
@@ -125,6 +142,18 @@ export async function markGitFilesResolved(repoPath: string, filePaths: string[]
 
 export async function abortGitMerge(repoPath: string): Promise<GitCommandResult> {
   return await invoke<GitCommandResult>('abort_git_merge', { payload: { repoPath } })
+}
+
+export async function continueGitMerge(repoPath: string): Promise<GitCommandResult> {
+  return await invoke<GitCommandResult>('continue_git_merge', { payload: { repoPath } })
+}
+
+export async function continueGitRebase(repoPath: string): Promise<GitCommandResult> {
+  return await invoke<GitCommandResult>('continue_git_rebase', { payload: { repoPath } })
+}
+
+export async function abortGitRebase(repoPath: string): Promise<GitCommandResult> {
+  return await invoke<GitCommandResult>('abort_git_rebase', { payload: { repoPath } })
 }
 
 export async function loadGitLog(repoPath: string, filePath?: string): Promise<GitLogEntry[]> {

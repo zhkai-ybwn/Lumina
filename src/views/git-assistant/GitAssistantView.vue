@@ -1,7 +1,10 @@
 <template>
   <div class="git-assistant-page">
-    <div v-if="error" class="error-banner">
-      {{ error }}
+    <div v-if="error" class="error-banner" role="alert">
+      <span>{{ error }}</span>
+      <button type="button" :aria-label="t('common.dismiss')" @click="error = ''">
+        <Icon icon="solar:close-circle-linear" />
+      </button>
     </div>
 
     <GitStatusBar
@@ -31,6 +34,7 @@
           :pushing="pushLoading"
           :pulling="pullLoading"
           :submit-disabled="!snapshot || !reviewSelectedRaws.length || !commitTitle.trim()"
+          :selected-count="reviewSelectedRaws.length"
           :title="commitTitle"
           :body="commitBody"
           @submit="handleCommit"
@@ -41,24 +45,27 @@
         <aside class="commit-side">
           <div class="ai-panel-title">
             <span>{{ t('gitAssistant.ai.actionsTitle') }}</span>
+            <strong>{{ reviewSelectedRaws.length }}</strong>
           </div>
 
-          <label class="model-field">
-            <span>{{ t('gitAssistant.ai.currentModel') }}</span>
-            <NSelect
-              class="model-select"
-              :value="aiSettings.taskModelMap['commit-message'] || aiSettings.defaultModelId"
-              :options="modelSelectOptions"
-              :disabled="!aiSettings.enabledModels.length"
-              size="small"
-              :consistent-menu-width="false"
-              @update:value="value => aiSettings.setTaskModel('commit-message', String(value ?? ''))"
-            />
-          </label>
+          <section class="ai-tool-section">
+            <label class="model-field">
+              <span>{{ t('gitAssistant.ai.currentModel') }}</span>
+              <NSelect
+                class="model-select"
+                :value="aiSettings.taskModelMap['commit-message'] || aiSettings.defaultModelId"
+                :options="modelSelectOptions"
+                :disabled="!aiSettings.enabledModels.length"
+                size="small"
+                :consistent-menu-width="false"
+                @update:value="value => aiSettings.setTaskModel('commit-message', String(value ?? ''))"
+              />
+            </label>
 
-          <NCheckbox v-model:checked="autoSendPromptToApi" class="ai-toggle">
-            {{ t('gitAssistant.ai.autoSendPrompt') }}
-          </NCheckbox>
+            <NCheckbox v-model:checked="autoSendPromptToApi" class="ai-toggle">
+              {{ t('gitAssistant.ai.autoSendPrompt') }}
+            </NCheckbox>
+          </section>
 
           <section v-if="showRemoteTools" class="remote-tools">
             <div class="remote-tools__header">
@@ -73,6 +80,23 @@
               :placeholder="t('gitAssistant.remote.urlPlaceholder')"
             />
             <div class="remote-actions">
+              <NButton
+                v-if="isDiverged"
+                size="small"
+                :disabled="pullLoading || remoteLoading"
+                @click="handlePull"
+              >
+                {{ t('gitAssistant.remote.mergeRemote') }}
+              </NButton>
+              <NButton
+                v-if="isDiverged"
+                size="small"
+                type="primary"
+                :disabled="rebaseLoading || remoteLoading"
+                @click="handleRebase"
+              >
+                {{ t('gitAssistant.remote.rebaseRemote') }}
+              </NButton>
               <NButton
                 v-if="needsRemoteUrl"
                 size="small"
@@ -102,7 +126,7 @@
             <p>{{ remoteToolHint }}</p>
           </section>
 
-          <section v-if="conflictedFiles.length" class="conflict-tools">
+          <section v-if="showConflictTools" class="conflict-tools">
             <div class="conflict-tools__header">
               <span>{{ t('gitAssistant.conflict.title') }}</span>
               <strong>{{ t('gitAssistant.conflict.count', { count: conflictedFiles.length }) }}</strong>
@@ -118,38 +142,56 @@
                 {{ t('gitAssistant.conflict.markSelectedResolved') }}
               </NButton>
               <NButton
+                v-if="repositoryState?.mergeInProgress"
+                size="small"
+                :disabled="conflictedFiles.length > 0 || conflictLoading"
+                @click="handleContinueMerge"
+              >
+                {{ t('gitAssistant.conflict.continueMerge') }}
+              </NButton>
+              <NButton
+                v-if="repositoryState?.rebaseInProgress"
+                size="small"
+                :disabled="conflictedFiles.length > 0 || conflictLoading"
+                @click="handleContinueRebase"
+              >
+                {{ t('gitAssistant.conflict.continueRebase') }}
+              </NButton>
+              <NButton
                 size="small"
                 type="error"
                 tertiary
                 :disabled="conflictLoading"
-                @click="handleAbortMerge"
+                @click="repositoryState?.rebaseInProgress ? handleAbortRebase() : handleAbortMerge()"
               >
-                {{ t('gitAssistant.conflict.abortMerge') }}
+                {{ repositoryState?.rebaseInProgress ? t('gitAssistant.conflict.abortRebase') : t('gitAssistant.conflict.abortMerge') }}
               </NButton>
             </div>
           </section>
 
-          <div class="ai-actions">
+          <section class="ai-tool-section ai-tool-section--actions">
             <button class="ai-action primary-action" type="button" :disabled="!snapshot || aiLoading" @click="handleGenerateAiAnalysis">
               {{ aiLoading ? t('gitAssistant.ai.generating') : t('gitAssistant.ai.generate') }}
             </button>
-            <button class="ai-action" type="button" :disabled="!promptPreview" @click="promptDrawerOpen = true">
-              {{ t('gitAssistant.ai.viewPrompt') }}
-            </button>
-            <button class="ai-action" type="button" :disabled="!filteredCommitMessageHistory.length" @click="historyDrawerOpen = true">
-              {{ t('gitAssistant.history.open') }}
-            </button>
-            <button class="ai-action" type="button" :disabled="!snapshot || logLoading" @click="handleOpenLog()">
-              {{ logLoading ? t('gitAssistant.log.loading') : t('gitAssistant.log.open') }}
-            </button>
-          </div>
+            <div class="ai-action-grid">
+              <button class="ai-action" type="button" :disabled="!promptPreview" @click="promptDrawerOpen = true">
+                {{ t('gitAssistant.ai.viewPrompt') }}
+              </button>
+              <button class="ai-action" type="button" :disabled="!filteredCommitMessageHistory.length" @click="historyDrawerOpen = true">
+                {{ t('gitAssistant.history.open') }}
+              </button>
+              <button class="ai-action" type="button" :disabled="!snapshot || logLoading" @click="handleOpenLog()">
+                {{ logLoading ? t('gitAssistant.log.loading') : t('gitAssistant.log.open') }}
+              </button>
+              <button class="ai-action" type="button" disabled>
+                {{ t('gitAssistant.ai.reviewCode') }}
+              </button>
+            </div>
+          </section>
           <div v-if="aiLoading" class="ai-progress">
             <span class="ai-progress__dot"></span>
             <span>{{ promptGenerationStep }}</span>
           </div>
-          <button class="ai-action" type="button" disabled>
-            {{ t('gitAssistant.ai.reviewCode') }}
-          </button>
         </aside>
       </section>
 
@@ -172,15 +214,13 @@
         @select-file="handleSelectFile"
         @open-diff="handleOpenDiff"
         @file-action="handleFileAction"
+        @request-refresh="handleRefresh"
         @toggle-review-selection="toggleReviewSelection"
         @set-review-selection="setReviewSelection"
       />
 
       <NModal v-model:show="showDiff" class="diff-modal" :mask-closable="true">
-        <section class="diff-dialog">
-          <button class="modal-close-button" type="button" :aria-label="t('gitAssistant.prompt.close')" @click="showDiff = false">
-            &times;
-          </button>
+        <WorkbenchModalPanel size="diff" :close-label="t('gitAssistant.prompt.close')" @close="showDiff = false">
           <GitDiffViewer
             class="diff-window"
             :has-snapshot="Boolean(snapshot)"
@@ -190,14 +230,11 @@
             :current-mode="diffMode"
             @update:mode="diffMode = $event"
           />
-        </section>
+        </WorkbenchModalPanel>
       </NModal>
 
       <NModal v-model:show="showLogFileDiff" class="diff-modal" :mask-closable="true">
-        <section class="diff-dialog">
-          <button class="modal-close-button" type="button" :aria-label="t('gitAssistant.prompt.close')" @click="showLogFileDiff = false">
-            &times;
-          </button>
+        <WorkbenchModalPanel size="diff" :close-label="t('gitAssistant.prompt.close')" @close="showLogFileDiff = false">
           <GitDiffViewer
             class="diff-window"
             :has-snapshot="Boolean(snapshot)"
@@ -206,13 +243,20 @@
             :loading="logFileDiffLoading"
             current-mode="head"
           />
-        </section>
+        </WorkbenchModalPanel>
       </NModal>
 
-      <NModal v-model:show="recentRepoManagerOpen" class="recent-repo-modal" :mask-closable="true">
+      <NModal
+        v-model:show="recentRepoManagerOpen"
+        class="recent-repo-modal"
+        :auto-focus="false"
+        :mask-closable="true"
+        :trap-focus="false"
+        @after-enter="focusRecentRepoAliasInput"
+      >
         <section class="recent-repo-dialog">
           <button class="modal-close-button" type="button" :aria-label="t('gitAssistant.prompt.close')" @click="recentRepoManagerOpen = false">
-            &times;
+            <Icon icon="solar:close-circle-linear" />
           </button>
           <header class="recent-repo-dialog__header">
             <div>
@@ -224,11 +268,16 @@
           <section v-if="recentRepos.length" class="recent-repo-list">
             <article v-for="repo in recentRepos" :key="repo.path" class="recent-repo-item">
               <div class="recent-repo-item__main">
-                <NInput
+                <input
+                  ref="recentRepoAliasInputRefs"
+                  class="recent-repo-alias-input"
+                  type="text"
                   :value="repo.name"
-                  size="small"
                   :placeholder="t('gitAssistant.repo.recentRepoAliasPlaceholder')"
-                  @update:value="value => renameRecentRepo(repo.path, String(value ?? ''))"
+                  @input="event => renameRecentRepo(repo.path, (event.target as HTMLInputElement).value)"
+                  @blur="persistRecentRepos"
+                  @click.stop
+                  @mousedown.stop
                 />
                 <div class="recent-repo-path mono" :title="repo.path">{{ repo.path }}</div>
               </div>
@@ -249,10 +298,7 @@
       </NModal>
 
       <NModal v-model:show="gitLogOpen" class="git-log-modal" :mask-closable="true">
-        <section class="git-log-dialog">
-          <button class="modal-close-button" type="button" :aria-label="t('gitAssistant.prompt.close')" @click="gitLogOpen = false">
-            &times;
-          </button>
+        <WorkbenchModalPanel size="wide" :close-label="t('gitAssistant.prompt.close')" @close="gitLogOpen = false">
           <header class="git-log-dialog__header">
             <div class="git-log-title">
               <strong>{{ gitLogFilePath ? t('gitAssistant.log.fileTitle') : t('gitAssistant.log.title') }}</strong>
@@ -302,8 +348,8 @@
             {{ t('gitAssistant.log.noMatch') }}
           </section>
           <section v-else class="git-log-content">
-            <section class="git-log-revision-table">
-              <div class="git-log-table-head">
+            <section class="git-log-revision-table wb-table">
+              <div class="git-log-table-head wb-table-head">
                 <span>{{ t('gitAssistant.log.columnGraph') }}</span>
                 <span>{{ t('gitAssistant.log.columnMessage') }}</span>
                 <span>{{ t('gitAssistant.log.columnAuthor') }}</span>
@@ -344,8 +390,8 @@
             </section>
 
             <section class="git-log-bottom">
-              <section class="git-log-file-table">
-                <div class="git-log-file-head">
+              <section class="git-log-file-table wb-table">
+                <div class="git-log-file-head wb-table-head">
                   <span>{{ t('gitAssistant.log.columnPath') }}</span>
                   <span>{{ t('gitAssistant.log.columnExtension') }}</span>
                   <span>{{ t('gitAssistant.log.columnStatus') }}</span>
@@ -369,19 +415,18 @@
               </section>
             </section>
           </section>
-        </section>
+        </WorkbenchModalPanel>
       </NModal>
     </section>
 
-    <aside v-if="promptDrawerOpen" class="prompt-drawer">
-      <header class="prompt-drawer__header">
-        <div>
-          <h3>{{ t('gitAssistant.prompt.title') }}</h3>
-          <p>{{ t('gitAssistant.prompt.description') }}</p>
-        </div>
-        <button type="button" @click="promptDrawerOpen = false">{{ t('gitAssistant.prompt.close') }}</button>
-      </header>
-
+    <WorkbenchDrawer
+      v-if="promptDrawerOpen"
+      size="wide"
+      :title="t('gitAssistant.prompt.title')"
+      :description="t('gitAssistant.prompt.description')"
+      :close-label="t('gitAssistant.prompt.close')"
+      @close="promptDrawerOpen = false"
+    >
       <div v-if="promptPreview" class="prompt-drawer__body">
         <details class="prompt-section" open>
           <summary>{{ t('gitAssistant.prompt.overview') }}</summary>
@@ -423,8 +468,8 @@
                 <strong>{{ group.kind }}</strong>
                 <span>{{ group.files.length }}</span>
               </div>
-              <div class="prompt-file-table">
-                <div class="prompt-file-table__head">
+              <div class="prompt-file-table wb-table">
+                <div class="prompt-file-table__head wb-table-head">
                   <span>{{ t('gitAssistant.prompt.columnPath') }}</span>
                   <span>{{ t('gitAssistant.prompt.columnRole') }}</span>
                   <span>{{ t('gitAssistant.prompt.columnScope') }}</span>
@@ -454,17 +499,15 @@
           </section>
         </details>
       </div>
-    </aside>
+    </WorkbenchDrawer>
 
-    <aside v-if="historyDrawerOpen" class="history-drawer">
-      <header class="history-drawer__header">
-        <div>
-          <h3>{{ t('gitAssistant.history.title') }}</h3>
-          <p>{{ t('gitAssistant.history.description') }}</p>
-        </div>
-        <button type="button" @click="historyDrawerOpen = false">{{ t('gitAssistant.prompt.close') }}</button>
-      </header>
-
+    <WorkbenchDrawer
+      v-if="historyDrawerOpen"
+      :title="t('gitAssistant.history.title')"
+      :description="t('gitAssistant.history.description')"
+      :close-label="t('gitAssistant.prompt.close')"
+      @close="historyDrawerOpen = false"
+    >
       <section class="history-list">
         <article v-for="entry in filteredCommitMessageHistory" :key="entry.id" class="history-item">
           <div class="history-item__main">
@@ -479,7 +522,7 @@
           {{ t('gitAssistant.history.empty') }}
         </div>
       </section>
-    </aside>
+    </WorkbenchDrawer>
 
     <GitCommandDialog
       :visible="gitCommandDialog.visible"
@@ -503,7 +546,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, defineAsyncComponent, onMounted, ref, watch } from 'vue'
+import { computed, defineAsyncComponent, nextTick, onMounted, ref, watch } from 'vue'
 import { open } from '@tauri-apps/plugin-dialog'
 import { NButton, NCheckbox, NDatePicker, NInput, NModal, NSelect } from 'naive-ui'
 import { useLocale } from '@/hooks/useLocale'
@@ -515,8 +558,11 @@ import {
 } from '@/services/git/git-ai-service'
 import {
   abortGitMerge,
+  abortGitRebase,
   commitGitChanges,
   configureGitOrigin,
+  continueGitMerge,
+  continueGitRebase,
   fetchGitChanges,
   type GitCommandResult,
   type GitCommitChangedFile,
@@ -532,7 +578,9 @@ import {
   openGitFileExternal,
   pullGitChanges,
   pushGitChanges,
+  rebaseGitChanges,
   repairGitUpstream,
+  syncGitStatus,
   type GitSnapshot,
 } from '@/services/git/git-service'
 import { ensureGitProjectProfile } from '@/services/git/git-profile-service'
@@ -543,6 +591,8 @@ import GitChangeExplorer from './components/GitChangeExplorer.vue'
 import GitCommandDialog from './components/GitCommandDialog.vue'
 import GitCommitAssistant from './components/GitCommitAssistant.vue'
 import GitStatusBar from './components/GitStatusBar.vue'
+import WorkbenchDrawer from '@/components/workbench/WorkbenchDrawer.vue'
+import WorkbenchModalPanel from '@/components/workbench/WorkbenchModalPanel.vue'
 import {
   ATTENTION_SCORE_CONFIG,
   GIT_COMMIT_MESSAGE_HISTORY_STORAGE_KEY,
@@ -564,6 +614,7 @@ const commitLoading = ref(false)
 const fetchLoading = ref(false)
 const pushLoading = ref(false)
 const pullLoading = ref(false)
+const rebaseLoading = ref(false)
 const remoteLoading = ref(false)
 const conflictLoading = ref(false)
 const logLoading = ref(false)
@@ -602,6 +653,7 @@ const promptPreview = ref<GitCommitPromptPreview | null>(null)
 const promptDrawerOpen = ref(false)
 const historyDrawerOpen = ref(false)
 const recentRepoManagerOpen = ref(false)
+const recentRepoAliasInputRefs = ref<HTMLInputElement[]>([])
 const gitLogOpen = ref(false)
 const logDetailLoading = ref(false)
 const promptGenerationStep = ref('')
@@ -814,14 +866,20 @@ const canPublishBranch = computed(() => {
   const state = repositoryState.value
   return Boolean(state?.remoteName && state.hasCommits && (!state.upstream || state.upstreamGone))
 })
-const showRemoteTools = computed(() => needsRemoteUrl.value || canRepairUpstream.value || canPublishBranch.value)
+const isDiverged = computed(() => Boolean(repositoryState.value && repositoryState.value.ahead > 0 && repositoryState.value.behind > 0))
+const showRemoteTools = computed(() => needsRemoteUrl.value || canRepairUpstream.value || canPublishBranch.value || isDiverged.value)
+const showConflictTools = computed(() =>
+  conflictedFiles.value.length > 0 || Boolean(repositoryState.value?.mergeInProgress || repositoryState.value?.rebaseInProgress),
+)
 const remoteToolStatus = computed(() => {
+  if (isDiverged.value) return t('gitAssistant.remote.diverged')
   if (needsRemoteUrl.value) return t('gitAssistant.remote.missingOrigin')
   if (repositoryState.value?.upstreamGone) return t('gitAssistant.remote.upstreamGone')
   if (!repositoryState.value?.upstream) return t('gitAssistant.remote.upstreamMissing')
   return t('gitAssistant.remote.ready')
 })
 const remoteToolHint = computed(() => {
+  if (isDiverged.value) return t('gitAssistant.remote.divergedHint')
   if (needsRemoteUrl.value) return t('gitAssistant.remote.originHint')
   if (repositoryState.value?.upstreamGone) return t('gitAssistant.remote.upstreamGoneHint')
   if (!repositoryState.value?.upstream) return t('gitAssistant.remote.upstreamMissingHint')
@@ -1097,12 +1155,15 @@ function rememberRecentRepo(path: string) {
 
 function renameRecentRepo(path: string, name: string) {
   const normalizedPath = normalizePath(path).toLowerCase()
-  recentRepos.value = recentRepos.value.map(repo =>
-    normalizePath(repo.path).toLowerCase() === normalizedPath
-      ? { ...repo, name: name.trim() || getRepoDisplayName(repo.path) }
-      : repo,
-  )
-  persistRecentRepos()
+  const repo = recentRepos.value.find(repo => normalizePath(repo.path).toLowerCase() === normalizedPath)
+  if (repo) {
+    repo.name = name
+  }
+}
+
+async function focusRecentRepoAliasInput() {
+  await nextTick()
+  recentRepoAliasInputRefs.value[0]?.focus()
 }
 
 function removeRecentRepo(path: string) {
@@ -1385,6 +1446,62 @@ async function handleAbortMerge() {
     const result = await abortGitMerge(displayRepoPath.value)
     finishGitCommand(result)
     reviewSelectedRaws.value = []
+    await loadSnapshotByPath(displayRepoPath.value)
+  } catch (err) {
+    console.error(err)
+    failGitCommand(err)
+  } finally {
+    conflictLoading.value = false
+  }
+}
+
+async function handleContinueMerge() {
+  if (!displayRepoPath.value) return
+
+  conflictLoading.value = true
+  error.value = ''
+  startGitCommand(t('gitAssistant.gitCommand.mergeTitle'), t('gitAssistant.gitCommand.merging'))
+  try {
+    const result = await continueGitMerge(displayRepoPath.value)
+    finishGitCommand(result)
+    await loadSnapshotByPath(displayRepoPath.value)
+  } catch (err) {
+    console.error(err)
+    failGitCommand(err)
+    await loadSnapshotByPath(displayRepoPath.value)
+  } finally {
+    conflictLoading.value = false
+  }
+}
+
+async function handleContinueRebase() {
+  if (!displayRepoPath.value) return
+
+  conflictLoading.value = true
+  error.value = ''
+  startGitCommand(t('gitAssistant.gitCommand.rebaseTitle'), t('gitAssistant.gitCommand.rebasing'))
+  try {
+    const result = await continueGitRebase(displayRepoPath.value)
+    finishGitCommand(result)
+    await loadSnapshotByPath(displayRepoPath.value)
+  } catch (err) {
+    console.error(err)
+    failGitCommand(err)
+    await loadSnapshotByPath(displayRepoPath.value)
+  } finally {
+    conflictLoading.value = false
+  }
+}
+
+async function handleAbortRebase() {
+  if (!displayRepoPath.value || !window.confirm(t('gitAssistant.conflict.abortRebaseConfirm'))) return
+
+  conflictLoading.value = true
+  error.value = ''
+  startGitCommand(t('gitAssistant.gitCommand.rebaseTitle'), t('gitAssistant.gitCommand.aborting'))
+  try {
+    const result = await abortGitRebase(displayRepoPath.value)
+    finishGitCommand(result)
     await loadSnapshotByPath(displayRepoPath.value)
   } catch (err) {
     console.error(err)
@@ -1702,8 +1819,40 @@ async function handlePush() {
 
   pushLoading.value = true
   error.value = ''
-  startGitCommand(t('gitAssistant.gitCommand.pushTitle'), t('gitAssistant.gitCommand.pushing'))
+  startGitCommand(t('gitAssistant.gitCommand.pushTitle'), t('gitAssistant.gitCommand.checkingRemote'))
   try {
+    const syncStatus = await syncGitStatus(displayRepoPath.value)
+    const action = syncStatus.recommendedAction
+    if (action === 'pull' || action === 'resolveDivergence') {
+      finishGitCommand(syncStatus, t('gitAssistant.gitCommand.pullNext'))
+      gitCommandDialog.value = {
+        ...gitCommandDialog.value,
+        success: action === 'pull' ? null : false,
+        nextAction: 'pull',
+      }
+      await loadSnapshotByPath(displayRepoPath.value)
+      return
+    }
+
+    if (action === 'configureRemote') {
+      finishGitCommand(syncStatus)
+      gitCommandDialog.value = {
+        ...gitCommandDialog.value,
+        success: false,
+      }
+      await loadSnapshotByPath(displayRepoPath.value)
+      return
+    }
+
+    gitCommandDialog.value = {
+      ...gitCommandDialog.value,
+      phase: t('gitAssistant.gitCommand.pushing'),
+      command: syncStatus.command,
+      stdout: syncStatus.stdout,
+      stderr: syncStatus.stderr,
+      message: syncStatus.message,
+      suggestion: syncStatus.suggestion ?? '',
+    }
     const result = await pushGitChanges(displayRepoPath.value)
     finishGitCommand(result)
     await loadSnapshotByPath(displayRepoPath.value)
@@ -1751,6 +1900,25 @@ async function handlePull() {
   }
 }
 
+async function handleRebase() {
+  if (!displayRepoPath.value) return
+
+  rebaseLoading.value = true
+  error.value = ''
+  startGitCommand(t('gitAssistant.gitCommand.rebaseTitle'), t('gitAssistant.gitCommand.rebasing'))
+  try {
+    const result = await rebaseGitChanges(displayRepoPath.value)
+    finishGitCommand(result)
+    await loadSnapshotByPath(displayRepoPath.value)
+  } catch (err) {
+    console.error(err)
+    failGitCommand(err)
+    await loadSnapshotByPath(displayRepoPath.value)
+  } finally {
+    rebaseLoading.value = false
+  }
+}
+
 function handleCommandNextAction() {
   if (gitCommandDialog.value.nextAction === 'push') {
     void handlePush()
@@ -1763,35 +1931,67 @@ function handleCommandNextAction() {
 <style scoped lang="scss">
 .git-assistant-page {
   background:
-    linear-gradient(180deg, color-mix(in srgb, var(--lumina-bg) 94%, #fff), var(--lumina-bg)),
+    linear-gradient(180deg, color-mix(in srgb, var(--lumina-bg) 82%, var(--lumina-surface-1)), var(--lumina-bg)),
     var(--lumina-bg);
   box-sizing: border-box;
   color: var(--lumina-text);
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   height: 100%;
   min-height: 0;
   min-width: 0;
   overflow: hidden;
-  padding: 10px;
+  padding: 8px;
   position: relative;
 }
 
 .error-banner {
+  align-items: center;
   background: color-mix(in srgb, var(--lumina-danger) 12%, var(--lumina-surface-2));
   border: 1px solid color-mix(in srgb, var(--lumina-danger) 28%, transparent);
   border-radius: 10px;
   color: var(--lumina-danger);
+  display: flex;
   flex: 0 0 auto;
   font-size: 12px;
+  gap: 10px;
+  justify-content: space-between;
   padding: 8px 10px;
+
+  span {
+    min-width: 0;
+  }
+
+  button {
+    align-items: center;
+    background: transparent;
+    border: 0;
+    border-radius: var(--lumina-radius-sm);
+    color: currentcolor;
+    cursor: pointer;
+    display: inline-flex;
+    flex: 0 0 auto;
+    height: 24px;
+    justify-content: center;
+    padding: 0;
+    width: 24px;
+
+    &:hover {
+      background: color-mix(in srgb, var(--lumina-danger) 10%, transparent);
+    }
+
+    svg {
+      height: 16px;
+      width: 16px;
+    }
+  }
 }
 
 .workspace-body {
   display: grid;
   flex: 1 1 auto;
-  gap: 10px;
+  gap: 8px;
   grid-template-rows: auto minmax(0, 1fr) auto;
   min-height: 0;
   min-width: 0;
@@ -1800,39 +2000,61 @@ function handleCommandNextAction() {
 
 .commit-area {
   display: grid;
-  gap: 10px;
-  grid-template-columns: minmax(0, 1fr) minmax(390px, 430px);
+  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) minmax(340px, 370px);
   min-height: 0;
 }
 
 .commit-workbench {
-  border: 1px solid color-mix(in srgb, var(--lumina-card-border) 78%, transparent);
-  border-radius: 12px;
-  box-shadow:
-    0 10px 28px rgba(0, 0, 0, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.32);
+  border: 1px solid var(--lumina-card-border);
+  border-radius: var(--lumina-radius-lg);
+  box-shadow: var(--lumina-shadow-sm);
 }
 
 .commit-side {
-  background: color-mix(in srgb, var(--lumina-surface-1) 88%, transparent);
-  backdrop-filter: blur(18px);
-  border: 1px solid color-mix(in srgb, var(--lumina-card-border) 78%, transparent);
-  border-radius: 12px;
-  box-shadow:
-    0 10px 28px rgba(0, 0, 0, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.32);
+  background: var(--lumina-surface-1);
+  border: 1px solid var(--lumina-card-border);
+  border-radius: var(--lumina-radius-lg);
+  box-shadow: var(--lumina-shadow-sm);
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 12px;
+  gap: 8px;
+  padding: 10px;
 }
 
 .ai-panel-title {
+  align-items: center;
+  border-bottom: 1px solid var(--lumina-card-border);
+  display: flex;
+  justify-content: space-between;
+  min-height: 30px;
+  padding: 0 2px 8px;
+
   span {
     color: var(--lumina-text);
     font-size: 14px;
     font-weight: 650;
   }
+
+  strong {
+    color: var(--lumina-primary);
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 1;
+  }
+}
+
+.ai-tool-section {
+  background: var(--lumina-surface-2);
+  border: 1px solid var(--lumina-card-border);
+  border-radius: var(--lumina-radius-md);
+  display: grid;
+  gap: 8px;
+  padding: 9px;
+}
+
+.ai-tool-section--actions {
+  background: color-mix(in srgb, var(--lumina-surface-2) 76%, var(--lumina-surface-1));
 }
 
 .model-field {
@@ -1856,9 +2078,9 @@ function handleCommandNextAction() {
 }
 
 .remote-tools {
-  background: color-mix(in srgb, var(--lumina-surface-2) 58%, transparent);
+  background: var(--lumina-surface-2);
   border: 1px solid var(--lumina-card-border);
-  border-radius: 9px;
+  border-radius: var(--lumina-radius-md);
   display: grid;
   gap: 9px;
   padding: 10px;
@@ -1900,7 +2122,7 @@ function handleCommandNextAction() {
     linear-gradient(180deg, color-mix(in srgb, var(--lumina-danger) 7%, transparent), transparent),
     color-mix(in srgb, var(--lumina-surface-2) 66%, transparent);
   border: 1px solid color-mix(in srgb, var(--lumina-danger) 28%, var(--lumina-card-border));
-  border-radius: 10px;
+  border-radius: var(--lumina-radius-md);
   display: grid;
   gap: 9px;
   padding: 10px;
@@ -1950,22 +2172,23 @@ function handleCommandNextAction() {
   font-size: 12px;
 }
 
-.ai-actions {
+.ai-action-grid {
   display: grid;
-  gap: 8px;
-  grid-template-columns: 1fr;
+  gap: 6px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .ai-action,
 .secondary-btn {
-  background: color-mix(in srgb, var(--lumina-button-secondary-bg) 92%, transparent);
-  border: 1px solid color-mix(in srgb, var(--lumina-card-border) 88%, var(--lumina-text-secondary));
-  border-radius: 7px;
+  background: var(--lumina-button-secondary-bg);
+  border: 1px solid var(--lumina-card-border);
+  border-radius: var(--lumina-radius-sm);
   color: var(--lumina-text);
   cursor: pointer;
+  font-size: 12px;
   font-weight: 600;
-  min-height: 32px;
-  padding: 0 12px;
+  min-height: 30px;
+  padding: 0 10px;
   width: 100%;
 
   &:disabled {
@@ -2005,10 +2228,12 @@ function handleCommandNextAction() {
 }
 
 .primary-action {
-  background: linear-gradient(180deg, color-mix(in srgb, var(--lumina-primary) 88%, #fff), var(--lumina-primary));
+  background: var(--lumina-primary);
   border-color: var(--lumina-primary);
-  box-shadow: 0 6px 14px color-mix(in srgb, var(--lumina-primary) 18%, transparent);
+  box-shadow: none;
   color: #fff;
+  font-size: 13px;
+  min-height: 34px;
 }
 
 .change-table {
@@ -2020,50 +2245,9 @@ function handleCommandNextAction() {
   width: 100%;
 }
 
-.diff-dialog {
-  background: color-mix(in srgb, var(--lumina-surface-1) 96%, transparent);
-  backdrop-filter: blur(22px);
-  border: 1px solid color-mix(in srgb, var(--lumina-card-border) 78%, transparent);
-  border-radius: 12px;
-  box-shadow:
-    0 24px 68px rgba(0, 0, 0, 0.24),
-    inset 0 1px 0 rgba(255, 255, 255, 0.32);
-  height: min(820px, calc(100vh - 76px));
-  overflow: hidden;
-  position: relative;
-  width: min(1480px, calc(100vw - 72px));
-}
-
-.modal-close-button {
-  align-items: center;
-  background: color-mix(in srgb, var(--lumina-surface-2) 88%, transparent);
-  border: 1px solid var(--lumina-card-border);
-  border-radius: 8px;
-  color: var(--lumina-text-secondary);
-  cursor: pointer;
-  display: flex;
-  font-size: 22px;
-  height: 32px;
-  justify-content: center;
-  line-height: 1;
-  position: absolute;
-  right: 12px;
-  top: 12px;
-  transition:
-    background 0.18s ease,
-    color 0.18s ease;
-  width: 32px;
-  z-index: 3;
-
-  &:hover {
-    background: var(--lumina-button-secondary-hover);
-    color: var(--lumina-text);
-  }
-}
-
 :deep(.diff-window.diff-viewer) {
   border: 0;
-  border-radius: 12px;
+  border-radius: var(--lumina-radius-lg);
   box-shadow: none;
   height: 100%;
   width: 100%;
@@ -2074,19 +2258,49 @@ function handleCommandNextAction() {
 }
 
 .recent-repo-dialog {
-  background: color-mix(in srgb, var(--lumina-surface-1) 96%, transparent);
-  backdrop-filter: blur(22px);
-  border: 1px solid color-mix(in srgb, var(--lumina-card-border) 78%, transparent);
-  border-radius: 12px;
-  box-shadow:
-    0 24px 68px rgba(0, 0, 0, 0.22),
-    inset 0 1px 0 rgba(255, 255, 255, 0.32);
+  background: var(--lumina-surface-1);
+  border: 1px solid var(--lumina-card-border);
+  border-radius: var(--lumina-radius-lg);
+  box-shadow: var(--lumina-shadow-md);
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   max-height: min(640px, calc(100vh - 96px));
   overflow: hidden;
   position: relative;
   width: min(760px, calc(100vw - 72px));
+}
+
+.modal-close-button {
+  align-items: center;
+  background: var(--lumina-surface-2);
+  border: 1px solid var(--lumina-card-border);
+  border-radius: var(--lumina-radius-sm);
+  color: var(--lumina-text-secondary);
+  cursor: pointer;
+  display: flex;
+  height: 30px;
+  justify-content: center;
+  padding: 0;
+  position: absolute;
+  right: 12px;
+  top: 12px;
+  width: 30px;
+  z-index: 3;
+
+  &:hover {
+    background: var(--lumina-button-secondary-hover);
+    color: var(--lumina-text);
+  }
+
+  &:focus-visible {
+    box-shadow: 0 0 0 3px var(--lumina-accent-ring);
+    outline: none;
+  }
+
+  svg {
+    height: 16px;
+    width: 16px;
+  }
 }
 
 .recent-repo-dialog__header {
@@ -2120,9 +2334,9 @@ function handleCommandNextAction() {
 
 .recent-repo-item {
   align-items: center;
-  background: color-mix(in srgb, var(--lumina-surface-2) 58%, transparent);
+  background: var(--lumina-surface-2);
   border: 1px solid var(--lumina-card-border);
-  border-radius: 10px;
+  border-radius: var(--lumina-radius-md);
   display: grid;
   gap: 12px;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -2133,6 +2347,42 @@ function handleCommandNextAction() {
   display: grid;
   gap: 7px;
   min-width: 0;
+
+  strong {
+    color: var(--lumina-text);
+    font-size: 13px;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.recent-repo-alias-input {
+  background: var(--lumina-input-bg);
+  border: 1px solid var(--lumina-input-border);
+  border-radius: var(--lumina-radius-sm);
+  color: var(--lumina-text);
+  font: inherit;
+  font-size: 13px;
+  height: 28px;
+  min-width: 0;
+  padding: 0 10px;
+  width: 100%;
+
+  &::placeholder {
+    color: var(--lumina-text-secondary);
+  }
+
+  &:hover {
+    border-color: var(--lumina-primary);
+  }
+
+  &:focus {
+    border-color: var(--lumina-primary);
+    box-shadow: 0 0 0 2px var(--lumina-accent-ring);
+    outline: none;
+  }
 }
 
 .recent-repo-path {
@@ -2145,8 +2395,11 @@ function handleCommandNextAction() {
 }
 
 .recent-repo-item__actions {
+  align-items: center;
   display: flex;
   gap: 8px;
+  justify-content: flex-end;
+  min-width: 112px;
 }
 
 .recent-repo-empty {
@@ -2157,19 +2410,6 @@ function handleCommandNextAction() {
   justify-content: center;
   min-height: 180px;
   padding: 20px;
-}
-
-.git-log-dialog {
-  background: var(--lumina-surface-1);
-  border: 1px solid var(--lumina-card-border);
-  border-radius: 8px;
-  box-shadow: 0 18px 46px rgba(0, 0, 0, 0.22);
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  height: min(820px, calc(100vh - 72px));
-  overflow: hidden;
-  position: relative;
-  width: min(1560px, calc(100vw - 44px));
 }
 
 .git-log-dialog__header {
@@ -2290,7 +2530,7 @@ function handleCommandNextAction() {
 
   &:hover,
   &.active {
-    background: color-mix(in srgb, var(--lumina-primary-soft) 72%, transparent);
+    background: color-mix(in srgb, var(--lumina-primary-soft) 54%, var(--lumina-surface-2));
   }
 
   > span,
@@ -2475,97 +2715,43 @@ function handleCommandNextAction() {
 
   &:hover,
   &.active {
-    background: color-mix(in srgb, var(--lumina-primary-soft) 62%, transparent);
-  }
-}
-
-.prompt-drawer {
-  background: var(--lumina-surface-1);
-  border-left: 1px solid var(--lumina-card-border);
-  bottom: 0;
-  box-shadow: -8px 0 24px rgba(0, 0, 0, 0.12);
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  position: absolute;
-  right: 0;
-  top: 0;
-  width: min(1080px, 72vw);
-  z-index: 20;
-}
-
-.history-drawer {
-  background: color-mix(in srgb, var(--lumina-surface-1) 94%, transparent);
-  backdrop-filter: blur(20px);
-  border-left: 1px solid var(--lumina-card-border);
-  bottom: 0;
-  box-shadow: -8px 0 24px rgba(0, 0, 0, 0.12);
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  position: absolute;
-  right: 0;
-  top: 0;
-  width: min(560px, 46vw);
-  z-index: 22;
-}
-
-.history-drawer__header {
-  align-items: flex-start;
-  border-bottom: 1px solid var(--lumina-card-border);
-  display: flex;
-  gap: 14px;
-  justify-content: space-between;
-  padding: 14px;
-
-  h3 {
-    font-size: 16px;
-    margin: 0 0 4px;
-  }
-
-  p {
-    color: var(--lumina-text-secondary);
-    font-size: 12px;
-    line-height: 1.5;
-    margin: 0;
-  }
-
-  button {
-    background: color-mix(in srgb, var(--lumina-button-secondary-bg) 92%, transparent);
-    border: 1px solid var(--lumina-card-border);
-    border-radius: 7px;
-    color: var(--lumina-text);
-    cursor: pointer;
-    height: 30px;
-    padding: 0 10px;
+    background: color-mix(in srgb, var(--lumina-primary-soft) 48%, var(--lumina-surface-2));
   }
 }
 
 .history-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 0;
   min-height: 0;
   overflow: auto;
-  padding: 14px;
+  padding: 0;
 }
 
 .history-item {
-  background: color-mix(in srgb, var(--lumina-surface-2) 58%, transparent);
-  border: 1px solid var(--lumina-card-border);
-  border-radius: 9px;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--lumina-card-border);
+  border-radius: 0;
   display: grid;
-  gap: 12px;
-  grid-template-columns: minmax(0, 1fr) auto;
-  padding: 12px;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) 54px;
+  padding: 10px 12px;
+
+  &:hover {
+    background: var(--lumina-button-secondary-hover);
+  }
 
   button {
     align-self: start;
     background: var(--lumina-primary);
     border: 1px solid var(--lumina-primary);
-    border-radius: 7px;
+    border-radius: var(--lumina-radius-sm);
     color: #fff;
     cursor: pointer;
-    height: 30px;
-    padding: 0 12px;
+    font-size: 12px;
+    height: 28px;
+    padding: 0 10px;
   }
 }
 
@@ -2593,11 +2779,11 @@ function handleCommandNextAction() {
     color: var(--lumina-text-secondary);
     display: -webkit-box;
     font-size: 12px;
-    line-height: 1.5;
+    line-height: 1.45;
     margin: 0;
     overflow: hidden;
     -webkit-box-orient: vertical;
-    -webkit-line-clamp: 3;
+    -webkit-line-clamp: 2;
   }
 }
 
@@ -2614,54 +2800,31 @@ function handleCommandNextAction() {
   text-align: center;
 }
 
-.prompt-drawer__header {
-  align-items: flex-start;
-  border-bottom: 1px solid var(--lumina-card-border);
-  display: flex;
-  gap: 14px;
-  justify-content: space-between;
-  padding: 14px;
-
-  h3 {
-    font-size: 16px;
-    margin: 0 0 4px;
-  }
-
-  p {
-    color: var(--lumina-text-secondary);
-    font-size: 12px;
-    margin: 0;
-  }
-
-  button {
-    border: 1px solid var(--lumina-card-border);
-    border-radius: 8px;
-    color: var(--lumina-text);
-    cursor: pointer;
-    height: 30px;
-    padding: 0 10px;
-  }
-}
-
 .prompt-drawer__body {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   min-height: 0;
   overflow: auto;
-  padding: 14px;
+  padding: 10px;
 }
 
 .prompt-section {
   border: 1px solid var(--lumina-card-border);
-  border-radius: 8px;
-  background: var(--lumina-surface-1);
+  border-radius: var(--lumina-radius-md);
+  background: var(--lumina-surface-2);
+  overflow: hidden;
 
   summary {
+    align-items: center;
+    background: color-mix(in srgb, var(--lumina-surface-2) 70%, var(--lumina-surface-1));
+    border-bottom: 1px solid var(--lumina-card-border);
     cursor: pointer;
+    display: flex;
     font-size: 13px;
     font-weight: 700;
-    padding: 10px 12px;
+    min-height: 32px;
+    padding: 0 10px;
   }
 }
 
@@ -2671,10 +2834,10 @@ function handleCommandNextAction() {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 
   div {
-    background: var(--lumina-surface-2);
+    background: var(--lumina-surface-1);
     border: 1px solid var(--lumina-card-border);
-    border-radius: 8px;
-    padding: 9px;
+    border-radius: var(--lumina-radius-sm);
+    padding: 8px;
   }
 
   span {
@@ -2685,7 +2848,7 @@ function handleCommandNextAction() {
 
   strong {
     display: block;
-    font-size: 18px;
+    font-size: 15px;
     margin-top: 4px;
   }
 }
@@ -2717,13 +2880,13 @@ function handleCommandNextAction() {
 .prompt-files {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 0 12px 12px;
+  gap: 8px;
+  padding: 0 10px 10px;
 }
 
 .prompt-file-group {
   border: 1px solid var(--lumina-card-border);
-  border-radius: 8px;
+  border-radius: var(--lumina-radius-sm);
   overflow: hidden;
 }
 
@@ -2733,7 +2896,8 @@ function handleCommandNextAction() {
   border-bottom: 1px solid var(--lumina-card-border);
   display: flex;
   justify-content: space-between;
-  padding: 8px 10px;
+  min-height: 30px;
+  padding: 0 10px;
 
   strong {
     font-size: 13px;
@@ -2757,7 +2921,7 @@ function handleCommandNextAction() {
   gap: 10px;
   grid-template-columns: minmax(260px, 2fr) 86px 86px minmax(150px, 1fr) 70px 96px minmax(180px, 1.2fr);
   min-width: 920px;
-  min-height: 32px;
+  min-height: 29px;
   padding: 0 10px;
 }
 
@@ -2784,18 +2948,18 @@ function handleCommandNextAction() {
 }
 
 .prompt-text {
-  padding: 0 12px 12px;
+  padding: 0 10px 10px;
 
   textarea {
     background: var(--lumina-diff-bg);
     border: 1px solid var(--lumina-card-border);
-    border-radius: 8px;
+    border-radius: var(--lumina-radius-sm);
     color: var(--lumina-text);
     font-family: SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
     font-size: 12px;
     line-height: 1.6;
-    min-height: 460px;
-    padding: 12px;
+    min-height: 380px;
+    padding: 10px;
     resize: none;
     width: 100%;
   }
@@ -2804,14 +2968,6 @@ function handleCommandNextAction() {
 @media (max-width: 980px) {
   .commit-area {
     grid-template-columns: 1fr;
-  }
-
-  .prompt-drawer {
-    width: 100%;
-  }
-
-  .history-drawer {
-    width: 100%;
   }
 }
 </style>

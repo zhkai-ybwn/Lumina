@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia'
+import { loadAiSettingsFile, saveAiSettingsFile } from '@/services/ai-settings-service'
 import type { AiModelConfig, AiSettings, AiTaskType } from '@/types/ai-settings'
 
 const STORAGE_KEY = 'lumina.ai.settings.v1'
@@ -21,27 +22,31 @@ function cloneSettings(settings: AiSettings): AiSettings {
   }
 }
 
-function readSettings(): AiSettings {
+function normalizeSettings(settings: Partial<AiSettings>): AiSettings {
+  const models = Array.isArray(settings.models) ? settings.models.filter(isValidModelConfig) : []
+  const validModelIds = new Set(models.map(model => model.id))
+  const defaultModelId = settings.defaultModelId && validModelIds.has(settings.defaultModelId)
+    ? settings.defaultModelId
+    : models[0]?.id ?? ''
+
+  return {
+    defaultModelId,
+    models,
+    taskModelMap: {
+      'commit-message': resolveTaskModel(settings.taskModelMap?.['commit-message'], validModelIds, defaultModelId),
+      'change-summary': resolveTaskModel(settings.taskModelMap?.['change-summary'], validModelIds, defaultModelId),
+      'light-review': resolveTaskModel(settings.taskModelMap?.['light-review'], validModelIds, defaultModelId),
+    },
+  }
+}
+
+function readLegacyLocalSettings(): AiSettings {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return cloneSettings(DEFAULT_SETTINGS)
 
     const parsed = JSON.parse(raw) as Partial<AiSettings>
-    const models = Array.isArray(parsed.models) ? parsed.models.filter(isValidModelConfig) : []
-    const validModelIds = new Set(models.map(model => model.id))
-    const defaultModelId = parsed.defaultModelId && validModelIds.has(parsed.defaultModelId)
-      ? parsed.defaultModelId
-      : models[0]?.id ?? ''
-
-    return {
-      defaultModelId,
-      models,
-      taskModelMap: {
-        'commit-message': resolveTaskModel(parsed.taskModelMap?.['commit-message'], validModelIds, defaultModelId),
-        'change-summary': resolveTaskModel(parsed.taskModelMap?.['change-summary'], validModelIds, defaultModelId),
-        'light-review': resolveTaskModel(parsed.taskModelMap?.['light-review'], validModelIds, defaultModelId),
-      },
-    }
+    return normalizeSettings(parsed)
   } catch (error) {
     console.error(error)
     return cloneSettings(DEFAULT_SETTINGS)
@@ -75,7 +80,7 @@ export const AI_TASKS: Array<{ key: AiTaskType; i18nKey: string }> = [
 ]
 
 export const useAiSettingsStore = defineStore('ai-settings', {
-  state: () => readSettings(),
+  state: () => cloneSettings(DEFAULT_SETTINGS),
 
   getters: {
     enabledModels: state => state.models.filter(model => model.enabled),
@@ -83,12 +88,34 @@ export const useAiSettingsStore = defineStore('ai-settings', {
   },
 
   actions: {
+    async initSettings() {
+      try {
+        const fileSettings = await loadAiSettingsFile()
+        if (fileSettings) {
+          Object.assign(this, normalizeSettings(fileSettings))
+          return
+        }
+      } catch (error) {
+        console.error(error)
+      }
+
+      const legacySettings = readLegacyLocalSettings()
+      Object.assign(this, legacySettings)
+      if (legacySettings.models.length) {
+        this.persist()
+      }
+    },
+
     persist() {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      const settings = {
         defaultModelId: this.defaultModelId,
         models: this.models,
         taskModelMap: this.taskModelMap,
-      }))
+      }
+
+      void saveAiSettingsFile(settings).catch(error => {
+        console.error(error)
+      })
     },
 
     createModel() {

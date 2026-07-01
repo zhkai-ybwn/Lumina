@@ -17,3 +17,30 @@
 .n-radio.n-radio--disabled .n-radio__label {
   color: var(--lumina-text-secondary);
 }
+
+.n-input,
+.n-base-selection,
+.n-date-picker {
+  --n-border-radius: var(--lumina-radius-sm);
+  --n-border: 1px solid var(--lumina-input-border);
+  --n-border-hover: 1px solid var(--lumina-primary);
+  --n-border-focus: 1px solid var(--lumina-primary);
+  --n-box-shadow-focus: 0 0 0 2px var(--lumina-accent-ring);
+  --n-color: var(--lumina-input-bg);
+  --n-color-active: var(--lumina-input-bg);
+  --n-color-focus: var(--lumina-input-bg);
+  --n-color-disabled: var(--lumina-surface-2);
+  --n-text-color: var(--lumina-text);
+  --n-placeholder-color: var(--lumina-text-secondary);
+}
+
+.n-base-select-menu,
+.n-date-panel {
+  --n-border-radius: var(--lumina-radius-md);
+  --n-color: var(--lumina-elevated-bg);
+  --n-option-color-pending: var(--lumina-button-secondary-hover);
+  --n-option-text-color: var(--lumina-text);
+  --n-option-text-color-active: var(--lumina-primary);
+  --n-option-check-color: var(--lumina-primary);
+  --n-box-shadow: var(--lumina-shadow-md);
+}
