@@ -1,6 +1,7 @@
 export default {
   common: {
     dismiss: '关闭提示',
+    edit: '编辑',
   },
   workbench: {
     switcherLabel: '工作台切换',
@@ -55,6 +56,7 @@ export default {
     actions: {
       addProject: '添加项目',
       removeProject: '移除项目',
+      rename: '重命名',
       scanAll: '扫描全部',
       scan: '扫描项目',
       scanning: '扫描中...',
@@ -215,6 +217,8 @@ export default {
       recentRepoManageHint: '为常用仓库设置别名，并通过完整路径区分同名项目。',
       recentRepoAliasPlaceholder: '项目别名',
       recentRepoSwitch: '切换',
+      recentRepoRename: '重命名',
+      recentRepoRenameConfirm: '确定',
       recentRepoRemove: '移除',
       refreshRepo: '刷新仓库',
       refreshing: '刷新中...',

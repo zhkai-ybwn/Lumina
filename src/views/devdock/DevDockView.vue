@@ -48,32 +48,39 @@
               </button>
 
               <div class="project-identity">
-                <input
-                  class="project-alias-input"
-                  type="text"
-                  :value="project.name"
-                  :placeholder="t('devdock.project.aliasPlaceholder')"
-                  @input="event => renameProject(project.path, (event.target as HTMLInputElement).value)"
-                  @blur="normalizeProjectAlias(project)"
-                  @click.stop
-                  @mousedown.stop
-                  @keydown.stop
-                />
+                <div v-if="editingAliasPath === project.path" class="project-alias-edit">
+                  <input
+                    :ref="el => setAliasInputRef(el, project.path)"
+                    class="project-alias-input"
+                    type="text"
+                    :value="project.name"
+                    :placeholder="t('devdock.project.aliasPlaceholder')"
+                    @input="event => renameProject(project.path, (event.target as HTMLInputElement).value)"
+                    @blur="finishEditAlias(project)"
+                    @keydown.enter="finishEditAlias(project)"
+                    @keydown.escape="cancelEditAlias(project)"
+                    @click.stop
+                    @mousedown.stop
+                    @keydown.stop
+                  />
+                </div>
+                <template v-else>
+                  <span class="project-alias-text" :title="project.name || project.path">{{ project.name || t('devdock.project.aliasPlaceholder') }}</span>
+                </template>
                 <span :title="project.path">{{ project.path }}</span>
               </div>
 
-              <div class="project-badges">
-                <span>{{ project.manifest?.packageManager || t('devdock.overview.stackPending') }}</span>
-                <span v-if="project.manifest?.name && project.manifest.name !== project.name">{{ project.manifest.name }}</span>
-                <span v-if="project.manifest?.detectedStack.length">{{ stackLabel(project) }}</span>
+              <div class="project-row-actions" @click.stop>
+                <button class="row-action" type="button" @click="startEditAlias(project.path)">
+                  {{ t('devdock.actions.rename') }}
+                </button>
+                <button class="row-action" type="button" :disabled="project.loading" @click="scanProject(project, { touch: true })">
+                  {{ project.loading ? t('devdock.actions.scanning') : t('devdock.actions.scan') }}
+                </button>
+                <button class="row-action danger" type="button" @click="removeProject(project.path)">
+                  {{ t('devdock.actions.removeProject') }}
+                </button>
               </div>
-
-              <button class="row-action" type="button" :disabled="project.loading" @click.stop="scanProject(project, { touch: true })">
-                {{ project.loading ? t('devdock.actions.scanning') : t('devdock.actions.scan') }}
-              </button>
-              <button class="icon-btn" type="button" :aria-label="t('devdock.actions.removeProject')" @click.stop="removeProject(project.path)">
-                <Icon icon="solar:close-circle-linear" />
-              </button>
             </header>
 
             <section v-if="project.error" class="project-error">
@@ -229,7 +236,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { open } from '@tauri-apps/plugin-dialog'
 import { AnsiUp } from 'ansi_up'
@@ -297,6 +304,8 @@ const processBusy = reactive(new Set<string>())
 const startingScripts = reactive(new Set<string>())
 const processLogs = ref<ProjectProcessLogs | null>(null)
 const logDrawerOpen = ref(false)
+const editingAliasPath = ref<string | null>(null)
+const aliasInputRefs = new Map<string, HTMLInputElement>()
 let processPollTimer: ReturnType<typeof window.setInterval> | undefined
 let logPollTimer: ReturnType<typeof window.setInterval> | undefined
 const workbenchSwitchItems = computed(() => [
@@ -403,6 +412,34 @@ function renameProject(path: string, name: string) {
 function normalizeProjectAlias(project: DevDockProject) {
   project.name = project.name.trim() || project.manifest?.name || getProjectDisplayName(project.path)
   persistProjects()
+}
+
+function setAliasInputRef(el: HTMLInputElement | null, path: string) {
+  if (el) {
+    aliasInputRefs.set(path, el)
+  } else {
+    aliasInputRefs.delete(path)
+  }
+}
+
+function startEditAlias(path: string) {
+  editingAliasPath.value = path
+  nextTick(() => {
+    const input = aliasInputRefs.get(path)
+    if (input) {
+      input.focus()
+      input.select()
+    }
+  })
+}
+
+function finishEditAlias(project: DevDockProject) {
+  normalizeProjectAlias(project)
+  editingAliasPath.value = null
+}
+
+function cancelEditAlias(project: DevDockProject) {
+  editingAliasPath.value = null
 }
 
 function removeProject(path: string) {
@@ -828,6 +865,7 @@ function normalizePath(path: string) {
   height: 28px;
   justify-content: center;
   padding: 0 10px;
+  white-space: nowrap;
 
   &:hover:not(:disabled) {
     background: var(--lumina-button-secondary-hover);
@@ -837,6 +875,20 @@ function normalizePath(path: string) {
     cursor: not-allowed;
     opacity: 0.56;
   }
+
+  &.danger {
+    color: var(--lumina-danger);
+
+    &:hover:not(:disabled) {
+      background: color-mix(in srgb, var(--lumina-danger) 8%, transparent);
+    }
+  }
+}
+
+.project-row-actions {
+  display: flex;
+  gap: 6px;
+  justify-self: end;
 }
 
 .primary {
@@ -930,7 +982,7 @@ function normalizePath(path: string) {
   cursor: pointer;
   display: grid;
   gap: 8px;
-  grid-template-columns: 28px minmax(180px, 1fr) minmax(220px, 0.75fr) auto 28px;
+  grid-template-columns: 28px 1fr auto;
   min-height: 46px;
   outline: none;
   padding: 7px 9px;
@@ -989,6 +1041,21 @@ function normalizePath(path: string) {
   }
 }
 
+.project-alias-text {
+  color: var(--lumina-text);
+  font-size: 13px;
+  font-weight: 700;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.project-alias-edit {
+  min-width: 0;
+  width: 100%;
+}
+
 .project-alias-input {
   background: transparent;
   border: 1px solid transparent;
@@ -1020,25 +1087,6 @@ function normalizePath(path: string) {
   }
 }
 
-.project-badges {
-  display: flex;
-  gap: 6px;
-  min-width: 0;
-  overflow: hidden;
-
-  span {
-    background: var(--lumina-surface-2);
-    border: 1px solid var(--lumina-card-border);
-    border-radius: var(--lumina-radius-sm);
-    color: var(--lumina-text-secondary);
-    font-size: 11px;
-    min-width: 0;
-    overflow: hidden;
-    padding: 5px 7px;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-}
 
 .project-error {
   align-items: center;

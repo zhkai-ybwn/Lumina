@@ -252,7 +252,6 @@
         :auto-focus="false"
         :mask-closable="true"
         :trap-focus="false"
-        @after-enter="focusRecentRepoAliasInput"
       >
         <section class="recent-repo-dialog">
           <button class="modal-close-button" type="button" :aria-label="t('gitAssistant.prompt.close')" @click="recentRepoManagerOpen = false">
@@ -268,24 +267,37 @@
           <section v-if="recentRepos.length" class="recent-repo-list">
             <article v-for="repo in recentRepos" :key="repo.path" class="recent-repo-item">
               <div class="recent-repo-item__main">
-                <input
-                  ref="recentRepoAliasInputRefs"
-                  class="recent-repo-alias-input"
-                  type="text"
-                  :value="repo.name"
-                  :placeholder="t('gitAssistant.repo.recentRepoAliasPlaceholder')"
-                  @input="event => renameRecentRepo(repo.path, (event.target as HTMLInputElement).value)"
-                  @blur="persistRecentRepos"
-                  @click.stop
-                  @mousedown.stop
-                />
+                <div v-if="editingAliasPath === repo.path" class="recent-repo-alias-edit">
+                  <input
+                    :ref="el => setAliasInputRef(el, repo.path)"
+                    class="recent-repo-alias-input"
+                    type="text"
+                    :value="repo.name"
+                    :placeholder="t('gitAssistant.repo.recentRepoAliasPlaceholder')"
+                    @input="event => renameRecentRepo(repo.path, (event.target as HTMLInputElement).value)"
+                    @blur="finishEditAlias(repo)"
+                    @keydown.enter="finishEditAlias(repo)"
+                    @keydown.escape="cancelEditAlias(repo)"
+                    @click.stop
+                    @mousedown.stop
+                  />
+                </div>
+                <template v-else>
+                  <div class="recent-repo-alias-text" :title="repo.name || repo.path">{{ repo.name || t('gitAssistant.repo.recentRepoAliasPlaceholder') }}</div>
+                </template>
                 <div class="recent-repo-path mono" :title="repo.path">{{ repo.path }}</div>
               </div>
               <div class="recent-repo-item__actions">
+                <NButton v-if="editingAliasPath !== repo.path" size="small" quaternary @click.stop="startEditAlias(repo.path)">
+                  {{ t('gitAssistant.repo.recentRepoRename') }}
+                </NButton>
+                <NButton v-else size="small" quaternary @click.stop="finishEditAlias(repo)">
+                  {{ t('gitAssistant.repo.recentRepoRenameConfirm') }}
+                </NButton>
                 <NButton size="small" :disabled="normalizePath(repo.path) === normalizePath(displayRepoPath)" @click="handleSwitchRecentRepoFromManager(repo.path)">
                   {{ t('gitAssistant.repo.recentRepoSwitch') }}
                 </NButton>
-                <NButton size="small" quaternary @click="removeRecentRepo(repo.path)">
+                <NButton size="small" quaternary type="error" @click="removeRecentRepo(repo.path)">
                   {{ t('gitAssistant.repo.recentRepoRemove') }}
                 </NButton>
               </div>
@@ -653,7 +665,8 @@ const promptPreview = ref<GitCommitPromptPreview | null>(null)
 const promptDrawerOpen = ref(false)
 const historyDrawerOpen = ref(false)
 const recentRepoManagerOpen = ref(false)
-const recentRepoAliasInputRefs = ref<HTMLInputElement[]>([])
+const editingAliasPath = ref<string | null>(null)
+const aliasInputRefs = new Map<string, HTMLInputElement>()
 const gitLogOpen = ref(false)
 const logDetailLoading = ref(false)
 const promptGenerationStep = ref('')
@@ -1161,9 +1174,35 @@ function renameRecentRepo(path: string, name: string) {
   }
 }
 
-async function focusRecentRepoAliasInput() {
-  await nextTick()
-  recentRepoAliasInputRefs.value[0]?.focus()
+function setAliasInputRef(el: HTMLInputElement | null, path: string) {
+  if (el) {
+    aliasInputRefs.set(path, el)
+  } else {
+    aliasInputRefs.delete(path)
+  }
+}
+
+function startEditAlias(path: string) {
+  editingAliasPath.value = path
+  nextTick(() => {
+    const input = aliasInputRefs.get(path)
+    if (input) {
+      input.focus()
+      input.select()
+    }
+  })
+}
+
+function finishEditAlias(repo: { path: string; name: string }) {
+  if (!repo.name.trim()) {
+    repo.name = repo.path.split(/[/\\]/).pop() || repo.path
+  }
+  persistRecentRepos()
+  editingAliasPath.value = null
+}
+
+function cancelEditAlias(repo: { path: string; name: string }) {
+  editingAliasPath.value = null
 }
 
 function removeRecentRepo(path: string) {
@@ -2356,6 +2395,21 @@ function handleCommandNextAction() {
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+}
+
+.recent-repo-alias-text {
+  color: var(--lumina-text);
+  font-size: 13px;
+  font-weight: 600;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recent-repo-alias-edit {
+  min-width: 0;
+  width: 100%;
 }
 
 .recent-repo-alias-input {

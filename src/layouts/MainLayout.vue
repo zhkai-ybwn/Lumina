@@ -31,7 +31,11 @@
 
     <div class="app-area">
       <div class="view-host">
-        <router-view />
+        <router-view v-slot="{ Component }">
+          <keep-alive>
+            <component :is="Component" />
+          </keep-alive>
+        </router-view>
       </div>
     </div>
   </div>

@@ -1,6 +1,7 @@
 export default {
   common: {
     dismiss: 'Dismiss message',
+    edit: 'Edit',
   },
   workbench: {
     switcherLabel: 'Workbench switcher',
@@ -55,6 +56,7 @@ export default {
     actions: {
       addProject: 'Add Project',
       removeProject: 'Remove project',
+      rename: 'Rename',
       scanAll: 'Scan All',
       scan: 'Scan Project',
       scanning: 'Scanning...',
@@ -215,6 +217,8 @@ export default {
       recentRepoManageHint: 'Set aliases for common repositories and distinguish same-name projects by full path.',
       recentRepoAliasPlaceholder: 'Project alias',
       recentRepoSwitch: 'Switch',
+      recentRepoRename: 'Rename',
+      recentRepoRenameConfirm: 'OK',
       recentRepoRemove: 'Remove',
       refreshRepo: 'Refresh Repo',
       refreshing: 'Refreshing...',
