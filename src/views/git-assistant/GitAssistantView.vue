@@ -18,7 +18,7 @@
       :recommended-count="recommendedFiles.length"
       :repository-state="snapshot?.repositoryState ?? null"
       :recent-repos="recentRepos"
-      @pick-directory="handlePickDirectory"
+      @pick-directory="handleSelectDirectory"
       @refresh="handleRefresh"
       @fetch="handleFetch"
       @push="handlePush"
@@ -391,7 +391,7 @@
                     <div class="git-log-selected__sha mono">SHA-1: {{ gitLogDetail.hash }}</div>
                     <strong>{{ gitLogDetail.subject }}</strong>
                   </div>
-                  <span>{{ gitLogDetail.authorName }} &lt;{{ gitLogDetail.authorEmail }}&gt; · {{ formatLogDate(gitLogDetail.date) }}</span>
+                  <span>{{ gitLogDetail.authorName }} &lt;{{ gitLogDetail.authorEmail }}&gt; 路 {{ formatLogDate(gitLogDetail.date) }}</span>
                   <small>{{ gitLogDetail.shortStat || t('gitAssistant.log.changedFiles') }}</small>
                 </div>
                 <pre v-if="gitLogDetail.body" class="git-log-selected__body">{{ gitLogDetail.body }}</pre>
@@ -523,10 +523,10 @@
       <section class="history-list">
         <article v-for="entry in filteredCommitMessageHistory" :key="entry.id" class="history-item">
           <div class="history-item__main">
-            <span>{{ formatHistoryTime(entry.createdAt) }} · {{ historySourceLabel(entry.source) }}</span>
+            <span>{{ formatHistoryTime(entry.createdAt) }} 路 {{ historySourceLabel(entry.source) }}</span>
             <strong>{{ entry.title }}</strong>
             <p v-if="entry.body">{{ entry.body }}</p>
-            <small>{{ entry.repoName }} · {{ t('gitAssistant.history.fileCount', { count: entry.selectedFileCount }) }}</small>
+            <small>{{ entry.repoName }} 路 {{ t('gitAssistant.history.fileCount', { count: entry.selectedFileCount }) }}</small>
           </div>
           <button type="button" @click="restoreCommitMessage(entry)">{{ t('gitAssistant.history.restore') }}</button>
         </article>
@@ -556,48 +556,20 @@
     />
   </div>
 </template>
-
 <script setup lang="ts">
-import { computed, defineAsyncComponent, nextTick, onMounted, ref, watch } from 'vue'
-import { open } from '@tauri-apps/plugin-dialog'
+import { computed, defineAsyncComponent, onMounted, ref, watch } from 'vue'
 import { NButton, NCheckbox, NDatePicker, NInput, NModal, NSelect } from 'naive-ui'
 import { useLocale } from '@/hooks/useLocale'
 import {
-  buildGitCommitPrompt,
-  generateGitAiAnalysisFromPrompt,
-  type GitCommitPromptFileTrace,
-  type GitCommitPromptPreview,
-} from '@/services/git/git-ai-service'
-import {
-  abortGitMerge,
-  abortGitRebase,
-  commitGitChanges,
-  configureGitOrigin,
-  continueGitMerge,
-  continueGitRebase,
-  fetchGitChanges,
-  type GitCommandResult,
   type GitCommitChangedFile,
   type GitCommitDetail,
   type GitLogEntry,
   loadGitCommitDetail,
   loadGitCommitFileDiff,
-  loadGitFileHeadDiff,
   loadGitLog,
-  loadGitFileDiff,
-  loadGitSnapshot,
-  markGitFilesResolved,
   openGitFileExternal,
-  pullGitChanges,
-  pushGitChanges,
-  rebaseGitChanges,
-  repairGitUpstream,
-  syncGitStatus,
-  type GitSnapshot,
 } from '@/services/git/git-service'
-import { ensureGitProjectProfile } from '@/services/git/git-profile-service'
 import { useAiSettingsStore } from '@/stores/ai-settings'
-import type { GitFileStatus } from '@/types/git'
 import { parseGitStatusList } from '@/utils/git-status'
 import GitChangeExplorer from './components/GitChangeExplorer.vue'
 import GitCommandDialog from './components/GitCommandDialog.vue'
@@ -605,35 +577,82 @@ import GitCommitAssistant from './components/GitCommitAssistant.vue'
 import GitStatusBar from './components/GitStatusBar.vue'
 import WorkbenchDrawer from '@/components/workbench/WorkbenchDrawer.vue'
 import WorkbenchModalPanel from '@/components/workbench/WorkbenchModalPanel.vue'
-import {
-  ATTENTION_SCORE_CONFIG,
-  GIT_COMMIT_MESSAGE_HISTORY_STORAGE_KEY,
-  GIT_RECENT_REPOS_STORAGE_KEY,
-  GIT_REPO_STORAGE_KEY,
-} from './git-assistant.config'
+import { ATTENTION_SCORE_CONFIG, GIT_REPO_STORAGE_KEY } from './git-assistant.config'
 import type {
   GitAssistantFileGroup,
   GitAssistantFileView,
   GitAssistantStatusFilter,
 } from './git-assistant.types'
+import { useGitSnapshot, useGitDiff, useGitRemote, useGitCommit } from '@/composables/git-assistant'
+import {
+  normalizePath,
+  getFileName,
+  getFileExtension,
+  scoreFileAttention,
+  parseGitLogDate,
+  startOfDay,
+  endOfDay,
+  formatCommitLineCount,
+  formatHistoryTime,
+  formatLogDate,
+  mapCommitStatusToFileType,
+} from '@/composables/git-assistant/utils'
+import type { GitFileStatus } from '@/types/git'
 
 const GitDiffViewer = defineAsyncComponent(() => import('./components/GitDiffViewer.vue'))
 
-const loading = ref(false)
-const diffLoading = ref(false)
-const aiLoading = ref(false)
-const commitLoading = ref(false)
-const fetchLoading = ref(false)
-const pushLoading = ref(false)
-const pullLoading = ref(false)
-const rebaseLoading = ref(false)
-const remoteLoading = ref(false)
-const conflictLoading = ref(false)
+const { t } = useLocale()
+const aiSettings = useAiSettingsStore()
+
+// ── Composables ──
+const {
+  loading, error, repoPath, snapshot, recentRepos, editingAliasPath,
+  displayRepoPath, repositoryState, reviewSelectedRaws,
+  loadRecentRepos, loadSnapshotByPath, handleSelectDirectory, handleRefresh,
+  handleSwitchRecentRepo, renameRecentRepo, setAliasInputRef,
+  startEditAlias, finishEditAlias, cancelEditAlias, removeRecentRepo,
+} = useGitSnapshot()
+
+function clearReviewSelection() { reviewSelectedRaws.value = [] }
+
+const {
+  currentDiff, diffMode, diffLoading, showDiff, activeFileRaw,
+  showLogFileDiff, logFileDiff, logFileDiffLoading, logDiffFileView,
+} = useGitDiff(() => displayRepoPath.value, (msg) => { error.value = msg })
+
+const {
+  fetchLoading, pushLoading, pullLoading, rebaseLoading, remoteLoading,
+  conflictLoading, remoteUrlDraft, gitCommandDialog,
+  handleConfigureOrigin, handleRepairUpstream, handlePush, handleFetch,
+  handlePull, handleRebase, handleMarkResolved, handleAbortMerge,
+  handleContinueMerge, handleContinueRebase, handleAbortRebase,
+  handleCommandNextAction, startGitCommand, finishGitCommand, failGitCommand,
+} = useGitRemote(
+  () => displayRepoPath.value, () => repositoryState.value,
+  (msg) => { error.value = msg }, loadSnapshotByPath, clearReviewSelection,
+)
+
+const {
+  commitTitle, commitBody, commitLoading, aiLoading, promptPreview,
+  promptDrawerOpen, historyDrawerOpen, promptGenerationStep, autoSendPromptToApi,
+  commitMessageHistory, loadCommitMessageHistory, restoreCommitMessage,
+  handleGenerateAiAnalysis, handleCommit,
+} = useGitCommit(
+  () => displayRepoPath.value, () => snapshot.value,
+  () => selectedFileViews.value, () => selectedConflictedFiles.value,
+  () => reviewSelectedRaws.value, (msg) => { error.value = msg },
+  startGitCommand, finishGitCommand, failGitCommand,
+  loadSnapshotByPath, clearReviewSelection,
+)
+
+// ── UI-only state ──
+const keyword = ref('')
+const statusFilter = ref<GitAssistantStatusFilter>('all')
+const recommendedOnly = ref(false)
+const recentRepoManagerOpen = ref(false)
+const gitLogOpen = ref(false)
 const logLoading = ref(false)
-const error = ref('')
-const repoPath = ref('')
-const snapshot = ref<GitSnapshot | null>(null)
-const recentRepos = ref<RecentGitRepo[]>([])
+const logDetailLoading = ref(false)
 const gitLogEntries = ref<GitLogEntry[]>([])
 const gitLogDetail = ref<GitCommitDetail | null>(null)
 const gitLogFilePath = ref('')
@@ -643,70 +662,19 @@ const logKeyword = ref('')
 const logAuthorFilter = ref('all')
 const logDateFrom = ref<number | null>(null)
 const logDateTo = ref<number | null>(null)
-const remoteUrlDraft = ref('')
 
-const keyword = ref('')
-const statusFilter = ref<GitAssistantStatusFilter>('all')
-const recommendedOnly = ref(false)
-const activeFileRaw = ref<string | null>(null)
-const reviewSelectedRaws = ref<string[]>([])
-
-const currentDiff = ref('')
-const diffMode = ref<'head' | 'staged' | 'unstaged'>('unstaged')
-const showDiff = ref(false)
-const showLogFileDiff = ref(false)
-const logFileDiff = ref('')
-const logFileDiffLoading = ref(false)
-const logDiffFileView = ref<GitAssistantFileView | null>(null)
-
-const commitTitle = ref('')
-const commitBody = ref('')
-const promptPreview = ref<GitCommitPromptPreview | null>(null)
-const promptDrawerOpen = ref(false)
-const historyDrawerOpen = ref(false)
-const recentRepoManagerOpen = ref(false)
-const editingAliasPath = ref<string | null>(null)
-const aliasInputRefs = new Map<string, HTMLInputElement>()
-const gitLogOpen = ref(false)
-const logDetailLoading = ref(false)
-const promptGenerationStep = ref('')
-const autoSendPromptToApi = ref(true)
-let promptProgressTimers: number[] = []
-const MAX_RECENT_REPOS = 8
-const MAX_COMMIT_MESSAGE_HISTORY = 20
-
-const gitCommandDialog = ref({
-  visible: false,
-  title: '',
-  phase: '',
-  running: false,
-  success: null as boolean | null,
-  command: '',
-  stdout: '',
-  stderr: '',
-  message: '',
-  suggestion: '',
-  nextActionLabel: '',
-  nextAction: '' as '' | 'push' | 'pull',
-})
-
-const { t } = useLocale()
-const aiSettings = useAiSettingsStore()
-
+// ── Computed ──
 const parsedFiles = computed<GitFileStatus[]>(() => parseGitStatusList(snapshot.value?.status ?? []))
 
 const allFiles = computed<GitAssistantFileView[]>(() => {
   const statsByPath = new Map((snapshot.value?.fileStats ?? []).map(stat => [normalizePath(stat.path), stat]))
-
   return parsedFiles.value.map(file => {
-    const directory = getDirName(file.path)
     const score = scoreFileAttention(file)
     const stats = statsByPath.get(normalizePath(file.path))
-
     return {
       ...file,
       fileName: getFileName(file.path),
-      directory,
+      directory: file.path.slice(0, Math.max(0, file.path.length - getFileName(file.path).length)).replace(/[\\/]$/, ''),
       extension: getFileExtension(file.path),
       addedLines: stats?.added ?? null,
       removedLines: stats?.removed ?? null,
@@ -718,166 +686,103 @@ const allFiles = computed<GitAssistantFileView[]>(() => {
 
 const summary = computed(() => {
   const files = parsedFiles.value
-
   return {
     total: files.length,
-    modified: files.filter(file => file.type === 'modified').length,
-    added: files.filter(file => file.type === 'added').length,
-    deleted: files.filter(file => file.type === 'deleted').length,
-    renamed: files.filter(file => file.type === 'renamed').length,
-    copied: files.filter(file => file.type === 'copied').length,
-    untracked: files.filter(file => file.type === 'untracked').length,
-    conflicted: files.filter(file => file.type === 'updated-but-unmerged').length,
-    staged: files.filter(file => file.staged).length,
-    unstaged: files.filter(file => file.unstaged).length,
+    modified: files.filter(f => f.type === 'modified').length,
+    added: files.filter(f => f.type === 'added').length,
+    deleted: files.filter(f => f.type === 'deleted').length,
+    renamed: files.filter(f => f.type === 'renamed').length,
+    copied: files.filter(f => f.type === 'copied').length,
+    untracked: files.filter(f => f.type === 'untracked').length,
+    conflicted: files.filter(f => f.type === 'updated-but-unmerged').length,
+    staged: files.filter(f => f.staged).length,
+    unstaged: files.filter(f => f.unstaged).length,
   }
 })
 
-const displayRepoPath = computed(() => repoPath.value || snapshot.value?.repoPath || '')
-const repositoryState = computed(() => snapshot.value?.repositoryState ?? null)
-
-const recommendedFiles = computed(() => {
-  return [...allFiles.value].filter(file => file.recommended).sort((left, right) => right.score - left.score)
-})
-const conflictedFiles = computed(() => allFiles.value.filter(file => file.type === 'updated-but-unmerged'))
-const selectedFileViews = computed(() => allFiles.value.filter(file => reviewSelectedRaws.value.includes(file.raw)))
-const selectedConflictedFiles = computed(() =>
-  selectedFileViews.value.filter(file => file.type === 'updated-but-unmerged'),
+const recommendedFiles = computed(() =>
+  [...allFiles.value].filter(f => f.recommended).sort((a, b) => b.score - a.score),
 )
+const conflictedFiles = computed(() => allFiles.value.filter(f => f.type === 'updated-but-unmerged'))
+const selectedFileViews = computed(() => allFiles.value.filter(f => reviewSelectedRaws.value.includes(f.raw)))
+const selectedConflictedFiles = computed(() => selectedFileViews.value.filter(f => f.type === 'updated-but-unmerged'))
 
 const promptFileGroups = computed(() => {
-  if (!promptPreview.value) {
-    return []
-  }
-
-  const groups = new Map<string, GitCommitPromptFileTrace[]>()
+  if (!promptPreview.value) return []
+  const groups = new Map<string, { path: string; role: string; scope: string; kind: string; strategy: string; evidenceCount: number; rawChars: number; cleanedChars: number; skipped: boolean; reason?: string | null }[]>()
   for (const file of promptPreview.value.trace.selectedFiles) {
     const key = file.kind || 'other'
     groups.set(key, [...(groups.get(key) ?? []), file])
   }
-
   return Array.from(groups.entries())
     .map(([kind, files]) => ({ kind, files }))
-    .sort((left, right) => right.files.length - left.files.length || left.kind.localeCompare(right.kind))
+    .sort((a, b) => b.files.length - a.files.length || a.kind.localeCompare(b.kind))
 })
 
 const filteredFiles = computed(() => {
   let files = [...allFiles.value]
-
   if (statusFilter.value !== 'all') {
-    if (statusFilter.value === 'staged') {
-      files = files.filter(file => file.staged)
-    } else if (statusFilter.value === 'unstaged') {
-      files = files.filter(file => file.unstaged)
-    } else if (statusFilter.value === 'versioned') {
-      files = files.filter(file => file.type !== 'untracked')
-    } else if (statusFilter.value === 'recommended') {
-      files = files.filter(file => file.recommended)
-    } else {
-      files = files.filter(file => file.type === statusFilter.value)
-    }
+    if (statusFilter.value === 'staged') files = files.filter(f => f.staged)
+    else if (statusFilter.value === 'unstaged') files = files.filter(f => f.unstaged)
+    else if (statusFilter.value === 'versioned') files = files.filter(f => f.type !== 'untracked')
+    else if (statusFilter.value === 'recommended') files = files.filter(f => f.recommended)
+    else files = files.filter(f => f.type === statusFilter.value)
   }
-
-  if (recommendedOnly.value) {
-    files = files.filter(file => file.recommended)
-  }
-
-  const normalizedKeyword = keyword.value.trim().toLowerCase()
-  if (normalizedKeyword) {
-    files = files.filter(file =>
-      `${file.path} ${file.fileName} ${file.directory}`.toLowerCase().includes(normalizedKeyword),
-    )
-  }
-
-  return files.sort((left, right) => {
-    if (right.score !== left.score) return right.score - left.score
-    return left.path.localeCompare(right.path)
-  })
+  if (recommendedOnly.value) files = files.filter(f => f.recommended)
+  const kw = keyword.value.trim().toLowerCase()
+  if (kw) files = files.filter(f => `${f.path} ${f.fileName} ${f.directory}`.toLowerCase().includes(kw))
+  return files.sort((a, b) => b.score - a.score || a.path.localeCompare(b.path))
 })
 
-const filteredFileGroups = computed<GitAssistantFileGroup[]>(() => {
-  return [
-    {
-      key: 'all-files',
-      label: recommendedOnly.value ? t('gitAssistant.files.groupRecommended') : t('gitAssistant.files.groupAll'),
-      files: filteredFiles.value,
-    },
-  ]
-})
+const filteredFileGroups = computed<GitAssistantFileGroup[]>(() => [{
+  key: 'all-files',
+  label: recommendedOnly.value ? t('gitAssistant.files.groupRecommended') : t('gitAssistant.files.groupAll'),
+  files: filteredFiles.value,
+}])
 
 const selectedFile = computed(() => {
   if (!activeFileRaw.value) return filteredFiles.value[0] ?? allFiles.value[0] ?? null
-  return allFiles.value.find(file => file.raw === activeFileRaw.value) ?? filteredFiles.value[0] ?? null
-})
-
-const suggestedCommitTitle = computed(() => {
-  if (!summary.value.total) return ''
-
-  const parts: string[] = []
-  if (summary.value.modified) parts.push(`${summary.value.modified} modified`)
-  if (summary.value.added) parts.push(`${summary.value.added} added`)
-  if (summary.value.deleted) parts.push(`${summary.value.deleted} deleted`)
-  if (summary.value.untracked) parts.push(`${summary.value.untracked} new`)
-
-  return `chore: update workspace changes (${parts.join(', ')})`
+  return allFiles.value.find(f => f.raw === activeFileRaw.value) ?? filteredFiles.value[0] ?? null
 })
 
 const modelSelectOptions = computed(() => {
-  if (!aiSettings.enabledModels.length) {
-    return [{ label: t('gitAssistant.ai.noModelConfigured'), value: '' }]
-  }
-
-  return aiSettings.enabledModels.map(model => ({
-    label: model.name,
-    value: model.id,
-  }))
+  if (!aiSettings.enabledModels.length) return [{ label: t('gitAssistant.ai.noModelConfigured'), value: '' }]
+  return aiSettings.enabledModels.map(m => ({ label: m.name, value: m.id }))
 })
+
 const logAuthorOptions = computed(() => {
-  const authors = [...new Set(gitLogEntries.value.map(entry => entry.authorName).filter(Boolean))]
-    .sort((left, right) => left.localeCompare(right))
-
-  return [
-    { label: t('gitAssistant.log.allAuthors'), value: 'all' },
-    ...authors.map(author => ({ label: author, value: author })),
-  ]
+  const authors = [...new Set(gitLogEntries.value.map(e => e.authorName).filter(Boolean))].sort()
+  return [{ label: t('gitAssistant.log.allAuthors'), value: 'all' }, ...authors.map(a => ({ label: a, value: a }))]
 })
+
 const filteredGitLogEntries = computed(() => {
-  const normalizedKeyword = logKeyword.value.trim().toLowerCase()
+  const kw = logKeyword.value.trim().toLowerCase()
   const fromTime = logDateFrom.value ? startOfDay(logDateFrom.value) : null
   const toTime = logDateTo.value ? endOfDay(logDateTo.value) : null
-
   return gitLogEntries.value.filter(entry => {
-    const authorMatched = logAuthorFilter.value === 'all' || entry.authorName === logAuthorFilter.value
-    if (!authorMatched) return false
-
-    const entryTime = parseGitLogDate(entry.date)
-    if (fromTime !== null && entryTime !== null && entryTime < fromTime) return false
-    if (toTime !== null && entryTime !== null && entryTime > toTime) return false
-
-    if (!normalizedKeyword) return true
-
-    return [
-      entry.subject,
-      entry.authorName,
-      entry.authorEmail,
-      entry.hash,
-      entry.shortHash,
-      entry.date,
-    ].some(value => value.toLowerCase().includes(normalizedKeyword))
+    if (logAuthorFilter.value !== 'all' && entry.authorName !== logAuthorFilter.value) return false
+    const t2 = parseGitLogDate(entry.date)
+    if (fromTime !== null && t2 !== null && t2 < fromTime) return false
+    if (toTime !== null && t2 !== null && t2 > toTime) return false
+    if (!kw) return true
+    return [entry.subject, entry.authorName, entry.authorEmail, entry.hash, entry.shortHash, entry.date]
+      .some(v => v.toLowerCase().includes(kw))
   })
 })
+
 const filteredCommitMessageHistory = computed(() => {
-  const currentRepo = normalizePath(displayRepoPath.value).toLowerCase()
-  return commitMessageHistory.value.filter(entry => !currentRepo || normalizePath(entry.repoPath).toLowerCase() === currentRepo)
+  const cur = normalizePath(displayRepoPath.value).toLowerCase()
+  return commitMessageHistory.value.filter(e => !cur || normalizePath(e.repoPath).toLowerCase() === cur)
 })
+
 const needsRemoteUrl = computed(() => Boolean(snapshot.value && !repositoryState.value?.remoteName))
 const canRepairUpstream = computed(() => {
-  const state = repositoryState.value
-  return Boolean(state?.remoteName && state.hasCommits && (state.upstreamGone || !state.upstream))
+  const s = repositoryState.value
+  return Boolean(s?.remoteName && s.hasCommits && (s.upstreamGone || !s.upstream))
 })
 const canPublishBranch = computed(() => {
-  const state = repositoryState.value
-  return Boolean(state?.remoteName && state.hasCommits && (!state.upstream || state.upstreamGone))
+  const s = repositoryState.value
+  return Boolean(s?.remoteName && s.hasCommits && (!s.upstream || s.upstreamGone))
 })
 const isDiverged = computed(() => Boolean(repositoryState.value && repositoryState.value.ahead > 0 && repositoryState.value.behind > 0))
 const showRemoteTools = computed(() => needsRemoteUrl.value || canRepairUpstream.value || canPublishBranch.value || isDiverged.value)
@@ -899,501 +804,15 @@ const remoteToolHint = computed(() => {
   return t('gitAssistant.remote.readyHint')
 })
 
-interface RecentGitRepo {
-  path: string
-  name: string
-  openedAt: number
-}
-
-interface CommitMessageHistoryEntry {
-  id: string
-  repoPath: string
-  repoName: string
-  title: string
-  body: string
-  source: 'ai' | 'manual'
-  selectedFileCount: number
-  createdAt: number
-}
-
-const commitMessageHistory = ref<CommitMessageHistoryEntry[]>([])
-
-watch(
-  filteredFiles,
-  files => {
-    const currentExists = files.some(file => file.raw === activeFileRaw.value)
-
-    if (files.length === 0) {
-      activeFileRaw.value = null
-      currentDiff.value = ''
-      return
-    }
-
-    if (!currentExists) {
-      activeFileRaw.value = files[0]?.raw ?? null
-    }
-  },
-  { immediate: true },
-)
-
-watch(
-  allFiles,
-  files => {
-    const fileSet = new Set(files.map(file => file.raw))
-    reviewSelectedRaws.value = reviewSelectedRaws.value.filter(raw => fileSet.has(raw))
-  },
-  { immediate: true },
-)
-
-watch(
-  suggestedCommitTitle,
-  value => {
-    if (!commitTitle.value.trim()) {
-      commitTitle.value = value
-    }
-  },
-  { immediate: true },
-)
-
-watch(
-  selectedFile,
-  file => {
-    if (diffMode.value === 'head') {
-      return
-    }
-
-    if (!file) {
-      diffMode.value = 'unstaged'
-      return
-    }
-
-    if (file.unstaged) {
-      diffMode.value = 'unstaged'
-    } else if (file.staged) {
-      diffMode.value = 'staged'
-    }
-  },
-  { immediate: true },
-)
-
-watch(
-  filteredGitLogEntries,
-  entries => {
-    if (!gitLogOpen.value) return
-
-    if (!entries.length) {
-      activeLogHash.value = ''
-      activeLogFilePath.value = ''
-      gitLogDetail.value = null
-      return
-    }
-
-    if (!entries.some(entry => entry.hash === activeLogHash.value)) {
-      void handleSelectLogEntry(entries[0].hash)
-    }
-  },
-)
-
-watch([selectedFile, diffMode, showDiff], async ([file, mode, visible]) => {
-  if (!visible || !file || !displayRepoPath.value) {
-    currentDiff.value = ''
-    return
-  }
-
-  if (mode === 'head') {
-    diffLoading.value = true
-    try {
-      const result = await loadGitFileHeadDiff(displayRepoPath.value, file.path)
-      currentDiff.value = result.diff
-    } catch (err) {
-      console.error(err)
-      currentDiff.value = ''
-      error.value = err instanceof Error ? err.message : t('gitAssistant.errorFallback')
-    } finally {
-      diffLoading.value = false
-    }
-    return
-  }
-
-  const staged = mode === 'staged'
-  if (staged && !file.staged) {
-    currentDiff.value = ''
-    return
-  }
-
-  if (!staged && !file.unstaged) {
-    currentDiff.value = ''
-    return
-  }
-
-  diffLoading.value = true
-  try {
-    const result = await loadGitFileDiff({
-      repoPath: displayRepoPath.value,
-      filePath: file.path,
-      staged,
-    })
-    currentDiff.value = result.diff
-  } catch (err) {
-    console.error(err)
-    currentDiff.value = ''
-    error.value = err instanceof Error ? err.message : t('gitAssistant.errorFallback')
-  } finally {
-    diffLoading.value = false
-  }
-}, { immediate: true })
-
-function getFileName(path: string) {
-  const normalized = normalizePath(path)
-  const parts = normalized.split('/')
-  return parts[parts.length - 1] || path
-}
-
-function getDirName(path: string) {
-  const normalized = normalizePath(path)
-  const index = normalized.lastIndexOf('/')
-  return index === -1 ? '' : normalized.slice(0, index)
-}
-
-function normalizePath(path: string) {
-  return path.replace(/\\/g, '/')
-}
-
-function getFileExtension(path: string) {
-  const name = getFileName(path)
-  const index = name.lastIndexOf('.')
-  return index === -1 ? '' : name.slice(index + 1).toLowerCase()
-}
-
-function scoreFileAttention(file: GitFileStatus) {
-  let score = 1
-
-  if (file.type === 'deleted' || file.type === 'renamed' || file.type === 'updated-but-unmerged') score += 4
-  else if (file.type === 'modified') score += 3
-  else if (file.type === 'added') score += 2
-
-  if (file.staged) score += 1
-  if (file.unstaged && file.staged) score += 1
-
-  const normalizedPath = file.path.replace(/\\/g, '/').toLowerCase()
-  const extension = getFileExtension(file.path)
-
-  if (ATTENTION_SCORE_CONFIG.highRiskDirectories.some(directory => normalizedPath.startsWith(directory))) score += 2
-  if (ATTENTION_SCORE_CONFIG.highRiskFiles.some(name => normalizedPath.endsWith(name.toLowerCase()))) score += 2
-  if (ATTENTION_SCORE_CONFIG.configExtensions.includes(extension)) score += 1
-  if (ATTENTION_SCORE_CONFIG.docsExtensions.includes(extension)) score -= 1
-
-  return Math.max(score, 1)
-}
-
-async function loadSnapshotByPath(path: string) {
-  if (!path) return
-
-  loading.value = true
-  error.value = ''
-  currentDiff.value = ''
-
-  try {
-    const result = await loadGitSnapshot(path)
-    snapshot.value = result
-    remoteUrlDraft.value = result.repositoryState.remoteUrl ?? remoteUrlDraft.value
-    reviewSelectedRaws.value = []
-    localStorage.setItem(GIT_REPO_STORAGE_KEY, path)
-    rememberRecentRepo(result.repoRoot || path)
-
-    try {
-      await ensureGitProjectProfile(result.repoRoot || path)
-    } catch (profileErr) {
-      console.error(profileErr)
-      error.value = profileErr instanceof Error ? profileErr.message : t('gitAssistant.errorFallback')
-    }
-  } catch (err) {
-    console.error(err)
-    error.value = err instanceof Error ? err.message : t('gitAssistant.errorFallback')
-  } finally {
-    loading.value = false
-  }
-}
-
-function getRepoDisplayName(path: string) {
-  const normalized = normalizePath(path)
-  const parts = normalized.split('/').filter(Boolean)
-  return parts[parts.length - 1] || path
-}
-
-function loadRecentRepos() {
-  try {
-    const raw = localStorage.getItem(GIT_RECENT_REPOS_STORAGE_KEY)
-    if (!raw) {
-      recentRepos.value = []
-      return
-    }
-
-    const parsed = JSON.parse(raw) as Partial<RecentGitRepo>[]
-    recentRepos.value = parsed
-      .filter(repo => typeof repo.path === 'string' && repo.path.trim())
-      .map(repo => ({
-        path: repo.path as string,
-        name: typeof repo.name === 'string' && repo.name ? repo.name : getRepoDisplayName(repo.path as string),
-        openedAt: typeof repo.openedAt === 'number' ? repo.openedAt : 0,
-      }))
-      .sort((left, right) => right.openedAt - left.openedAt)
-      .slice(0, MAX_RECENT_REPOS)
-  } catch (err) {
-    console.error(err)
-    recentRepos.value = []
-  }
-}
-
-function persistRecentRepos() {
-  localStorage.setItem(GIT_RECENT_REPOS_STORAGE_KEY, JSON.stringify(recentRepos.value))
-}
-
-function rememberRecentRepo(path: string) {
-  const normalizedPath = path.trim()
-  if (!normalizedPath) return
-
-  const existingRepo = recentRepos.value.find(repo => normalizePath(repo.path).toLowerCase() === normalizePath(normalizedPath).toLowerCase())
-  const nextRepo: RecentGitRepo = {
-    path: normalizedPath,
-    name: existingRepo?.name || getRepoDisplayName(normalizedPath),
-    openedAt: Date.now(),
-  }
-  recentRepos.value = [
-    nextRepo,
-    ...recentRepos.value.filter(repo => normalizePath(repo.path).toLowerCase() !== normalizePath(normalizedPath).toLowerCase()),
-  ].slice(0, MAX_RECENT_REPOS)
-  persistRecentRepos()
-}
-
-function renameRecentRepo(path: string, name: string) {
-  const normalizedPath = normalizePath(path).toLowerCase()
-  const repo = recentRepos.value.find(repo => normalizePath(repo.path).toLowerCase() === normalizedPath)
-  if (repo) {
-    repo.name = name
-  }
-}
-
-function setAliasInputRef(el: HTMLInputElement | null, path: string) {
-  if (el) {
-    aliasInputRefs.set(path, el)
-  } else {
-    aliasInputRefs.delete(path)
-  }
-}
-
-function startEditAlias(path: string) {
-  editingAliasPath.value = path
-  nextTick(() => {
-    const input = aliasInputRefs.get(path)
-    if (input) {
-      input.focus()
-      input.select()
-    }
-  })
-}
-
-function finishEditAlias(repo: { path: string; name: string }) {
-  if (!repo.name.trim()) {
-    repo.name = repo.path.split(/[/\\]/).pop() || repo.path
-  }
-  persistRecentRepos()
-  editingAliasPath.value = null
-}
-
-function cancelEditAlias(repo: { path: string; name: string }) {
-  editingAliasPath.value = null
-}
-
-function removeRecentRepo(path: string) {
-  const normalizedPath = normalizePath(path).toLowerCase()
-  recentRepos.value = recentRepos.value.filter(repo => normalizePath(repo.path).toLowerCase() !== normalizedPath)
-  persistRecentRepos()
-}
-
-function loadCommitMessageHistory() {
-  try {
-    const raw = localStorage.getItem(GIT_COMMIT_MESSAGE_HISTORY_STORAGE_KEY)
-    if (!raw) {
-      commitMessageHistory.value = []
-      return
-    }
-
-    const parsed = JSON.parse(raw) as Partial<CommitMessageHistoryEntry>[]
-    commitMessageHistory.value = parsed
-      .filter(entry => typeof entry.title === 'string' && entry.title.trim())
-      .map(entry => ({
-        id: typeof entry.id === 'string' ? entry.id : createHistoryId(),
-        repoPath: typeof entry.repoPath === 'string' ? entry.repoPath : '',
-        repoName: typeof entry.repoName === 'string' ? entry.repoName : '',
-        title: entry.title as string,
-        body: typeof entry.body === 'string' ? entry.body : '',
-        source: entry.source === 'manual' ? 'manual' : 'ai',
-        selectedFileCount: typeof entry.selectedFileCount === 'number' ? entry.selectedFileCount : 0,
-        createdAt: typeof entry.createdAt === 'number' ? entry.createdAt : Date.now(),
-      }))
-      .sort((left, right) => right.createdAt - left.createdAt)
-      .slice(0, MAX_COMMIT_MESSAGE_HISTORY)
-  } catch (err) {
-    console.error(err)
-    commitMessageHistory.value = []
-  }
-}
-
-function persistCommitMessageHistory() {
-  localStorage.setItem(GIT_COMMIT_MESSAGE_HISTORY_STORAGE_KEY, JSON.stringify(commitMessageHistory.value))
-}
-
-function createHistoryId() {
-  return `commit-message-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
-}
-
-function saveCommitMessageHistory(source: 'ai' | 'manual') {
-  const title = commitTitle.value.trim()
-  const body = commitBody.value.trim()
-  if (!title && !body) return
-
-  const repo = displayRepoPath.value
-  const entry: CommitMessageHistoryEntry = {
-    id: createHistoryId(),
-    repoPath: repo,
-    repoName: getRepoDisplayName(repo),
-    title,
-    body,
-    source,
-    selectedFileCount: reviewSelectedRaws.value.length,
-    createdAt: Date.now(),
-  }
-
-  const duplicateKey = `${normalizePath(entry.repoPath).toLowerCase()}::${entry.title}::${entry.body}`
-  commitMessageHistory.value = [
-    entry,
-    ...commitMessageHistory.value.filter(item => `${normalizePath(item.repoPath).toLowerCase()}::${item.title}::${item.body}` !== duplicateKey),
-  ].slice(0, MAX_COMMIT_MESSAGE_HISTORY)
-  persistCommitMessageHistory()
-}
-
-function restoreCommitMessage(entry: CommitMessageHistoryEntry) {
-  commitTitle.value = entry.title
-  commitBody.value = entry.body
-  historyDrawerOpen.value = false
-}
-
-function formatHistoryTime(timestamp: number) {
-  return new Date(timestamp).toLocaleString()
-}
-
-function formatLogDate(date: string) {
-  const parsed = new Date(date)
-  if (Number.isNaN(parsed.getTime())) return date
-  return parsed.toLocaleString()
-}
-
-function parseGitLogDate(date: string) {
-  const timestamp = Date.parse(date.replace(/\//g, '-'))
-  return Number.isNaN(timestamp) ? null : timestamp
-}
-
-function startOfDay(timestamp: number) {
-  const date = new Date(timestamp)
-  date.setHours(0, 0, 0, 0)
-  return date.getTime()
-}
-
-function endOfDay(timestamp: number) {
-  const date = new Date(timestamp)
-  date.setHours(23, 59, 59, 999)
-  return date.getTime()
-}
-
+// ── Functions ──
 function setDefaultLogDateRange(entries: GitLogEntry[]) {
-  const timestamps = entries
-    .map(entry => parseGitLogDate(entry.date))
-    .filter((timestamp): timestamp is number => timestamp !== null)
-    .sort((left, right) => left - right)
-
+  const timestamps = entries.map(e => parseGitLogDate(e.date)).filter((t): t is number => t !== null).sort((a, b) => a - b)
   logDateFrom.value = timestamps[0] ?? null
   logDateTo.value = Date.now()
 }
 
-function formatCommitLineCount(value: number | null) {
-  return value === null ? '-' : String(value)
-}
-
 function historySourceLabel(source: 'ai' | 'manual') {
   return source === 'manual' ? t('gitAssistant.history.manual') : t('gitAssistant.history.ai')
-}
-
-async function handlePickDirectory() {
-  try {
-    const selected = await open({
-      directory: true,
-      multiple: false,
-      title: t('gitAssistant.repo.chooseDirectory'),
-      defaultPath: repoPath.value || undefined,
-    })
-
-    if (!selected || Array.isArray(selected)) return
-
-    repoPath.value = selected
-    await loadSnapshotByPath(selected)
-  } catch (err) {
-    console.error(err)
-    error.value = err instanceof Error ? err.message : t('gitAssistant.errorFallback')
-  }
-}
-
-async function handleRefresh() {
-  if (!repoPath.value) return
-  await loadSnapshotByPath(repoPath.value)
-}
-
-async function handleSwitchRecentRepo(path: string) {
-  if (!path || path === displayRepoPath.value) return
-  repoPath.value = path
-  await loadSnapshotByPath(path)
-}
-
-async function handleSwitchRecentRepoFromManager(path: string) {
-  await handleSwitchRecentRepo(path)
-  recentRepoManagerOpen.value = false
-}
-
-async function handleConfigureOrigin() {
-  if (!displayRepoPath.value || !remoteUrlDraft.value.trim()) return
-
-  remoteLoading.value = true
-  error.value = ''
-  const nextAction: '' | 'push' = repositoryState.value?.hasCommits ? 'push' : ''
-  startGitCommand(t('gitAssistant.gitCommand.remoteTitle'), t('gitAssistant.gitCommand.configuringRemote'), nextAction)
-  try {
-    const result = await configureGitOrigin(displayRepoPath.value, remoteUrlDraft.value)
-    finishGitCommand(result, nextAction === 'push' ? t('gitAssistant.gitCommand.pushNext') : '')
-    await loadSnapshotByPath(displayRepoPath.value)
-  } catch (err) {
-    console.error(err)
-    failGitCommand(err)
-  } finally {
-    remoteLoading.value = false
-  }
-}
-
-async function handleRepairUpstream() {
-  if (!displayRepoPath.value) return
-
-  remoteLoading.value = true
-  error.value = ''
-  startGitCommand(t('gitAssistant.gitCommand.upstreamTitle'), t('gitAssistant.gitCommand.repairingUpstream'), 'push')
-  try {
-    const result = await repairGitUpstream(displayRepoPath.value)
-    finishGitCommand(result, t('gitAssistant.gitCommand.pushNext'))
-    await loadSnapshotByPath(displayRepoPath.value)
-  } catch (err) {
-    console.error(err)
-    failGitCommand(err)
-  } finally {
-    remoteLoading.value = false
-  }
 }
 
 function handleStatusFilterChange(value: string) {
@@ -1406,567 +825,142 @@ function handleSelectFile(raw: string) {
 
 function handleOpenDiff(raw: string) {
   activeFileRaw.value = raw
-  const file = allFiles.value.find(item => item.raw === raw)
+  const file = allFiles.value.find(i => i.raw === raw)
   diffMode.value = file?.unstaged || !file?.staged ? 'unstaged' : 'staged'
   showDiff.value = true
 }
 
 async function handleFileAction(payload: { action: 'open-diff' | 'diff-previous' | 'file-history' | 'open-external' | 'mark-resolved'; raw: string }) {
-  const file = allFiles.value.find(item => item.raw === payload.raw)
+  const file = allFiles.value.find(i => i.raw === payload.raw)
   if (!file) return
-
-  if (payload.action === 'open-diff') {
-    handleOpenDiff(payload.raw)
-    return
-  }
-
-  if (payload.action === 'diff-previous') {
-    activeFileRaw.value = payload.raw
-    diffMode.value = 'head'
-    showDiff.value = true
-    return
-  }
-
-  if (payload.action === 'file-history') {
-    await handleOpenLog(file.path)
-    return
-  }
-
-  if (payload.action === 'open-external') {
-    await handleOpenExternalFile(file.path)
-    return
-  }
-
-  if (payload.action === 'mark-resolved') {
-    await handleMarkResolved([file.path])
-  }
+  if (payload.action === 'open-diff') { handleOpenDiff(payload.raw); return }
+  if (payload.action === 'diff-previous') { activeFileRaw.value = payload.raw; diffMode.value = 'head'; showDiff.value = true; return }
+  if (payload.action === 'file-history') { await handleOpenLog(file.path); return }
+  if (payload.action === 'open-external') { await handleOpenExternalFile(file.path); return }
+  if (payload.action === 'mark-resolved') { await handleMarkResolved([file.path]) }
 }
 
 async function handleOpenExternalFile(filePath: string) {
   if (!displayRepoPath.value) return
-
-  try {
-    await openGitFileExternal(displayRepoPath.value, filePath)
-  } catch (err) {
-    console.error(err)
-    error.value = err instanceof Error ? err.message : t('gitAssistant.errorFallback')
+  try { await openGitFileExternal(displayRepoPath.value, filePath) } catch (err) {
+    console.error(err); error.value = err instanceof Error ? err.message : t('gitAssistant.errorFallback')
   }
 }
 
 async function handleMarkSelectedResolved() {
-  await handleMarkResolved(selectedConflictedFiles.value.map(file => file.path))
-}
-
-async function handleMarkResolved(filePaths: string[]) {
-  if (!displayRepoPath.value || !filePaths.length) return
-
-  conflictLoading.value = true
-  error.value = ''
-  startGitCommand(t('gitAssistant.gitCommand.resolveTitle'), t('gitAssistant.gitCommand.resolvingConflicts'))
-  try {
-    const result = await markGitFilesResolved(displayRepoPath.value, filePaths)
-    finishGitCommand(result)
-    await loadSnapshotByPath(displayRepoPath.value)
-  } catch (err) {
-    console.error(err)
-    failGitCommand(err)
-  } finally {
-    conflictLoading.value = false
-  }
-}
-
-async function handleAbortMerge() {
-  if (!displayRepoPath.value || !window.confirm(t('gitAssistant.conflict.abortConfirm'))) return
-
-  conflictLoading.value = true
-  error.value = ''
-  startGitCommand(t('gitAssistant.gitCommand.abortMergeTitle'), t('gitAssistant.gitCommand.abortingMerge'))
-  try {
-    const result = await abortGitMerge(displayRepoPath.value)
-    finishGitCommand(result)
-    reviewSelectedRaws.value = []
-    await loadSnapshotByPath(displayRepoPath.value)
-  } catch (err) {
-    console.error(err)
-    failGitCommand(err)
-  } finally {
-    conflictLoading.value = false
-  }
-}
-
-async function handleContinueMerge() {
-  if (!displayRepoPath.value) return
-
-  conflictLoading.value = true
-  error.value = ''
-  startGitCommand(t('gitAssistant.gitCommand.mergeTitle'), t('gitAssistant.gitCommand.merging'))
-  try {
-    const result = await continueGitMerge(displayRepoPath.value)
-    finishGitCommand(result)
-    await loadSnapshotByPath(displayRepoPath.value)
-  } catch (err) {
-    console.error(err)
-    failGitCommand(err)
-    await loadSnapshotByPath(displayRepoPath.value)
-  } finally {
-    conflictLoading.value = false
-  }
-}
-
-async function handleContinueRebase() {
-  if (!displayRepoPath.value) return
-
-  conflictLoading.value = true
-  error.value = ''
-  startGitCommand(t('gitAssistant.gitCommand.rebaseTitle'), t('gitAssistant.gitCommand.rebasing'))
-  try {
-    const result = await continueGitRebase(displayRepoPath.value)
-    finishGitCommand(result)
-    await loadSnapshotByPath(displayRepoPath.value)
-  } catch (err) {
-    console.error(err)
-    failGitCommand(err)
-    await loadSnapshotByPath(displayRepoPath.value)
-  } finally {
-    conflictLoading.value = false
-  }
-}
-
-async function handleAbortRebase() {
-  if (!displayRepoPath.value || !window.confirm(t('gitAssistant.conflict.abortRebaseConfirm'))) return
-
-  conflictLoading.value = true
-  error.value = ''
-  startGitCommand(t('gitAssistant.gitCommand.rebaseTitle'), t('gitAssistant.gitCommand.aborting'))
-  try {
-    const result = await abortGitRebase(displayRepoPath.value)
-    finishGitCommand(result)
-    await loadSnapshotByPath(displayRepoPath.value)
-  } catch (err) {
-    console.error(err)
-    failGitCommand(err)
-  } finally {
-    conflictLoading.value = false
-  }
+  await handleMarkResolved(selectedConflictedFiles.value.map(f => f.path))
 }
 
 async function handleOpenLog(filePath = '') {
   if (!displayRepoPath.value) return
-
-  gitLogOpen.value = true
-  logLoading.value = true
-  gitLogFilePath.value = filePath
-  gitLogDetail.value = null
-  activeLogHash.value = ''
-  activeLogFilePath.value = ''
-  logKeyword.value = ''
-  logAuthorFilter.value = 'all'
-  logDateFrom.value = null
-  logDateTo.value = null
-  error.value = ''
+  gitLogOpen.value = true; logLoading.value = true; gitLogFilePath.value = filePath
+  gitLogDetail.value = null; activeLogHash.value = ''; activeLogFilePath.value = ''
+  logKeyword.value = ''; logAuthorFilter.value = 'all'
+  logDateFrom.value = null; logDateTo.value = null; error.value = ''
   try {
     gitLogEntries.value = await loadGitLog(displayRepoPath.value, filePath)
     setDefaultLogDateRange(gitLogEntries.value)
-    if (gitLogEntries.value.length) {
-      await handleSelectLogEntry(gitLogEntries.value[0].hash)
-    }
+    if (gitLogEntries.value.length) await handleSelectLogEntry(gitLogEntries.value[0].hash)
   } catch (err) {
-    console.error(err)
-    error.value = err instanceof Error ? err.message : t('gitAssistant.errorFallback')
-    gitLogEntries.value = []
-  } finally {
-    logLoading.value = false
-  }
+    console.error(err); error.value = err instanceof Error ? err.message : t('gitAssistant.errorFallback'); gitLogEntries.value = []
+  } finally { logLoading.value = false }
 }
 
 async function handleSelectLogEntry(hash: string) {
   if (!displayRepoPath.value || !hash) return
-
-  activeLogHash.value = hash
-  activeLogFilePath.value = ''
-  logDetailLoading.value = true
+  activeLogHash.value = hash; activeLogFilePath.value = ''; logDetailLoading.value = true
   try {
     const detail = await loadGitCommitDetail(displayRepoPath.value, hash)
-    gitLogDetail.value = detail
-    activeLogFilePath.value = gitLogFilePath.value || detail.changedFiles[0]?.path || ''
+    gitLogDetail.value = detail; activeLogFilePath.value = gitLogFilePath.value || detail.changedFiles[0]?.path || ''
   } catch (err) {
-    console.error(err)
-    error.value = err instanceof Error ? err.message : t('gitAssistant.errorFallback')
-    gitLogDetail.value = null
-  } finally {
-    logDetailLoading.value = false
-  }
+    console.error(err); error.value = err instanceof Error ? err.message : t('gitAssistant.errorFallback'); gitLogDetail.value = null
+  } finally { logDetailLoading.value = false }
 }
 
 async function handleOpenLogFileDiff(file: GitCommitChangedFile) {
   if (!displayRepoPath.value || !activeLogHash.value || !file.path) return
-
-  activeLogFilePath.value = file.path
-  showLogFileDiff.value = true
-  logFileDiffLoading.value = true
-  logFileDiff.value = ''
-  logDiffFileView.value = createLogDiffFileView(file)
+  activeLogFilePath.value = file.path; showLogFileDiff.value = true
+  logFileDiffLoading.value = true; logFileDiff.value = ''
+  const fileName = getFileName(file.path)
+  logDiffFileView.value = {
+    raw: `${file.status} ${file.path}`, x: file.status.slice(0, 1), y: ' ',
+    path: file.path, originalPath: file.originalPath ?? undefined,
+    type: mapCommitStatusToFileType(file.status), staged: false, unstaged: false,
+    fileName, directory: file.path.slice(0, Math.max(0, file.path.length - fileName.length)).replace(/[\\/]$/, ''),
+    extension: getFileExtension(file.path), addedLines: file.added, removedLines: file.removed, score: 0, recommended: false,
+  }
   try {
     const result = await loadGitCommitFileDiff(displayRepoPath.value, activeLogHash.value, file.path)
     logFileDiff.value = result.diff
-  } catch (err) {
-    console.error(err)
-    error.value = err instanceof Error ? err.message : t('gitAssistant.errorFallback')
-  } finally {
-    logFileDiffLoading.value = false
-  }
-}
-
-function createLogDiffFileView(file: GitCommitChangedFile): GitAssistantFileView {
-  const fileName = getFileName(file.path)
-  const directory = file.path.slice(0, Math.max(0, file.path.length - fileName.length)).replace(/[\\/]$/, '')
-  return {
-    raw: `${file.status} ${file.path}`,
-    x: file.status.slice(0, 1),
-    y: ' ',
-    path: file.path,
-    originalPath: file.originalPath ?? undefined,
-    type: mapCommitStatusToFileType(file.status),
-    staged: false,
-    unstaged: false,
-    fileName,
-    directory,
-    extension: getFileExtension(file.path),
-    addedLines: file.added,
-    removedLines: file.removed,
-    score: 0,
-    recommended: false,
-  }
-}
-
-function mapCommitStatusToFileType(status: string): GitFileStatus['type'] {
-  const code = status.slice(0, 1)
-  if (code === 'A') return 'added'
-  if (code === 'D') return 'deleted'
-  if (code === 'R') return 'renamed'
-  if (code === 'C') return 'copied'
-  if (code === 'M') return 'modified'
-  return 'unknown'
+  } catch (err) { console.error(err); error.value = err instanceof Error ? err.message : t('gitAssistant.errorFallback') }
+  finally { logFileDiffLoading.value = false }
 }
 
 function toggleReviewSelection(payload: { raw: string; checked: boolean }) {
-  if (payload.checked) {
-    if (!reviewSelectedRaws.value.includes(payload.raw)) {
-      reviewSelectedRaws.value = [...reviewSelectedRaws.value, payload.raw]
-    }
-    return
-  }
-  reviewSelectedRaws.value = reviewSelectedRaws.value.filter(raw => raw !== payload.raw)
+  if (payload.checked) { if (!reviewSelectedRaws.value.includes(payload.raw)) reviewSelectedRaws.value = [...reviewSelectedRaws.value, payload.raw]; return }
+  reviewSelectedRaws.value = reviewSelectedRaws.value.filter(r => r !== payload.raw)
 }
 
 function setReviewSelection(raws: string[]) {
-  const validRaws = new Set(allFiles.value.map(file => file.raw))
-  reviewSelectedRaws.value = [...new Set(raws.filter(raw => validRaws.has(raw)))]
+  const valid = new Set(allFiles.value.map(f => f.raw))
+  reviewSelectedRaws.value = [...new Set(raws.filter(r => valid.has(r)))]
 }
 
+async function handleSwitchRecentRepoFromManager(path: string) {
+  await handleSwitchRecentRepo(path)
+  recentRepoManagerOpen.value = false
+}
+
+// ── Watchers ──
+watch(filteredFiles, files => {
+  if (files.length === 0) { activeFileRaw.value = null; return }
+  if (!files.some(f => f.raw === activeFileRaw.value)) activeFileRaw.value = files[0]?.raw ?? null
+}, { immediate: true })
+
+watch(allFiles, files => {
+  const fileSet = new Set(files.map(f => f.raw))
+  reviewSelectedRaws.value = reviewSelectedRaws.value.filter(r => fileSet.has(r))
+}, { immediate: true })
+
+watch(selectedFile, file => {
+  if (diffMode.value === 'head') return
+  if (!file) { diffMode.value = 'unstaged'; return }
+  diffMode.value = file.unstaged ? 'unstaged' : 'staged'
+}, { immediate: true })
+
+watch(filteredGitLogEntries, entries => {
+  if (!gitLogOpen.value) return
+  if (!entries.length) { activeLogHash.value = ''; activeLogFilePath.value = ''; gitLogDetail.value = null; return }
+  if (!entries.some(e => e.hash === activeLogHash.value)) void handleSelectLogEntry(entries[0].hash)
+})
+
+watch([selectedFile, diffMode, showDiff], async ([file, mode, visible]) => {
+  if (!visible || !file || !displayRepoPath.value) { currentDiff.value = ''; return }
+  if (mode === 'head') {
+    diffLoading.value = true
+    try { const r = await (await import('@/services/git/git-service')).loadGitFileHeadDiff(displayRepoPath.value, file.path); currentDiff.value = r.diff }
+    catch (err) { console.error(err); currentDiff.value = ''; error.value = err instanceof Error ? err.message : t('gitAssistant.errorFallback') }
+    finally { diffLoading.value = false }
+    return
+  }
+  const staged = mode === 'staged'
+  if ((staged && !file.staged) || (!staged && !file.unstaged)) { currentDiff.value = ''; return }
+  diffLoading.value = true
+  try { const { loadGitFileDiff } = await import('@/services/git/git-service'); const r = await loadGitFileDiff({ repoPath: displayRepoPath.value, filePath: file.path, staged }); currentDiff.value = r.diff }
+  catch (err) { console.error(err); currentDiff.value = ''; error.value = err instanceof Error ? err.message : t('gitAssistant.errorFallback') }
+  finally { diffLoading.value = false }
+}, { immediate: true })
+
+// ── Lifecycle ──
 onMounted(async () => {
   loadRecentRepos()
   loadCommitMessageHistory()
   const saved = localStorage.getItem(GIT_REPO_STORAGE_KEY)
   if (!saved) return
-
   repoPath.value = saved
   await loadSnapshotByPath(saved)
 })
-
-async function handleGenerateAiAnalysis() {
-  if (!snapshot.value || !displayRepoPath.value) return
-
-  if (selectedConflictedFiles.value.length) {
-    error.value = t('gitAssistant.conflict.resolveBeforeCommit')
-    return
-  }
-
-  const selectedFiles = selectedFileViews.value.map(file => file.path)
-
-  if (!selectedFiles.length) {
-    error.value = t('gitAssistant.ai.noSelectedFiles')
-    return
-  }
-
-  aiLoading.value = true
-  error.value = ''
-  startPromptProgress()
-
-  try {
-    promptPreview.value = await buildGitCommitPrompt({
-      repoPath: displayRepoPath.value,
-      branch: snapshot.value.branch,
-      selectedFiles,
-    })
-
-    if (autoSendPromptToApi.value) {
-      const model = aiSettings.getModelForTask('commit-message')
-      if (!model) {
-        throw new Error(t('gitAssistant.ai.noModelConfigured'))
-      }
-      setPromptProgressStep('gitAssistant.ai.progressCallingApi')
-      const result = await generateGitAiAnalysisFromPrompt({
-        prompt: promptPreview.value.prompt,
-        model,
-      })
-      commitTitle.value = result.title
-      commitBody.value = result.body
-      saveCommitMessageHistory('ai')
-    }
-
-    promptDrawerOpen.value = true
-  } catch (err) {
-    console.error(err)
-    error.value = err instanceof Error ? err.message : t('gitAssistant.errorFallback')
-  } finally {
-    aiLoading.value = false
-    stopPromptProgress()
-  }
-}
-
-function startPromptProgress() {
-  stopPromptProgress()
-  promptGenerationStep.value = t('gitAssistant.ai.progressReading')
-  promptProgressTimers = [
-    window.setTimeout(() => {
-      promptGenerationStep.value = t('gitAssistant.ai.progressCleaning')
-    }, 400),
-    window.setTimeout(() => {
-      promptGenerationStep.value = t('gitAssistant.ai.progressBuilding')
-    }, 1200),
-  ]
-}
-
-function setPromptProgressStep(key: string) {
-  for (const timer of promptProgressTimers) {
-    window.clearTimeout(timer)
-  }
-  promptProgressTimers = []
-  promptGenerationStep.value = t(key)
-}
-
-function stopPromptProgress() {
-  for (const timer of promptProgressTimers) {
-    window.clearTimeout(timer)
-  }
-  promptProgressTimers = []
-  promptGenerationStep.value = ''
-}
-
-function startGitCommand(title: string, phase: string, nextAction: '' | 'push' | 'pull' = '') {
-  gitCommandDialog.value = {
-    visible: true,
-    title,
-    phase,
-    running: true,
-    success: null,
-    command: '',
-    stdout: '',
-    stderr: '',
-    message: t('gitAssistant.gitCommand.running'),
-    suggestion: '',
-    nextActionLabel: '',
-    nextAction,
-  }
-}
-
-function finishGitCommand(result: GitCommandResult, nextActionLabel = '') {
-  gitCommandDialog.value = {
-    ...gitCommandDialog.value,
-    running: false,
-    success: true,
-    command: result.command,
-    stdout: result.stdout,
-    stderr: result.stderr,
-    message: result.message,
-    suggestion: result.suggestion ?? '',
-    nextActionLabel,
-  }
-}
-
-function failGitCommand(err: unknown) {
-  const message = err instanceof Error ? err.message : String(err)
-  const lowerMessage = message.toLowerCase()
-  const nextAction: '' | 'push' | 'pull' =
-    lowerMessage.includes('non-fast-forward') || lowerMessage.includes('fetch first')
-      ? 'pull'
-      : lowerMessage.includes('远端还没有') || lowerMessage.includes('push -u') || lowerMessage.includes('publish')
-        ? 'push'
-        : ''
-  gitCommandDialog.value = {
-    ...gitCommandDialog.value,
-    running: false,
-    success: false,
-    stderr: message,
-    message: t('gitAssistant.gitCommand.failed'),
-    suggestion: '',
-    nextActionLabel:
-      nextAction === 'pull'
-        ? t('gitAssistant.gitCommand.pullNext')
-        : nextAction === 'push'
-          ? t('gitAssistant.gitCommand.pushNext')
-          : '',
-    nextAction,
-  }
-}
-
-async function handleCommit() {
-  if (!displayRepoPath.value || !commitTitle.value.trim()) return
-
-  if (selectedConflictedFiles.value.length) {
-    error.value = t('gitAssistant.conflict.resolveBeforeCommit')
-    return
-  }
-
-  const selectedFiles = selectedFileViews.value.map(file => file.path)
-
-  if (!selectedFiles.length) {
-    error.value = t('gitAssistant.ai.noSelectedFiles')
-    return
-  }
-
-  commitLoading.value = true
-  error.value = ''
-  saveCommitMessageHistory('manual')
-  startGitCommand(t('gitAssistant.gitCommand.commitTitle'), t('gitAssistant.gitCommand.committing'), 'push')
-
-  try {
-    const result = await commitGitChanges({
-      repoPath: displayRepoPath.value,
-      title: commitTitle.value,
-      body: commitBody.value,
-      selectedFiles,
-    })
-
-    commitTitle.value = ''
-    commitBody.value = ''
-    reviewSelectedRaws.value = []
-    finishGitCommand(result, t('gitAssistant.gitCommand.pushNext'))
-    await loadSnapshotByPath(displayRepoPath.value)
-  } catch (err) {
-    console.error(err)
-    failGitCommand(err)
-    await loadSnapshotByPath(displayRepoPath.value)
-  } finally {
-    commitLoading.value = false
-  }
-}
-
-async function handlePush() {
-  if (!displayRepoPath.value) return
-
-  pushLoading.value = true
-  error.value = ''
-  startGitCommand(t('gitAssistant.gitCommand.pushTitle'), t('gitAssistant.gitCommand.checkingRemote'))
-  try {
-    const syncStatus = await syncGitStatus(displayRepoPath.value)
-    const action = syncStatus.recommendedAction
-    if (action === 'pull' || action === 'resolveDivergence') {
-      finishGitCommand(syncStatus, t('gitAssistant.gitCommand.pullNext'))
-      gitCommandDialog.value = {
-        ...gitCommandDialog.value,
-        success: action === 'pull' ? null : false,
-        nextAction: 'pull',
-      }
-      await loadSnapshotByPath(displayRepoPath.value)
-      return
-    }
-
-    if (action === 'configureRemote') {
-      finishGitCommand(syncStatus)
-      gitCommandDialog.value = {
-        ...gitCommandDialog.value,
-        success: false,
-      }
-      await loadSnapshotByPath(displayRepoPath.value)
-      return
-    }
-
-    gitCommandDialog.value = {
-      ...gitCommandDialog.value,
-      phase: t('gitAssistant.gitCommand.pushing'),
-      command: syncStatus.command,
-      stdout: syncStatus.stdout,
-      stderr: syncStatus.stderr,
-      message: syncStatus.message,
-      suggestion: syncStatus.suggestion ?? '',
-    }
-    const result = await pushGitChanges(displayRepoPath.value)
-    finishGitCommand(result)
-    await loadSnapshotByPath(displayRepoPath.value)
-  } catch (err) {
-    console.error(err)
-    failGitCommand(err)
-  } finally {
-    pushLoading.value = false
-  }
-}
-
-async function handleFetch() {
-  if (!displayRepoPath.value) return
-
-  fetchLoading.value = true
-  error.value = ''
-  startGitCommand(t('gitAssistant.gitCommand.fetchTitle'), t('gitAssistant.gitCommand.fetching'))
-  try {
-    const result = await fetchGitChanges(displayRepoPath.value)
-    finishGitCommand(result)
-    await loadSnapshotByPath(displayRepoPath.value)
-  } catch (err) {
-    console.error(err)
-    failGitCommand(err)
-  } finally {
-    fetchLoading.value = false
-  }
-}
-
-async function handlePull() {
-  if (!displayRepoPath.value) return
-
-  pullLoading.value = true
-  error.value = ''
-  startGitCommand(t('gitAssistant.gitCommand.pullTitle'), t('gitAssistant.gitCommand.pulling'))
-  try {
-    const result = await pullGitChanges(displayRepoPath.value)
-    finishGitCommand(result)
-    await loadSnapshotByPath(displayRepoPath.value)
-  } catch (err) {
-    console.error(err)
-    failGitCommand(err)
-  } finally {
-    pullLoading.value = false
-  }
-}
-
-async function handleRebase() {
-  if (!displayRepoPath.value) return
-
-  rebaseLoading.value = true
-  error.value = ''
-  startGitCommand(t('gitAssistant.gitCommand.rebaseTitle'), t('gitAssistant.gitCommand.rebasing'))
-  try {
-    const result = await rebaseGitChanges(displayRepoPath.value)
-    finishGitCommand(result)
-    await loadSnapshotByPath(displayRepoPath.value)
-  } catch (err) {
-    console.error(err)
-    failGitCommand(err)
-    await loadSnapshotByPath(displayRepoPath.value)
-  } finally {
-    rebaseLoading.value = false
-  }
-}
-
-function handleCommandNextAction() {
-  if (gitCommandDialog.value.nextAction === 'push') {
-    void handlePush()
-  } else if (gitCommandDialog.value.nextAction === 'pull') {
-    void handlePull()
-  }
-}
 </script>
-
 <style scoped lang="scss">
 .git-assistant-page {
   background:

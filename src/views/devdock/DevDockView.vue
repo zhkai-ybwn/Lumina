@@ -790,11 +790,6 @@ function renderLogLine(text: string) {
   return ansiUp.ansi_to_html(text)
 }
 
-function stackLabel(project: DevDockProject) {
-  if (!project.manifest) return t('devdock.overview.stackPending')
-  return project.manifest.detectedStack.length ? project.manifest.detectedStack.join(' / ') : t('devdock.overview.stackUnknown')
-}
-
 function dependencyLabel(project: DevDockProject) {
   if (!project.manifest) return '--'
   return t('devdock.overview.dependencyCount', {
