@@ -13,7 +13,7 @@ pub async fn call_ollama_generate(config: &AiModelConfig, prompt: &str) -> Resul
         "model": config.model,
         "prompt": prompt,
         "stream": false,
-        "format": build_analysis_schema(),
+        "format": build_analysis_schema("en"),
         "think": false,
         "options": {
             "temperature": 0.2

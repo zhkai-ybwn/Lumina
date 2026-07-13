@@ -1,14 +1,18 @@
 use std::collections::HashMap;
+use std::fs;
+use std::io::Read;
 use std::net::IpAddr;
-use std::path::Path;
-use std::process::Command;
+use std::path::{Path, PathBuf};
+use std::process::{Command, Stdio};
+use std::sync::mpsc;
+use std::thread;
 
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
 
 use crate::git::models::{
-    GitCommandResult, GitCommitChangedFile, GitCommitDetail, GitCommitDetailPayload, GitCommitFileDiffPayload,
-    GitCommitFileDiffResponse, GitCommitPayload, GitConfigureRemotePayload, GitFileActionPayload,
+    GitCommandProgressEvent, GitCommandResult, GitCommitChangedFile, GitCommitDetail, GitCommitDetailPayload,
+    GitCommitFileDiffPayload, GitCommitFileDiffResponse, GitCommitPayload, GitConfigureRemotePayload, GitFileActionPayload,
     GitFileDiffResponse, GitFileStat, GitFilesActionPayload, GitLogEntry, GitLogPayload, GitPullPayload,
     GitPushPayload, GitRebasePayload, GitRepoPayload, GitRepairUpstreamPayload, GitRepositoryState, GitSnapshot,
     GitSyncRecommendedAction, GitSyncStatus,
@@ -98,6 +102,189 @@ fn run_git_capture(repo_path: &str, args: &[&str]) -> Result<GitCommandResult, S
     })
 }
 
+fn run_git_capture_streaming<F>(repo_path: &str, args: &[&str], mut on_progress: F) -> Result<GitCommandResult, String>
+where
+    F: FnMut(GitCommandProgressEvent),
+{
+    let command_label = format!("git {}", args.join(" "));
+    let mut child = git_command(repo_path)
+        .args(args)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|e| format!("执行 git 命令失败 {:?}: {}", args, e))?;
+
+    let stdout = child.stdout.take();
+    let stderr = child.stderr.take();
+    let (tx, rx) = mpsc::channel::<(String, Vec<u8>)>();
+
+    if let Some(stdout) = stdout {
+        spawn_git_output_reader(stdout, "stdout", tx.clone());
+    }
+    if let Some(stderr) = stderr {
+        spawn_git_output_reader(stderr, "stderr", tx.clone());
+    }
+    drop(tx);
+
+    let mut stdout_text = String::new();
+    let mut stderr_text = String::new();
+    for (stream, chunk) in rx {
+        let text = String::from_utf8_lossy(&chunk).to_string();
+        if stream == "stderr" {
+            stderr_text.push_str(&text);
+        } else {
+            stdout_text.push_str(&text);
+        }
+        let event = build_progress_event(repo_path, &command_label, &stream, &text);
+        on_progress(event);
+    }
+
+    let status = child
+        .wait()
+        .map_err(|e| format!("等待 git 命令结束失败 {:?}: {}", args, e))?;
+
+    if !status.success() {
+        let suggestion = git_error_suggestion(&stderr_text);
+        return Err(format_command_error(
+            &command_label,
+            &stdout_text,
+            &stderr_text,
+            suggestion.as_deref(),
+        ));
+    }
+
+    Ok(GitCommandResult {
+        command: command_label,
+        message: if stdout_text.trim().is_empty() {
+            "Command completed".to_string()
+        } else {
+            stdout_text.trim().to_string()
+        },
+        stdout: stdout_text,
+        stderr: stderr_text,
+        suggestion: None,
+    })
+}
+
+fn spawn_git_output_reader<R>(mut reader: R, stream: &'static str, sender: mpsc::Sender<(String, Vec<u8>)>)
+where
+    R: Read + Send + 'static,
+{
+    thread::spawn(move || {
+        let mut buffer = [0_u8; 1024];
+        loop {
+            match reader.read(&mut buffer) {
+                Ok(0) => break,
+                Ok(count) => {
+                    if sender.send((stream.to_string(), buffer[..count].to_vec())).is_err() {
+                        break;
+                    }
+                }
+                Err(_) => break,
+            }
+        }
+    });
+}
+
+fn build_progress_event(repo_path: &str, command: &str, stream: &str, text: &str) -> GitCommandProgressEvent {
+    let cleaned = strip_ansi_sequences(text);
+    GitCommandProgressEvent {
+        repo_path: repo_path.to_string(),
+        command: command.to_string(),
+        stream: stream.to_string(),
+        text: cleaned.clone(),
+        phase: parse_progress_phase(&cleaned),
+        percent: parse_progress_percent(&cleaned),
+        transfer: parse_transfer_text(&cleaned),
+    }
+}
+
+fn emit_manual_git_progress<F>(
+    repo_path: &str,
+    command: &str,
+    phase: &str,
+    percent: Option<u8>,
+    transfer: Option<String>,
+    on_progress: &mut F,
+) where
+    F: FnMut(GitCommandProgressEvent),
+{
+    on_progress(GitCommandProgressEvent {
+        repo_path: repo_path.to_string(),
+        command: command.to_string(),
+        stream: "stdout".to_string(),
+        text: format!("{}{}\n", phase, transfer.as_ref().map(|value| format!(": {}", value)).unwrap_or_default()),
+        phase: Some(phase.to_string()),
+        percent,
+        transfer,
+    });
+}
+
+fn strip_ansi_sequences(text: &str) -> String {
+    let mut output = String::with_capacity(text.len());
+    let mut chars = text.chars().peekable();
+    while let Some(ch) = chars.next() {
+        if ch == '\u{1b}' && chars.peek() == Some(&'[') {
+            chars.next();
+            for next in chars.by_ref() {
+                if ('@'..='~').contains(&next) {
+                    break;
+                }
+            }
+            continue;
+        }
+        output.push(ch);
+    }
+    output
+}
+
+fn parse_progress_phase(text: &str) -> Option<String> {
+    let line = latest_progress_line(text)?;
+    let (phase, _) = line.split_once(':')?;
+    let phase = phase.trim();
+    if phase.is_empty() {
+        None
+    } else {
+        Some(phase.to_string())
+    }
+}
+
+fn parse_progress_percent(text: &str) -> Option<u8> {
+    let line = latest_progress_line(text)?;
+    let percent_index = line.find('%')?;
+    let prefix = &line[..percent_index];
+    let digits = prefix
+        .chars()
+        .rev()
+        .take_while(|ch| ch.is_ascii_digit() || ch.is_ascii_whitespace())
+        .collect::<String>();
+    let percent = digits.chars().rev().collect::<String>().trim().parse::<u8>().ok()?;
+    Some(percent.min(100))
+}
+
+fn parse_transfer_text(text: &str) -> Option<String> {
+    let line = latest_progress_line(text)?;
+    let lower = line.to_ascii_lowercase();
+    if !(lower.contains("bytes") || lower.contains("kib") || lower.contains("mib") || lower.contains("gib")) {
+        return None;
+    }
+    line.split(',')
+        .skip(1)
+        .map(str::trim)
+        .find(|part| {
+            let lower = part.to_ascii_lowercase();
+            lower.contains("bytes") || lower.contains("kib") || lower.contains("mib") || lower.contains("gib")
+        })
+        .map(ToString::to_string)
+}
+
+fn latest_progress_line(text: &str) -> Option<&str> {
+    text.split(['\r', '\n'])
+        .rev()
+        .map(str::trim)
+        .find(|line| line.contains(':') && line.contains('%'))
+}
+
 fn run_git_capture_status(repo_path: &str, args: &[&str]) -> Result<(bool, GitCommandResult), String> {
     let output = git_command(repo_path)
         .args(args)
@@ -131,6 +318,7 @@ fn run_git_capture_status(repo_path: &str, args: &[&str]) -> Result<(bool, GitCo
 
 fn git_command(repo_path: &str) -> Command {
     let mut command = silent_command("git");
+    command.args(["-c", "core.quotePath=false"]);
     command.current_dir(repo_path);
     apply_git_proxy_env(&mut command, repo_path);
     command
@@ -228,7 +416,7 @@ fn should_bypass_proxy_for_repo(repo_path: &str) -> bool {
 
 fn remote_origin_url(repo_path: &str) -> Option<String> {
     let output = silent_command("git")
-        .args(["config", "--get", "remote.origin.url"])
+        .args(["-c", "core.quotePath=false", "config", "--get", "remote.origin.url"])
         .current_dir(repo_path)
         .output()
         .ok()?;
@@ -547,7 +735,40 @@ fn clear_index_for_selected_commit(repo_path: &str) -> Result<GitCommandResult, 
     run_git_capture(repo_path, &["read-tree", "--empty"])
 }
 
-fn validate_selected_files(repo_path: &str, selected_files: &[String]) -> Result<(), String> {
+struct IndexBackup {
+    path: PathBuf,
+    content: Option<Vec<u8>>,
+}
+
+impl IndexBackup {
+    fn capture(repo_path: &str) -> Result<Self, String> {
+        let git_path = run_git(repo_path, &["rev-parse", "--git-path", "index"])?;
+        let path = PathBuf::from(git_path.trim());
+        let path = if path.is_absolute() { path } else { Path::new(repo_path).join(path) };
+        let content = if path.exists() {
+            Some(fs::read(&path).map_err(|error| format!("备份 Git 暂存区失败: {}", error))?)
+        } else {
+            None
+        };
+        Ok(Self { path, content })
+    }
+
+    fn restore(&self) -> Result<(), String> {
+        match &self.content {
+            Some(content) => fs::write(&self.path, content).map_err(|error| format!("恢复 Git 暂存区失败: {}", error)),
+            None if self.path.exists() => fs::remove_file(&self.path).map_err(|error| format!("恢复 Git 暂存区失败: {}", error)),
+            None => Ok(()),
+        }
+    }
+}
+
+struct SelectedCommitFile {
+    path: String,
+    ignored_tracked: bool,
+}
+
+fn validate_selected_files(repo_path: &str, selected_files: &[String]) -> Result<Vec<SelectedCommitFile>, String> {
+    let mut validated_files = Vec::with_capacity(selected_files.len());
     for file in selected_files {
         let normalized = file.trim();
         if normalized.is_empty() {
@@ -569,9 +790,14 @@ fn validate_selected_files(repo_path: &str, selected_files: &[String]) -> Result
                 normalized
             ));
         }
+
+        validated_files.push(SelectedCommitFile {
+            path: normalized.to_string(),
+            ignored_tracked: ignored_by_git && tracked_by_git,
+        });
     }
 
-    Ok(())
+    Ok(validated_files)
 }
 
 fn is_git_ignored(repo_path: &str, file_path: &str) -> bool {
@@ -581,14 +807,25 @@ fn is_git_ignored(repo_path: &str, file_path: &str) -> bool {
         .is_ok_and(|status| status.success())
 }
 
-fn stage_selected_file_for_commit(repo_path: &str, file_path: &str) -> Result<GitCommandResult, String> {
-    if is_git_ignored(repo_path, file_path)
-        && run_git(repo_path, &["ls-files", "--error-unmatch", "--", file_path]).is_ok()
-    {
-        return run_git_capture(repo_path, &["rm", "--cached", "--", file_path]);
+fn stage_selected_files_for_commit(repo_path: &str, selected_files: &[SelectedCommitFile]) -> Result<Vec<GitCommandResult>, String> {
+    let (ignored_tracked, regular): (Vec<_>, Vec<_>) = selected_files
+        .iter()
+        .partition(|file| file.ignored_tracked);
+    let mut results = Vec::with_capacity(2);
+
+    if !regular.is_empty() {
+        let mut args = vec!["add"];
+        args.push("--");
+        args.extend(regular.iter().map(|file| file.path.as_str()));
+        results.push(run_git_capture(repo_path, &args)?);
+    }
+    if !ignored_tracked.is_empty() {
+        let mut args = vec!["rm", "--cached", "--"];
+        args.extend(ignored_tracked.iter().map(|file| file.path.as_str()));
+        results.push(run_git_capture(repo_path, &args)?);
     }
 
-    run_git_capture(repo_path, &["add", "--", file_path])
+    Ok(results)
 }
 
 fn has_unmerged_files(repo_path: &str) -> bool {
@@ -695,7 +932,6 @@ fn sync_status_message(state: &GitRepositoryState, action: &GitSyncRecommendedAc
 }
 
 pub fn sync_status(payload: &GitRepoPayload) -> Result<GitSyncStatus, String> {
-    let fetch = run_git_capture(&payload.repo_path, &["fetch", "--prune"])?;
     let state = load_repository_state(&payload.repo_path);
     let recommended_action = recommended_sync_action(&state);
     let message = sync_status_message(&state, &recommended_action);
@@ -708,10 +944,10 @@ pub fn sync_status(payload: &GitRepoPayload) -> Result<GitSyncStatus, String> {
     };
 
     Ok(GitSyncStatus {
-        command: fetch.command,
+        command: "git status (local)".to_string(),
         message,
-        stdout: fetch.stdout,
-        stderr: fetch.stderr,
+        stdout: String::new(),
+        stderr: String::new(),
         suggestion,
         state,
         recommended_action,
@@ -719,19 +955,23 @@ pub fn sync_status(payload: &GitRepoPayload) -> Result<GitSyncStatus, String> {
 }
 
 pub fn load_git_snapshot(repo_path: &str) -> Result<GitSnapshot, String> {
-    let repo_root = run_git(repo_path, &["rev-parse", "--show-toplevel"])?;
-    let branch = run_git(repo_path, &["branch", "--show-current"])?;
-    let repository_state = load_repository_state(repo_path);
-    let status_raw = run_git_raw(
-    repo_path,
-    &["status", "--porcelain=v1", "--untracked-files=all"],
-)?;
-    let staged_files_raw = run_git(repo_path, &["diff", "--cached", "--name-only"])?;
-    let staged_diff = run_git(
-        repo_path,
-        &["diff", "--cached", "--unified=2", "--no-color"],
-    )?;
-    let file_stats = load_file_stats(repo_path)?;
+    let (repo_root, branch, repository_state, status_raw, staged_files_raw, file_stats) = thread::scope(|scope| {
+        let repo_root = scope.spawn(|| run_git(repo_path, &["rev-parse", "--show-toplevel"]));
+        let branch = scope.spawn(|| run_git(repo_path, &["branch", "--show-current"]));
+        let repository_state = scope.spawn(|| load_repository_state(repo_path));
+        let status_raw = scope.spawn(|| run_git_raw(repo_path, &["status", "--porcelain=v1", "--untracked-files=all"]));
+        let staged_files_raw = scope.spawn(|| run_git(repo_path, &["diff", "--cached", "--name-only"]));
+        let file_stats = scope.spawn(|| load_file_stats(repo_path));
+
+        Ok::<_, String>((
+            repo_root.join().map_err(|_| "读取仓库根目录任务异常".to_string())??,
+            branch.join().map_err(|_| "读取当前分支任务异常".to_string())??,
+            repository_state.join().map_err(|_| "读取仓库状态任务异常".to_string())?,
+            status_raw.join().map_err(|_| "读取文件状态任务异常".to_string())??,
+            staged_files_raw.join().map_err(|_| "读取暂存文件任务异常".to_string())??,
+            file_stats.join().map_err(|_| "读取文件统计任务异常".to_string())??,
+        ))
+    })?;
 
     let status = if status_raw.trim().is_empty() {
         vec![]
@@ -752,7 +992,8 @@ pub fn load_git_snapshot(repo_path: &str) -> Result<GitSnapshot, String> {
         repository_state,
         status,
         staged_files,
-        staged_diff,
+        // Selected-file prompts load only the necessary diffs on demand.
+        staged_diff: String::new(),
         file_stats,
     })
 }
@@ -857,7 +1098,17 @@ pub fn load_selected_file_diff(repo_path: &str, file_path: &str) -> Result<Strin
 
 fn load_untracked_file_diff(repo_path: &str, file_path: &str) -> Result<String, String> {
     let output = silent_command("git")
-        .args(["diff", "--no-index", "--unified=3", "--no-color", "--", "/dev/null", file_path])
+        .args([
+            "-c",
+            "core.quotePath=false",
+            "diff",
+            "--no-index",
+            "--unified=3",
+            "--no-color",
+            "--",
+            "/dev/null",
+            file_path,
+        ])
         .current_dir(repo_path)
         .output()
         .map_err(|e| format!("执行 git diff --no-index 失败 {}: {}", file_path, e))?;
@@ -875,6 +1126,13 @@ fn load_untracked_file_diff(repo_path: &str, file_path: &str) -> Result<String, 
 }
 
 pub fn commit_changes(payload: &GitCommitPayload) -> Result<GitCommandResult, String> {
+    commit_changes_with_progress(payload, |_| {})
+}
+
+pub fn commit_changes_with_progress<F>(payload: &GitCommitPayload, mut on_progress: F) -> Result<GitCommandResult, String>
+where
+    F: FnMut(GitCommandProgressEvent),
+{
     let title = payload.title.trim();
     let body = payload.body.trim();
 
@@ -886,32 +1144,97 @@ pub fn commit_changes(payload: &GitCommitPayload) -> Result<GitCommandResult, St
         return Err("No files selected for commit".to_string());
     }
 
-    validate_selected_files(&payload.repo_path, &payload.selected_files)?;
+    let selected_files = validate_selected_files(&payload.repo_path, &payload.selected_files)?;
+    let index_backup = IndexBackup::capture(&payload.repo_path)?;
+    emit_manual_git_progress(
+        &payload.repo_path,
+        "git commit",
+        "Preparing index",
+        Some(5),
+        None,
+        &mut on_progress,
+    );
 
     let mut stdout = String::new();
     let mut stderr = String::new();
     let mut commands = Vec::new();
 
-    let clear_index = clear_index_for_selected_commit(&payload.repo_path)?;
-    commands.push(clear_index.command);
-    stdout.push_str(&clear_index.stdout);
-    stderr.push_str(&clear_index.stderr);
+    let commit_result = (|| {
+        let clear_index = clear_index_for_selected_commit(&payload.repo_path)?;
+        commands.push(clear_index.command);
+        stdout.push_str(&clear_index.stdout);
+        stderr.push_str(&clear_index.stderr);
 
-    for file in &payload.selected_files {
-        let add = stage_selected_file_for_commit(&payload.repo_path, file)?;
-        commands.push(add.command);
-        stdout.push_str(&add.stdout);
-        stderr.push_str(&add.stderr);
-    }
+        let file_count = selected_files.len().max(1);
+        emit_manual_git_progress(
+            &payload.repo_path,
+            "git add",
+            "Staging files",
+            Some(10),
+            Some(format!("0 / {} files", file_count)),
+            &mut on_progress,
+        );
+        for add in stage_selected_files_for_commit(&payload.repo_path, &selected_files)? {
+            commands.push(add.command);
+            stdout.push_str(&add.stdout);
+            stderr.push_str(&add.stderr);
+        }
+        emit_manual_git_progress(
+            &payload.repo_path,
+            "git add",
+            "Staging files",
+            Some(70),
+            Some(format!("{} / {} files", file_count, file_count)),
+            &mut on_progress,
+        );
 
-    let commit = if body.is_empty() {
-        run_git_capture(&payload.repo_path, &["commit", "-m", title])?
-    } else {
-        run_git_capture(&payload.repo_path, &["commit", "-m", title, "-m", body])?
+        emit_manual_git_progress(
+            &payload.repo_path,
+            "git commit",
+            "Committing",
+            Some(80),
+            None,
+            &mut on_progress,
+        );
+        if body.is_empty() {
+            run_git_capture_streaming(&payload.repo_path, &["commit", "-m", title], &mut on_progress)
+        } else {
+            run_git_capture_streaming(&payload.repo_path, &["commit", "-m", title, "-m", body], &mut on_progress)
+        }
+    })();
+
+    let commit = match commit_result {
+        Ok(commit) => commit,
+        Err(error) => {
+            index_backup.restore()?;
+            return Err(error);
+        }
     };
+
+    index_backup.restore().map_err(|error| format!("提交已经完成，但{}", error))?;
+    emit_manual_git_progress(
+        &payload.repo_path,
+        "git reset",
+        "Restoring index",
+        Some(92),
+        None,
+        &mut on_progress,
+    );
+    let mut reset_args = vec!["reset".to_string(), "HEAD".to_string(), "--".to_string()];
+    reset_args.extend(selected_files.iter().map(|file| file.path.clone()));
+    run_git_raw_owned(&payload.repo_path, &reset_args)
+        .map_err(|error| format!("提交已经完成，但恢复未选文件的暂存状态失败: {}", error))?;
     commands.push(commit.command);
     stdout.push_str(&commit.stdout);
     stderr.push_str(&commit.stderr);
+    emit_manual_git_progress(
+        &payload.repo_path,
+        "git commit",
+        "Commit completed",
+        Some(100),
+        None,
+        &mut on_progress,
+    );
 
     Ok(GitCommandResult {
         command: commands.join("\n"),
@@ -927,6 +1250,13 @@ pub fn commit_changes(payload: &GitCommitPayload) -> Result<GitCommandResult, St
 }
 
 pub fn push_changes(payload: &GitPushPayload) -> Result<GitCommandResult, String> {
+    push_changes_with_progress(payload, |_| {})
+}
+
+pub fn push_changes_with_progress<F>(payload: &GitPushPayload, mut on_progress: F) -> Result<GitCommandResult, String>
+where
+    F: FnMut(GitCommandProgressEvent),
+{
     let branch = run_git(&payload.repo_path, &["branch", "--show-current"])?;
     if branch.trim().is_empty() {
         return Err("Cannot push because current branch is detached".to_string());
@@ -938,7 +1268,7 @@ pub fn push_changes(payload: &GitPushPayload) -> Result<GitCommandResult, String
         return Err("当前仓库没有配置 origin remote，无法推送。\n\n建议: 请先添加 GitHub 仓库地址，例如 git remote add origin <url>。".to_string());
     }
 
-    let fetch = run_git_capture(&payload.repo_path, &["fetch", "--prune"])?;
+    let fetch = run_git_capture_streaming(&payload.repo_path, &["fetch", "--progress", "--prune"], &mut on_progress)?;
     let state = load_repository_state(&payload.repo_path);
     let action = recommended_sync_action(&state);
     if matches!(action, GitSyncRecommendedAction::Pull | GitSyncRecommendedAction::ResolveDivergence) {
@@ -948,9 +1278,13 @@ pub fn push_changes(payload: &GitPushPayload) -> Result<GitCommandResult, String
     let upstream = run_git(&payload.repo_path, &["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"]);
     let mut result = match upstream {
         Ok(value) if run_git(&payload.repo_path, &["rev-parse", "--verify", &value]).is_ok() => {
-            run_git_capture(&payload.repo_path, &["push"])?
+            run_git_capture_streaming(&payload.repo_path, &["push", "--progress"], &mut on_progress)?
         }
-        _ => run_git_capture(&payload.repo_path, &["push", "-u", "origin", branch.trim()])?,
+        _ => run_git_capture_streaming(
+            &payload.repo_path,
+            &["push", "--progress", "-u", "origin", branch.trim()],
+            &mut on_progress,
+        )?,
     };
     result.command = format!("{}\n{}", fetch.command, result.command);
     result.stdout = format!("{}{}", fetch.stdout, result.stdout);
@@ -968,13 +1302,20 @@ pub fn push_changes(payload: &GitPushPayload) -> Result<GitCommandResult, String
 }
 
 pub fn pull_changes(payload: &GitPullPayload) -> Result<GitCommandResult, String> {
+    pull_changes_with_progress(payload, |_| {})
+}
+
+pub fn pull_changes_with_progress<F>(payload: &GitPullPayload, mut on_progress: F) -> Result<GitCommandResult, String>
+where
+    F: FnMut(GitCommandProgressEvent),
+{
     let mut stdout = String::new();
     let mut stderr = String::new();
     let mut commands = Vec::new();
     let upstream = run_git(&payload.repo_path, &["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"])
         .map_err(|e| format!("当前分支没有 upstream，无法拉取。\n{}\n\n建议: 请先推送并设置 upstream，或手动设置上游分支。", e))?;
 
-    let fetch = run_git_capture(&payload.repo_path, &["fetch", "--prune"])?;
+    let fetch = run_git_capture_streaming(&payload.repo_path, &["fetch", "--progress", "--prune"], &mut on_progress)?;
     commands.push(fetch.command);
     stdout.push_str(&fetch.stdout);
     stderr.push_str(&fetch.stderr);
@@ -1026,6 +1367,13 @@ pub fn pull_changes(payload: &GitPullPayload) -> Result<GitCommandResult, String
 }
 
 pub fn rebase_changes(payload: &GitRebasePayload) -> Result<GitCommandResult, String> {
+    rebase_changes_with_progress(payload, |_| {})
+}
+
+pub fn rebase_changes_with_progress<F>(payload: &GitRebasePayload, mut on_progress: F) -> Result<GitCommandResult, String>
+where
+    F: FnMut(GitCommandProgressEvent),
+{
     let mut stdout = String::new();
     let mut stderr = String::new();
     let mut commands = Vec::new();
@@ -1035,7 +1383,7 @@ pub fn rebase_changes(payload: &GitRebasePayload) -> Result<GitCommandResult, St
     )
     .map_err(|e| format!("当前分支没有 upstream，无法 rebase。\n{}\n\n建议: 请先推送并设置 upstream，或手动设置上游分支。", e))?;
 
-    let fetch = run_git_capture(&payload.repo_path, &["fetch", "--prune"])?;
+    let fetch = run_git_capture_streaming(&payload.repo_path, &["fetch", "--progress", "--prune"], &mut on_progress)?;
     commands.push(fetch.command);
     stdout.push_str(&fetch.stdout);
     stderr.push_str(&fetch.stderr);
@@ -1134,7 +1482,14 @@ pub fn continue_merge(payload: &GitRepoPayload) -> Result<GitCommandResult, Stri
 }
 
 pub fn fetch_changes(payload: &GitRepoPayload) -> Result<GitCommandResult, String> {
-    let result = run_git_capture(&payload.repo_path, &["fetch", "--prune"])?;
+    fetch_changes_with_progress(payload, |_| {})
+}
+
+pub fn fetch_changes_with_progress<F>(payload: &GitRepoPayload, on_progress: F) -> Result<GitCommandResult, String>
+where
+    F: FnMut(GitCommandProgressEvent),
+{
+    let result = run_git_capture_streaming(&payload.repo_path, &["fetch", "--progress", "--prune"], on_progress)?;
 
     Ok(GitCommandResult {
         message: if result.stdout.trim().is_empty() {
@@ -1271,6 +1626,42 @@ pub fn mark_files_resolved(payload: &GitFilesActionPayload) -> Result<GitCommand
     })
 }
 
+pub fn revert_file(payload: &GitFileActionPayload) -> Result<GitCommandResult, String> {
+    let file_path = payload.file_path.trim();
+    if file_path.is_empty() {
+        return Err("文件路径为空，无法回退。".to_string());
+    }
+
+    let status = run_git_raw(&payload.repo_path, &["status", "--porcelain", "--", file_path])?;
+    if status.trim().is_empty() {
+        return Err(format!("文件没有可回退的变更: {}", file_path));
+    }
+
+    let is_untracked = status.lines().any(|line| line.starts_with("??"));
+    if is_untracked {
+        let target_path = safe_repo_file_path(&payload.repo_path, file_path)?;
+        if target_path.is_file() {
+            fs::remove_file(&target_path).map_err(|error| format!("删除未跟踪文件失败 {}: {}", file_path, error))?;
+        } else if target_path.is_dir() {
+            fs::remove_dir_all(&target_path).map_err(|error| format!("删除未跟踪目录失败 {}: {}", file_path, error))?;
+        }
+
+        return Ok(GitCommandResult {
+            command: format!("delete {}", file_path),
+            message: format!("已移除未跟踪文件: {}", file_path),
+            stdout: String::new(),
+            stderr: String::new(),
+            suggestion: None,
+        });
+    }
+
+    let result = run_git_capture(&payload.repo_path, &["restore", "--staged", "--worktree", "--", file_path])?;
+    Ok(GitCommandResult {
+        message: format!("已回退文件: {}", file_path),
+        ..result
+    })
+}
+
 pub fn abort_merge(payload: &GitRepoPayload) -> Result<GitCommandResult, String> {
     let result = run_git_capture(&payload.repo_path, &["merge", "--abort"])?;
 
@@ -1278,6 +1669,30 @@ pub fn abort_merge(payload: &GitRepoPayload) -> Result<GitCommandResult, String>
         message: "Merge 已中止".to_string(),
         ..result
     })
+}
+
+fn safe_repo_file_path(repo_path: &str, file_path: &str) -> Result<PathBuf, String> {
+    let repo_root = fs::canonicalize(repo_path).map_err(|error| format!("读取仓库路径失败: {}", error))?;
+    let target = repo_root.join(file_path);
+    let normalized = normalize_candidate_path(&target);
+    if !normalized.starts_with(&repo_root) {
+        return Err(format!("拒绝回退仓库外文件: {}", file_path));
+    }
+    Ok(target)
+}
+
+fn normalize_candidate_path(path: &Path) -> PathBuf {
+    let mut normalized = PathBuf::new();
+    for component in path.components() {
+        match component {
+            std::path::Component::CurDir => {}
+            std::path::Component::ParentDir => {
+                normalized.pop();
+            }
+            _ => normalized.push(component.as_os_str()),
+        }
+    }
+    normalized
 }
 
 pub fn load_git_log(payload: &GitLogPayload) -> Result<Vec<GitLogEntry>, String> {
@@ -1510,6 +1925,24 @@ HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Internet Settings
     }
 
     #[test]
+    fn parses_git_progress_percent_and_phase() {
+        let text = "Receiving objects:  42% (42/100), 1.25 MiB | 512.00 KiB/s\r";
+
+        assert_eq!(parse_progress_phase(text).as_deref(), Some("Receiving objects"));
+        assert_eq!(parse_progress_percent(text), Some(42));
+    }
+
+    #[test]
+    fn parses_git_progress_transfer_text() {
+        let text = "Writing objects: 100% (12/12), 2.01 MiB | 1.25 MiB/s, done.\n";
+
+        assert_eq!(
+            parse_transfer_text(text).as_deref(),
+            Some("2.01 MiB | 1.25 MiB/s")
+        );
+    }
+
+    #[test]
     fn extracts_remote_hosts() {
         assert_eq!(
             remote_host_from_url("http://192.168.0.127:9980/AMI/frontenddeveloper/ami-simulator.git").as_deref(),
@@ -1588,6 +2021,21 @@ HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Internet Settings
     }
 
     #[test]
+    fn status_keeps_chinese_paths_readable() {
+        let repo = temp_repo("chinese-path");
+        git(&repo, &["init"]);
+        let file_name = "大屏接口文档-当前实现-2026-07-08.md";
+        write_file(&repo.join(file_name), "# 文档\n");
+
+        let status = run_git_raw(&repo.to_string_lossy(), &["status", "--porcelain=v1", "--untracked-files=all"])
+            .expect("read git status");
+
+        assert!(status.contains(file_name));
+        assert!(!status.contains("\\345"));
+        fs::remove_dir_all(&repo).expect("remove temp repo");
+    }
+
+    #[test]
     fn commit_removes_tracked_files_that_are_now_ignored() {
         let repo = temp_repo("ignored-tracked-file");
         git(&repo, &["init"]);
@@ -1625,6 +2073,108 @@ HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Internet Settings
             .expect("run git ls-files");
         assert!(!tracked.status.success());
 
+        fs::remove_dir_all(&repo).expect("remove temp repo");
+    }
+
+    #[test]
+    fn revert_file_restores_tracked_file() {
+        let repo = temp_repo("revert-tracked-file");
+        git(&repo, &["init"]);
+        git(&repo, &["config", "user.name", "Lumina Test"]);
+        git(&repo, &["config", "user.email", "lumina@example.test"]);
+        write_file(&repo.join("tracked.txt"), "initial\n");
+        git(&repo, &["add", "--", "tracked.txt"]);
+        git(&repo, &["commit", "-m", "initial"]);
+
+        write_file(&repo.join("tracked.txt"), "changed\n");
+        git(&repo, &["add", "--", "tracked.txt"]);
+        write_file(&repo.join("tracked.txt"), "changed again\n");
+
+        revert_file(&GitFileActionPayload {
+            repo_path: repo.to_string_lossy().to_string(),
+            file_path: "tracked.txt".to_string(),
+        })
+        .expect("revert tracked file");
+
+        assert!(run_git(&repo.to_string_lossy(), &["status", "--porcelain"]).unwrap().is_empty());
+        fs::remove_dir_all(&repo).expect("remove temp repo");
+    }
+
+    #[test]
+    fn revert_file_removes_untracked_file() {
+        let repo = temp_repo("revert-untracked-file");
+        git(&repo, &["init"]);
+        write_file(&repo.join("new.txt"), "new\n");
+
+        revert_file(&GitFileActionPayload {
+            repo_path: repo.to_string_lossy().to_string(),
+            file_path: "new.txt".to_string(),
+        })
+        .expect("remove untracked file");
+
+        assert!(!repo.join("new.txt").exists());
+        assert!(run_git(&repo.to_string_lossy(), &["status", "--porcelain"]).unwrap().is_empty());
+        fs::remove_dir_all(&repo).expect("remove temp repo");
+    }
+
+    #[test]
+    fn selected_commit_preserves_unselected_staged_files() {
+        let repo = temp_repo("preserve-index");
+        git(&repo, &["init"]);
+        git(&repo, &["config", "user.name", "Lumina Test"]);
+        git(&repo, &["config", "user.email", "lumina@example.test"]);
+        write_file(&repo.join("selected.txt"), "initial\n");
+        write_file(&repo.join("staged.txt"), "initial\n");
+        git(&repo, &["add", "--", "."]);
+        git(&repo, &["commit", "-m", "initial"]);
+
+        write_file(&repo.join("selected.txt"), "selected change\n");
+        write_file(&repo.join("staged.txt"), "staged change\n");
+        git(&repo, &["add", "--", "staged.txt"]);
+
+        commit_changes(&GitCommitPayload {
+            repo_path: repo.to_string_lossy().to_string(),
+            title: "commit selected file".to_string(),
+            body: String::new(),
+            selected_files: vec!["selected.txt".to_string()],
+        })
+        .expect("commit selected file");
+
+        assert_eq!(run_git(&repo.to_string_lossy(), &["diff", "--cached", "--name-only"]).unwrap(), "staged.txt");
+        assert!(run_git(&repo.to_string_lossy(), &["status", "--porcelain"]).unwrap().contains("M  staged.txt"));
+        fs::remove_dir_all(&repo).expect("remove temp repo");
+    }
+
+    #[test]
+    fn failed_selected_commit_restores_index() {
+        let repo = temp_repo("restore-index");
+        git(&repo, &["init"]);
+        git(&repo, &["config", "user.name", "Lumina Test"]);
+        git(&repo, &["config", "user.email", "lumina@example.test"]);
+        write_file(&repo.join("selected.txt"), "initial\n");
+        write_file(&repo.join("staged.txt"), "initial\n");
+        git(&repo, &["add", "--", "."]);
+        git(&repo, &["commit", "-m", "initial"]);
+        write_file(&repo.join("selected.txt"), "selected change\n");
+        write_file(&repo.join("staged.txt"), "staged change\n");
+        git(&repo, &["add", "--", "staged.txt"]);
+        let hook = repo.join(".git").join("hooks").join("pre-commit");
+        write_file(&hook, "#!/bin/sh\nexit 1\n");
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(&hook, fs::Permissions::from_mode(0o755)).expect("make hook executable");
+        }
+
+        let result = commit_changes(&GitCommitPayload {
+            repo_path: repo.to_string_lossy().to_string(),
+            title: "rejected commit".to_string(),
+            body: String::new(),
+            selected_files: vec!["selected.txt".to_string()],
+        });
+
+        assert!(result.is_err());
+        assert_eq!(run_git(&repo.to_string_lossy(), &["diff", "--cached", "--name-only"]).unwrap(), "staged.txt");
         fs::remove_dir_all(&repo).expect("remove temp repo");
     }
 }

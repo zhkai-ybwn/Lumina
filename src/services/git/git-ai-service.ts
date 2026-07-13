@@ -43,6 +43,7 @@ export async function buildGitCommitPrompt(payload: {
   repoPath: string
   branch: string
   selectedFiles: string[]
+  language?: string
 }): Promise<GitCommitPromptPreview> {
   return invoke<GitCommitPromptPreview>('build_git_commit_prompt', { payload })
 }

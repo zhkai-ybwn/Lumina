@@ -1,6 +1,15 @@
 <template>
   <div v-if="visible" class="dialog-mask">
     <section class="command-dialog">
+      <button
+        class="dialog-close"
+        type="button"
+        :aria-label="closeLabel"
+        :disabled="running"
+        @click="$emit('close')"
+      >
+        <Icon icon="solar:close-circle-linear" />
+      </button>
       <header class="dialog-header">
         <div>
           <span class="dialog-kicker">Lumina Git Operation</span>
@@ -16,9 +25,9 @@
       <div class="operation-stage">
         <div class="stage-node stage-node--source">
           <strong>Git</strong>
-          <span>working tree</span>
+          <span>{{ t('gitAssistant.gitCommand.workingTree') }}</span>
         </div>
-        <div class="stage-beam" :class="{ running, failed: success === false }"></div>
+        <div class="stage-beam" :class="statusTone"></div>
         <div class="stage-node stage-node--target">
           <strong>{{ phase }}</strong>
           <span>{{ commandSummary }}</span>
@@ -26,15 +35,25 @@
       </div>
 
       <div class="progress-track">
-        <div class="progress-bar" :class="{ running, failed: success === false }"></div>
+        <div class="progress-bar" :class="[statusTone, { determinate: progressPercent !== null }]" :style="progressStyle"></div>
       </div>
 
-      <section class="log-panel">
+      <section class="log-panel" :class="statusTone">
         <div class="log-toolbar">
-          <span>Command Output</span>
-          <strong>{{ logLineCount }}</strong>
+          <span>{{ t('gitAssistant.gitCommand.output') }}</span>
+          <div class="log-stats">
+            <strong v-for="stat in progressStats" :key="stat">{{ stat }}</strong>
+          </div>
         </div>
-        <pre class="log-box">{{ logText }}</pre>
+        <div class="log-box">
+          <template v-for="(line, idx) in logLines" :key="idx">
+            <div v-if="idx > 0" class="log-separator"></div>
+            <div class="log-line" :class="`log-${line.type}`">{{ line.text }}</div>
+          </template>
+          <div v-if="!logLines.length && running" class="log-line log-info">
+            {{ t('gitAssistant.gitCommand.waitingOutput') }}
+          </div>
+        </div>
       </section>
 
       <footer class="dialog-actions">
@@ -58,7 +77,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { Icon } from '@iconify/vue'
+import { useLocale } from '@/hooks/useLocale'
+
+const { t } = useLocale()
 
 const props = defineProps<{
   visible: boolean
@@ -72,6 +95,11 @@ const props = defineProps<{
   stderr: string
   message: string
   suggestion: string
+  startedAt: number
+  finishedAt: number | null
+  progressPercent: number | null
+  progressPhase: string
+  transfer: string
   nextActionLabel: string
   closeLabel: string
   abortLabel: string
@@ -82,17 +110,29 @@ defineEmits<{
   (e: 'next-action'): void
 }>()
 
-const logText = computed(() => {
-  const lines = []
+interface LogLine {
+  type: 'command' | 'stdout' | 'stderr' | 'message' | 'suggestion'
+  text: string
+}
+
+const logLines = computed<LogLine[]>(() => {
+  const lines: LogLine[] = []
   if (props.command) {
-    lines.push(...props.command.split('\n').map(command => `> ${command}`))
+    lines.push(...props.command.split('\n').map(command => ({ type: 'command' as const, text: `> ${command}` })))
   }
-  if (props.stdout.trim()) lines.push(props.stdout.trim())
-  if (props.stderr.trim()) lines.push(props.stderr.trim())
-  if (props.message.trim() && !props.stdout.includes(props.message)) lines.push(props.message.trim())
-  if (props.suggestion.trim()) lines.push(`建议: ${props.suggestion.trim()}`)
-  if (!lines.length && props.running) lines.push('Running git command...')
-  return lines.join('\n\n')
+  if (props.stdout.trim()) {
+    lines.push({ type: 'stdout', text: props.stdout.trim() })
+  }
+  if (props.stderr.trim()) {
+    lines.push({ type: 'stderr', text: props.stderr.trim() })
+  }
+  if (props.message.trim() && !props.stdout.includes(props.message)) {
+    lines.push({ type: 'message', text: props.message.trim() })
+  }
+  if (props.suggestion.trim()) {
+    lines.push({ type: 'suggestion', text: props.suggestion.trim() })
+  }
+  return lines
 })
 
 const statusTone = computed(() => {
@@ -103,10 +143,10 @@ const statusTone = computed(() => {
 })
 
 const statusLabel = computed(() => {
-  if (props.running) return 'Running'
-  if (props.success === false) return 'Failed'
-  if (props.success === true) return 'Completed'
-  return 'Ready'
+  if (props.running) return t('gitAssistant.gitCommand.running')
+  if (props.success === false) return t('gitAssistant.gitCommand.failed')
+  if (props.success === true) return t('gitAssistant.gitCommand.completed')
+  return t('gitAssistant.gitCommand.ready')
 })
 
 const commandSummary = computed(() => {
@@ -114,13 +154,91 @@ const commandSummary = computed(() => {
   return firstCommand || props.message || 'preparing'
 })
 
-const logLineCount = computed(() => logText.value.split('\n').filter(Boolean).length)
+const ticker = ref(Date.now())
+let timerId: number | undefined
+
+function stopTicker() {
+  if (timerId === undefined) return
+  window.clearInterval(timerId)
+  timerId = undefined
+}
+
+watch(
+  () => [props.visible, props.running] as const,
+  ([visible, running]) => {
+    stopTicker()
+    if (visible && running) {
+      ticker.value = Date.now()
+      timerId = window.setInterval(() => {
+        ticker.value = Date.now()
+      }, 1000)
+    }
+  },
+  { immediate: true },
+)
+
+onBeforeUnmount(stopTicker)
+
+function countTextLines(text: string) {
+  const trimmed = text.trim()
+  return trimmed ? trimmed.split(/\r?\n/).length : 0
+}
+
+function getByteSize(text: string) {
+  if (!text) return 0
+  return new TextEncoder().encode(text).length
+}
+
+function formatBytes(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`
+}
+
+function formatDuration(ms: number) {
+  const seconds = Math.max(0, Math.round(ms / 1000))
+  if (seconds < 60) return `${seconds}s`
+  const minutes = Math.floor(seconds / 60)
+  const restSeconds = seconds % 60
+  return `${minutes}m ${restSeconds}s`
+}
+
+const elapsedLabel = computed(() => {
+  if (!props.startedAt) return '0s'
+  const end = props.finishedAt ?? ticker.value
+  return formatDuration(end - props.startedAt)
+})
+
+const outputLineCount = computed(() => countTextLines(props.stdout) + countTextLines(props.stderr))
+const outputSize = computed(() => getByteSize(props.stdout) + getByteSize(props.stderr))
+
+const progressStyle = computed(() => {
+  if (props.progressPercent === null) return undefined
+  return { width: `${Math.max(0, Math.min(100, props.progressPercent))}%` }
+})
+
+const progressStats = computed(() => {
+  const stats = []
+  if (props.progressPercent !== null) {
+    stats.push(`${props.progressPercent}%`)
+  }
+  if (props.progressPhase) {
+    stats.push(props.progressPhase)
+  }
+  if (props.transfer) {
+    stats.push(props.transfer)
+  }
+  stats.push(elapsedLabel.value)
+  stats.push(`${outputLineCount.value} ${t('gitAssistant.gitCommand.lines')}`)
+  stats.push(formatBytes(outputSize.value))
+  return stats
+})
 </script>
 
 <style scoped lang="scss">
 .dialog-mask {
   align-items: center;
-  background: rgba(18, 22, 25, 0.36);
+  background: rgb(18 22 25 / 36%);
   display: flex;
   inset: 0;
   justify-content: center;
@@ -139,7 +257,46 @@ const logLineCount = computed(() => logText.value.split('\n').filter(Boolean).le
   grid-template-rows: auto auto auto minmax(240px, 1fr) auto;
   max-height: min(680px, 86vh);
   overflow: hidden;
+  position: relative;
   width: min(880px, 92vw);
+}
+
+.dialog-close {
+  align-items: center;
+  background: var(--lumina-surface-2);
+  border: 1px solid var(--lumina-card-border);
+  border-radius: var(--lumina-radius-sm);
+  color: var(--lumina-text-secondary);
+  cursor: pointer;
+  display: inline-flex;
+  height: 30px;
+  justify-content: center;
+  padding: 0;
+  position: absolute;
+  right: 12px;
+  top: 12px;
+  width: 30px;
+  z-index: 3;
+
+  &:hover:not(:disabled) {
+    background: var(--lumina-button-secondary-hover);
+    color: var(--lumina-text);
+  }
+
+  &:focus-visible {
+    box-shadow: 0 0 0 3px var(--lumina-accent-ring);
+    outline: none;
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+  }
+
+  svg {
+    height: 16px;
+    width: 16px;
+  }
 }
 
 .dialog-header {
@@ -148,7 +305,7 @@ const logLineCount = computed(() => logText.value.split('\n').filter(Boolean).le
   display: flex;
   gap: 14px;
   justify-content: space-between;
-  padding: 16px 18px;
+  padding: 16px 56px 16px 18px;
 
   .dialog-kicker {
     color: var(--lumina-primary);
@@ -185,21 +342,27 @@ const logLineCount = computed(() => logText.value.split('\n').filter(Boolean).le
   padding: 0 10px;
 
   span {
-    background: currentColor;
+    background: currentcolor;
     border-radius: 999px;
     height: 7px;
     width: 7px;
   }
 
   &.running {
+    background: rgb(59 130 246 / 8%);
+    border-color: rgb(59 130 246 / 22%);
     color: var(--lumina-primary);
   }
 
   &.done {
-    color: #2f8f5b;
+    background: rgb(47 143 91 / 10%);
+    border-color: rgb(47 143 91 / 24%);
+    color: var(--lumina-success);
   }
 
   &.failed {
+    background: rgb(213 77 77 / 9%);
+    border-color: rgb(213 77 77 / 24%);
     color: var(--lumina-danger);
   }
 }
@@ -246,7 +409,7 @@ const logLineCount = computed(() => logText.value.split('\n').filter(Boolean).le
 }
 
 .stage-node--target {
-  border-left: 2px solid #526a86;
+  border-left: 2px solid var(--lumina-text-secondary);
 }
 
 .stage-beam {
@@ -257,7 +420,7 @@ const logLineCount = computed(() => logText.value.split('\n').filter(Boolean).le
 
   &.running::after {
     animation: beam-run 1.1s ease-in-out infinite;
-    background: #fff;
+    background: var(--lumina-primary);
     content: '';
     height: 2px;
     left: 0;
@@ -268,6 +431,10 @@ const logLineCount = computed(() => logText.value.split('\n').filter(Boolean).le
 
   &.failed {
     background: var(--lumina-danger);
+  }
+
+  &.done {
+    background: var(--lumina-success);
   }
 }
 
@@ -291,8 +458,17 @@ const logLineCount = computed(() => logText.value.split('\n').filter(Boolean).le
     width: 45%;
   }
 
+  &.determinate {
+    animation: none;
+    transform: none;
+  }
+
   &.failed {
     background: var(--lumina-danger);
+  }
+
+  &.done {
+    background: var(--lumina-success);
   }
 }
 
@@ -304,9 +480,52 @@ const logLineCount = computed(() => logText.value.split('\n').filter(Boolean).le
   font-size: 13px;
   line-height: 1.45;
   margin: 0;
+  max-height: 320px;
   overflow: auto;
   padding: 10px;
   white-space: pre-wrap;
+}
+
+.log-separator {
+  height: 8px;
+}
+
+.log-line {
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.log-command {
+  color: var(--lumina-text-secondary);
+}
+
+.log-stdout {
+  color: var(--lumina-text);
+}
+
+.log-stderr {
+  color: var(--lumina-text);
+}
+
+.log-message {
+  color: var(--lumina-text-secondary);
+}
+
+.log-suggestion {
+  color: var(--lumina-warning);
+}
+
+.log-panel.done {
+  .log-message {
+    color: var(--lumina-success);
+  }
+}
+
+.log-panel.failed {
+  .log-stderr,
+  .log-message {
+    color: var(--lumina-danger);
+  }
 }
 
 .log-panel {
@@ -331,10 +550,22 @@ const logLineCount = computed(() => logText.value.split('\n').filter(Boolean).le
   padding: 0 10px;
 
   strong {
+    background: var(--lumina-surface-2);
+    border: 1px solid var(--lumina-card-border);
+    border-radius: 999px;
     color: var(--lumina-text);
     font-family: Consolas, 'Liberation Mono', Menlo, monospace;
     font-size: 11px;
+    font-weight: 600;
+    line-height: 20px;
+    padding: 0 8px;
   }
+}
+
+.log-stats {
+  align-items: center;
+  display: flex;
+  gap: 6px;
 }
 
 .dialog-actions {

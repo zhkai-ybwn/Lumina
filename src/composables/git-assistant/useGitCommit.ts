@@ -1,4 +1,4 @@
-import { computed, ref } from 'vue'
+import { ref, watch } from 'vue'
 import { useLocale } from '@/hooks/useLocale'
 import {
   buildGitCommitPrompt,
@@ -52,6 +52,13 @@ export function useGitCommit(
   const promptGenerationStep = ref('')
   const autoSendPromptToApi = ref(true)
   const commitMessageHistory = ref<CommitMessageHistoryEntry[]>([])
+  const commitLanguage = ref<'en' | 'zh'>(
+    (localStorage.getItem('lumina.commitLanguage') as 'en' | 'zh') || 'en'
+  )
+
+  watch(commitLanguage, (val) => {
+    localStorage.setItem('lumina.commitLanguage', val)
+  })
   let promptProgressTimers: number[] = []
 
   function createHistoryId() {
@@ -178,6 +185,7 @@ export function useGitCommit(
         repoPath: displayRepoPath,
         branch: snapshot.branch,
         selectedFiles,
+        language: commitLanguage.value,
       })
 
       if (autoSendPromptToApi.value) {
@@ -239,11 +247,11 @@ export function useGitCommit(
       commitBody.value = ''
       clearReviewSelection()
       finishGitCommand(result, t('gitAssistant.gitCommand.pushNext'))
-      await loadSnapshotByPath(displayRepoPath)
+      void loadSnapshotByPath(displayRepoPath)
     } catch (err) {
       console.error(err)
       failGitCommand(err)
-      await loadSnapshotByPath(displayRepoPath)
+      void loadSnapshotByPath(displayRepoPath)
     } finally {
       commitLoading.value = false
     }
@@ -260,6 +268,7 @@ export function useGitCommit(
     promptGenerationStep,
     autoSendPromptToApi,
     commitMessageHistory,
+    commitLanguage,
     loadCommitMessageHistory,
     saveCommitMessageHistory,
     restoreCommitMessage,

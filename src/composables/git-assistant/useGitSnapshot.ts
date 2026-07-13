@@ -27,6 +27,7 @@ export function useGitSnapshot() {
   const recentRepos = ref<RecentGitRepo[]>([])
   const editingAliasPath = ref<string | null>(null)
   const aliasInputRefs = new Map<string, HTMLInputElement>()
+  let snapshotRequestId = 0
 
   const displayRepoPath = computed(() => repoPath.value || snapshot.value?.repoPath || '')
   const repositoryState = computed(() => snapshot.value?.repositoryState ?? null)
@@ -79,11 +80,14 @@ export function useGitSnapshot() {
   async function loadSnapshotByPath(path: string) {
     if (!path) return
 
+    const requestId = ++snapshotRequestId
     loading.value = true
     error.value = ''
 
     try {
       const result = await loadGitSnapshot(path)
+      if (requestId !== snapshotRequestId) return
+
       snapshot.value = result
       reviewSelectedRaws.value = []
       localStorage.setItem(GIT_REPO_STORAGE_KEY, path)
@@ -93,13 +97,19 @@ export function useGitSnapshot() {
         await ensureGitProjectProfile(result.repoRoot || path)
       } catch (profileErr) {
         console.error(profileErr)
-        error.value = profileErr instanceof Error ? profileErr.message : t('gitAssistant.errorFallback')
+        if (requestId === snapshotRequestId) {
+          error.value = profileErr instanceof Error ? profileErr.message : t('gitAssistant.errorFallback')
+        }
       }
     } catch (err) {
       console.error(err)
-      error.value = err instanceof Error ? err.message : t('gitAssistant.errorFallback')
+      if (requestId === snapshotRequestId) {
+        error.value = err instanceof Error ? err.message : t('gitAssistant.errorFallback')
+      }
     } finally {
-      loading.value = false
+      if (requestId === snapshotRequestId) {
+        loading.value = false
+      }
     }
   }
 
@@ -133,6 +143,8 @@ export function useGitSnapshot() {
   async function handleSwitchRecentRepo(path: string) {
     if (!path || path === displayRepoPath.value) return
     repoPath.value = path
+    snapshot.value = null
+    reviewSelectedRaws.value = []
     await loadSnapshotByPath(path)
   }
 
@@ -171,7 +183,7 @@ export function useGitSnapshot() {
     editingAliasPath.value = null
   }
 
-  function cancelEditAlias(_repo: { path: string; name: string }) {
+  function cancelEditAlias() {
     editingAliasPath.value = null
   }
 

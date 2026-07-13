@@ -1,0 +1,750 @@
+<template>
+  <div class="git-log-page">
+    <header class="git-log-dialog__header">
+      <div class="git-log-title">
+        <strong>{{ filePath ? t('gitAssistant.log.fileTitle') : t('gitAssistant.log.title') }}</strong>
+        <span>{{ filePath || branch || '' }}</span>
+      </div>
+      <div class="git-log-toolbar">
+        <NDatePicker
+          v-model:value="logDateFrom"
+          class="git-log-date"
+          type="date"
+          size="small"
+          clearable
+          :placeholder="t('gitAssistant.log.from')"
+        />
+        <NDatePicker
+          v-model:value="logDateTo"
+          class="git-log-date"
+          type="date"
+          size="small"
+          clearable
+          :placeholder="t('gitAssistant.log.to')"
+        />
+        <NInput
+          v-model:value="logKeyword"
+          class="git-log-search"
+          size="small"
+          clearable
+          :placeholder="t('gitAssistant.log.searchPlaceholder')"
+        />
+        <NSelect
+          v-model:value="logAuthorFilter"
+          class="git-log-author"
+          size="small"
+          :consistent-menu-width="false"
+          :options="logAuthorOptions"
+        />
+        <span class="git-log-count">{{ t('gitAssistant.log.visibleCount', { count: filteredGitLogEntries.length, total: gitLogEntries.length }) }}</span>
+      </div>
+    </header>
+
+    <section v-if="logLoading" class="git-log-empty">
+      {{ t('gitAssistant.log.loading') }}
+    </section>
+    <section v-else-if="!gitLogEntries.length" class="git-log-empty">
+      {{ t('gitAssistant.log.empty') }}
+    </section>
+    <section v-else-if="!filteredGitLogEntries.length" class="git-log-empty">
+      {{ t('gitAssistant.log.noMatch') }}
+    </section>
+    <section v-else class="git-log-content">
+      <section class="git-log-revision-table wb-table">
+        <div class="git-log-table-head wb-table-head">
+          <span>{{ t('gitAssistant.log.columnGraph') }}</span>
+          <span>{{ t('gitAssistant.log.columnMessage') }}</span>
+          <span>{{ t('gitAssistant.log.columnAuthor') }}</span>
+          <span>{{ t('gitAssistant.log.columnDate') }}</span>
+          <span>{{ t('gitAssistant.log.columnHash') }}</span>
+        </div>
+        <button
+          v-for="entry in filteredGitLogEntries"
+          :key="entry.hash"
+          class="git-log-row"
+          :class="{ active: activeLogHash === entry.hash }"
+          type="button"
+          @click="handleSelectLogEntry(entry.hash)"
+        >
+          <span class="git-log-graph"><i></i></span>
+          <strong>{{ entry.subject }}</strong>
+          <span>{{ entry.authorName }}</span>
+          <span>{{ formatLogDate(entry.date) }}</span>
+          <code>{{ entry.shortHash }}</code>
+        </button>
+      </section>
+
+      <section class="git-log-selected">
+        <template v-if="gitLogDetail">
+          <div class="git-log-selected__summary">
+            <div>
+              <div class="git-log-selected__sha mono">SHA-1: {{ gitLogDetail.hash }}</div>
+              <strong>{{ gitLogDetail.subject }}</strong>
+            </div>
+            <span>{{ gitLogDetail.authorName }} &lt;{{ gitLogDetail.authorEmail }}&gt; {{ formatLogDate(gitLogDetail.date) }}</span>
+            <small>{{ gitLogDetail.shortStat || t('gitAssistant.log.changedFiles') }}</small>
+          </div>
+          <pre v-if="gitLogDetail.body" class="git-log-selected__body">{{ gitLogDetail.body }}</pre>
+        </template>
+        <div v-else class="git-log-empty git-log-empty--compact">
+          {{ logDetailLoading ? t('gitAssistant.log.detailLoading') : t('gitAssistant.log.selectCommit') }}
+        </div>
+      </section>
+
+      <section class="git-log-bottom">
+        <section class="git-log-file-table wb-table">
+          <div class="git-log-file-head wb-table-head">
+            <span>{{ t('gitAssistant.log.columnPath') }}</span>
+            <span>{{ t('gitAssistant.log.columnExtension') }}</span>
+            <span>{{ t('gitAssistant.log.columnStatus') }}</span>
+            <span class="numeric-header">{{ t('gitAssistant.log.columnAdded') }}</span>
+            <span class="numeric-header">{{ t('gitAssistant.log.columnRemoved') }}</span>
+          </div>
+          <button
+            v-for="file in gitLogDetail?.changedFiles ?? []"
+            :key="`${file.status}-${file.path}`"
+            class="git-log-file-row"
+            :class="{ active: activeLogFilePath === file.path }"
+            type="button"
+            @click="handleOpenLogFileDiff(file)"
+          >
+            <span class="mono" :title="file.path">{{ file.path }}</span>
+            <span>{{ getFileExtension(file.path) || '-' }}</span>
+            <span class="status-cell" :class="`tone-${logFileStatusMeta(file.status).tone}`">{{ t(logFileStatusMeta(file.status).labelKey) }}</span>
+            <span class="line-cell added-lines">{{ formatCommitLineCount(file.added) }}</span>
+            <span class="line-cell removed-lines">{{ formatCommitLineCount(file.removed) }}</span>
+          </button>
+        </section>
+      </section>
+    </section>
+
+    <!-- Diff Modal -->
+    <NModal v-model:show="showFileDiff" class="diff-modal" :mask-closable="true">
+      <WorkbenchModalPanel size="diff" :close-label="t('gitAssistant.prompt.close')" @close="showFileDiff = false">
+        <div class="diff-viewer panel-shell">
+          <header class="diff-header">
+            <div class="diff-header__main">
+              <div class="panel-eyebrow">{{ t('gitAssistant.detail.eyebrow') }}</div>
+              <h2>{{ diffFileView?.path || '' }}</h2>
+            </div>
+          </header>
+          <div v-if="diffLoading" class="diff-loading">{{ t('gitAssistant.log.loading') }}</div>
+          <div v-else class="diff-content">
+            <pre class="diff-text">{{ fileDiffText }}</pre>
+          </div>
+        </div>
+      </WorkbenchModalPanel>
+    </NModal>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { NDatePicker, NInput, NModal, NSelect } from 'naive-ui'
+import { useLocale } from '@/hooks/useLocale'
+import {
+  type GitCommitChangedFile,
+  type GitCommitDetail,
+  type GitLogEntry,
+  loadGitCommitDetail,
+  loadGitCommitFileDiff,
+  loadGitLog,
+} from '@/services/git/git-service'
+import { STATUS_META } from '@/views/git-assistant/git-assistant.config'
+import type { GitAssistantFileView } from '@/views/git-assistant/git-assistant.types'
+import WorkbenchModalPanel from '@/components/workbench/WorkbenchModalPanel.vue'
+import { emit as tauriEmit, listen } from '@tauri-apps/api/event'
+
+const { t } = useLocale()
+
+// ── State ──
+const repoPath = ref('')
+const filePath = ref('')
+const branch = ref('')
+const logLoading = ref(false)
+const logDetailLoading = ref(false)
+const gitLogEntries = ref<GitLogEntry[]>([])
+const gitLogDetail = ref<GitCommitDetail | null>(null)
+const activeLogHash = ref('')
+const activeLogFilePath = ref('')
+const logKeyword = ref('')
+const logAuthorFilter = ref('all')
+const logDateFrom = ref<number | null>(null)
+const logDateTo = ref<number | null>(null)
+
+// Diff state
+const showFileDiff = ref(false)
+const diffFileView = ref<GitAssistantFileView | null>(null)
+const fileDiffText = ref('')
+const diffLoading = ref(false)
+
+// ── Helpers ──
+function parseGitLogDate(date: string) {
+  const timestamp = Date.parse(date.replace(/\//g, '-'))
+  return Number.isNaN(timestamp) ? null : timestamp
+}
+
+function startOfDay(timestamp: number) {
+  const date = new Date(timestamp)
+  date.setHours(0, 0, 0, 0)
+  return date.getTime()
+}
+
+function endOfDay(timestamp: number) {
+  const date = new Date(timestamp)
+  date.setHours(23, 59, 59, 999)
+  return date.getTime()
+}
+
+function formatLogDate(date: string) {
+  const parsed = new Date(date)
+  if (Number.isNaN(parsed.getTime())) return date
+  return parsed.toLocaleString()
+}
+
+function formatCommitLineCount(value: number | null) {
+  return value === null ? '-' : String(value)
+}
+
+function getFileExtension(path: string) {
+  const name = path.split(/[/\\]/).pop() || path
+  const index = name.lastIndexOf('.')
+  return index === -1 ? '' : name.slice(index + 1).toLowerCase()
+}
+
+function logFileStatusMeta(statusCode: string) {
+  const code = statusCode.slice(0, 1)
+  const typeMap: Record<string, keyof typeof STATUS_META> = {
+    A: 'added', D: 'deleted', R: 'renamed', C: 'copied', M: 'modified', U: 'untracked',
+  }
+  const type = typeMap[code] ?? 'unknown'
+  return STATUS_META[type]
+}
+
+function mapCommitStatusToFileType(status: string) {
+  const code = status.slice(0, 1)
+  if (code === 'A') return 'added'
+  if (code === 'D') return 'deleted'
+  if (code === 'R') return 'renamed'
+  if (code === 'C') return 'copied'
+  if (code === 'M') return 'modified'
+  return 'unknown'
+}
+
+function setDefaultLogDateRange(entries: GitLogEntry[]) {
+  const timestamps = entries.map(e => parseGitLogDate(e.date)).filter((t): t is number => t !== null).sort((a, b) => a - b)
+  logDateFrom.value = timestamps[0] ?? null
+  logDateTo.value = Date.now()
+}
+
+// ── Computed ──
+const logAuthorOptions = computed(() => {
+  const authors = [...new Set(gitLogEntries.value.map(e => e.authorName).filter(Boolean))].sort()
+  return [{ label: t('gitAssistant.log.allAuthors'), value: 'all' }, ...authors.map(a => ({ label: a, value: a }))]
+})
+
+const filteredGitLogEntries = computed(() => {
+  const kw = logKeyword.value.trim().toLowerCase()
+  const fromTime = logDateFrom.value ? startOfDay(logDateFrom.value) : null
+  const toTime = logDateTo.value ? endOfDay(logDateTo.value) : null
+  return gitLogEntries.value.filter(entry => {
+    if (logAuthorFilter.value !== 'all' && entry.authorName !== logAuthorFilter.value) return false
+    const t2 = parseGitLogDate(entry.date)
+    if (fromTime !== null && t2 !== null && t2 < fromTime) return false
+    if (toTime !== null && t2 !== null && t2 > toTime) return false
+    if (!kw) return true
+    return [entry.subject, entry.authorName, entry.authorEmail, entry.hash, entry.shortHash, entry.date]
+      .some(v => v.toLowerCase().includes(kw))
+  })
+})
+
+// ── Actions ──
+async function loadLog() {
+  if (!repoPath.value) return
+  logLoading.value = true
+  try {
+    gitLogEntries.value = await loadGitLog(repoPath.value, filePath.value)
+    setDefaultLogDateRange(gitLogEntries.value)
+    if (gitLogEntries.value.length) {
+      await handleSelectLogEntry(gitLogEntries.value[0].hash)
+    }
+  } catch (err) {
+    console.error(err)
+    gitLogEntries.value = []
+  } finally {
+    logLoading.value = false
+  }
+}
+
+async function handleSelectLogEntry(hash: string) {
+  if (!repoPath.value || !hash) return
+  activeLogHash.value = hash
+  activeLogFilePath.value = ''
+  logDetailLoading.value = true
+  try {
+    const detail = await loadGitCommitDetail(repoPath.value, hash)
+    gitLogDetail.value = detail
+    activeLogFilePath.value = filePath.value || detail.changedFiles[0]?.path || ''
+  } catch (err) {
+    console.error(err)
+    gitLogDetail.value = null
+  } finally {
+    logDetailLoading.value = false
+  }
+}
+
+async function handleOpenLogFileDiff(file: GitCommitChangedFile) {
+  if (!repoPath.value || !activeLogHash.value || !file.path) return
+  activeLogFilePath.value = file.path
+  showFileDiff.value = true
+  diffLoading.value = true
+  fileDiffText.value = ''
+  const fileName = file.path.split(/[/\\]/).pop() || file.path
+  diffFileView.value = {
+    raw: `${file.status} ${file.path}`, x: file.status.slice(0, 1), y: ' ',
+    path: file.path, originalPath: file.originalPath ?? undefined,
+    type: mapCommitStatusToFileType(file.status), staged: false, unstaged: false,
+    fileName, directory: file.path.slice(0, Math.max(0, file.path.length - fileName.length)).replace(/[\\/]$/, ''),
+    extension: getFileExtension(file.path), addedLines: file.added, removedLines: file.removed, score: 0, recommended: false,
+  }
+  try {
+    const result = await loadGitCommitFileDiff(repoPath.value, activeLogHash.value, file.path)
+    fileDiffText.value = result.diff
+  } catch (err) {
+    console.error(err)
+  } finally {
+    diffLoading.value = false
+  }
+}
+
+// ── Tauri Events ──
+let unlistenInit: (() => void) | null = null
+let unlistenOpenDiff: (() => void) | null = null
+
+onMounted(async () => {
+  unlistenInit = await listen<{ repoPath: string; filePath: string; branch: string }>('git-log-init', async (event) => {
+    repoPath.value = event.payload.repoPath
+    filePath.value = event.payload.filePath
+    branch.value = event.payload.branch
+    await loadLog()
+  })
+
+  unlistenOpenDiff = await listen<{ repoPath: string; filePath: string }>('git-log-open-file-diff', async (event) => {
+    if (!gitLogDetail.value) return
+    const file = gitLogDetail.value.changedFiles.find(f => f.path === event.payload.filePath)
+    if (file) await handleOpenLogFileDiff(file)
+  })
+
+  // Request init data from main window
+  await tauriEmit('git-log-request-init')
+})
+
+onUnmounted(() => {
+  unlistenInit?.()
+  unlistenOpenDiff?.()
+})
+</script>
+
+<style scoped lang="scss">
+.git-log-page {
+  background: var(--lumina-bg);
+  color: var(--lumina-text);
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.git-log-dialog__header {
+  align-items: center;
+  background: var(--lumina-surface-2);
+  border-bottom: 1px solid var(--lumina-card-border);
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  min-height: 48px;
+  padding: 8px 16px;
+  flex-shrink: 0;
+}
+
+.git-log-title {
+  align-items: baseline;
+  display: flex;
+  flex: 0 0 auto;
+  gap: 10px;
+  min-width: 0;
+
+  strong {
+    color: var(--lumina-text);
+    font-size: 14px;
+    font-weight: 700;
+  }
+
+  span {
+    color: var(--lumina-text-secondary);
+    font-size: 12px;
+    max-width: 420px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.git-log-toolbar {
+  align-items: center;
+  display: flex;
+  flex: 1 1 auto;
+  gap: 8px;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+.git-log-search {
+  max-width: 440px;
+  min-width: 220px;
+}
+
+.git-log-author {
+  width: 150px;
+}
+
+.git-log-date {
+  flex: 0 0 auto;
+  width: 128px;
+}
+
+.git-log-count {
+  color: var(--lumina-text-secondary);
+  flex: 0 0 auto;
+  font-size: 12px;
+}
+
+.git-log-content {
+  display: grid;
+  grid-template-rows: minmax(240px, 1fr) minmax(120px, auto) minmax(170px, 1fr);
+  min-height: 0;
+  overflow: hidden;
+  flex: 1;
+}
+
+.git-log-revision-table {
+  min-height: 0;
+  overflow: auto;
+}
+
+.git-log-table-head,
+.git-log-row {
+  display: grid;
+  grid-template-columns: 46px 720px 170px 190px 96px;
+  min-width: 100%;
+  width: max-content;
+}
+
+.git-log-table-head {
+  background: var(--lumina-surface-2);
+  border-bottom: 1px solid var(--lumina-card-border);
+  color: var(--lumina-text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+  height: 28px;
+  position: sticky;
+  top: 0;
+  z-index: 3;
+
+  span {
+    align-items: center;
+    border-right: 1px solid var(--lumina-card-border);
+    display: flex;
+    min-width: 0;
+    padding: 0 8px;
+  }
+}
+
+.git-log-row {
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--lumina-card-border) 72%, transparent);
+  color: var(--lumina-text);
+  cursor: pointer;
+  font: inherit;
+  min-height: 28px;
+  padding: 0;
+  text-align: left;
+  transition: background 0.12s ease, color 0.12s ease;
+
+  &:hover,
+  &.active {
+    background: color-mix(in srgb, var(--lumina-primary-soft) 54%, var(--lumina-surface-2));
+  }
+
+  > span,
+  > strong,
+  > code {
+    align-items: center;
+    border-right: 1px solid color-mix(in srgb, var(--lumina-card-border) 64%, transparent);
+    display: flex;
+    min-width: 0;
+    overflow: hidden;
+    padding: 0 8px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  > strong {
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  > span {
+    color: var(--lumina-text-secondary);
+    font-size: 12px;
+  }
+
+  > code {
+    background: transparent;
+    color: var(--lumina-text-secondary);
+    font-size: 11px;
+  }
+}
+
+.git-log-graph {
+  justify-content: center;
+
+  i {
+    background: var(--lumina-primary);
+    border-radius: 999px;
+    height: 7px;
+    width: 7px;
+  }
+}
+
+.git-log-selected {
+  background: linear-gradient(180deg, var(--lumina-surface-1), var(--lumina-surface-2));
+  border-bottom: 1px solid color-mix(in srgb, var(--lumina-card-border) 82%, var(--lumina-text-secondary));
+  border-top: 1px solid color-mix(in srgb, var(--lumina-card-border) 82%, var(--lumina-text-secondary));
+  display: grid;
+  gap: 6px;
+  min-height: 0;
+  overflow: hidden;
+  padding: 8px 10px;
+}
+
+.git-log-selected__sha {
+  color: var(--lumina-text-secondary);
+  font-size: 11px;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.git-log-selected__summary {
+  align-items: start;
+  display: grid;
+  gap: 6px;
+  grid-template-columns: minmax(360px, 1fr) minmax(220px, auto) minmax(170px, auto);
+  min-width: 0;
+
+  strong,
+  span,
+  small {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  strong {
+    color: var(--lumina-text);
+    display: block;
+    font-size: 13px;
+    margin-top: 2px;
+  }
+
+  span,
+  small {
+    color: var(--lumina-text-secondary);
+    font-size: 11px;
+  }
+}
+
+.git-log-selected__body {
+  color: var(--lumina-text-secondary);
+  font-family: inherit;
+  font-size: 11px;
+  line-height: 1.45;
+  margin: 0;
+  max-height: 52px;
+  min-width: 0;
+  overflow: auto;
+  white-space: pre-wrap;
+}
+
+.git-log-empty {
+  align-items: center;
+  color: var(--lumina-text-secondary);
+  display: flex;
+  font-size: 12px;
+  justify-content: center;
+  min-height: 220px;
+  padding: 20px;
+}
+
+.git-log-empty--compact {
+  min-height: 0;
+  padding: 8px 10px;
+}
+
+.git-log-bottom {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.git-log-file-table {
+  min-height: 0;
+  overflow: auto;
+}
+
+.git-log-file-head,
+.git-log-file-row {
+  display: grid;
+  grid-template-columns: 760px 96px 96px 84px 94px;
+  min-width: 100%;
+  width: max-content;
+}
+
+.git-log-file-head {
+  background: var(--lumina-surface-2);
+  border-bottom: 1px solid var(--lumina-card-border);
+  color: var(--lumina-text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+  height: 28px;
+  position: sticky;
+  top: 0;
+  z-index: 3;
+
+  span {
+    align-items: center;
+    border-right: 1px solid var(--lumina-card-border);
+    display: flex;
+    min-width: 0;
+    padding: 0 8px;
+
+    &.numeric-header {
+      justify-content: flex-end;
+    }
+  }
+}
+
+.git-log-file-row {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--lumina-card-border) 70%, transparent);
+  color: var(--lumina-text);
+  cursor: pointer;
+  display: grid;
+  min-height: 28px;
+  padding: 0;
+  text-align: left;
+
+  span {
+    align-items: center;
+    border-right: 1px solid color-mix(in srgb, var(--lumina-card-border) 64%, transparent);
+    display: flex;
+    font-size: 12px;
+    min-width: 0;
+    overflow: hidden;
+    padding: 0 8px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &:hover,
+  &.active {
+    background: color-mix(in srgb, var(--lumina-primary-soft) 48%, var(--lumina-surface-2));
+  }
+}
+
+.status-cell {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.line-cell {
+  font-size: 12px;
+  justify-content: flex-end;
+}
+
+.added-lines {
+  color: var(--lumina-success);
+}
+
+.removed-lines {
+  color: var(--lumina-danger);
+}
+
+.tone-warning { color: var(--lumina-warning); }
+.tone-success { color: var(--lumina-success); }
+.tone-danger { color: var(--lumina-danger); }
+.tone-info { color: var(--lumina-primary); }
+.tone-muted { color: var(--lumina-text-secondary); }
+
+// Diff viewer styles
+.diff-viewer {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.diff-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--lumina-card-border);
+}
+
+.diff-header__main {
+  h2 {
+    font-size: 13px;
+    margin: 4px 0 0;
+  }
+}
+
+.panel-eyebrow {
+  color: var(--lumina-text-secondary);
+  font-size: 11px;
+}
+
+.diff-loading {
+  align-items: center;
+  color: var(--lumina-text-secondary);
+  display: flex;
+  font-size: 12px;
+  justify-content: center;
+  padding: 40px;
+}
+
+.diff-content {
+  flex: 1;
+  overflow: auto;
+  min-height: 0;
+}
+
+.diff-text {
+  font-family: SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  margin: 0;
+  padding: 12px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.panel-shell {
+  background: var(--lumina-surface-1);
+  border: 1px solid var(--lumina-card-border);
+  border-radius: var(--lumina-radius-lg);
+  box-shadow: var(--lumina-shadow-md);
+  overflow: hidden;
+}
+</style>

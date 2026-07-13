@@ -36,6 +36,7 @@ export interface ProjectProcessSnapshot {
   exitedAt?: number | null
   exitCode?: number | null
   ports: number[]
+  urls: string[]
   logCount: number
   lastLogLine?: string | null
 }
@@ -82,4 +83,8 @@ export async function loadProjectProcessLogs(processId: string): Promise<Project
 
 export async function openProjectUrl(url: string): Promise<void> {
   await invoke('open_project_url', { url })
+}
+
+export async function stopAllProjectProcesses(): Promise<ProjectProcessSnapshot[]> {
+  return await invoke<ProjectProcessSnapshot[]>('stop_all_project_processes')
 }

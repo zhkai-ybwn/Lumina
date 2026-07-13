@@ -40,8 +40,13 @@ module.exports = {
     }
   ],
   rules: {
-    "order/properties-alphabetical-order": true,
+    "alpha-value-notation": null,
+    "color-function-notation": null,
+    "color-hex-length": null,
+    "declaration-empty-line-before": null,
     "no-descending-specificity": null,
-    "selector-class-pattern": null
+    "selector-class-pattern": null,
+    "selector-pseudo-class-no-unknown": [true, { ignorePseudoClasses: ["deep"] }],
+    "value-no-vendor-prefix": null
   }
 };

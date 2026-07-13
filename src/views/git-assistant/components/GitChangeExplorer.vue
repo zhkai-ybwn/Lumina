@@ -67,6 +67,7 @@
           v-for="column in resizableColumns"
           :key="column.key"
           class="header-cell"
+          :class="{ 'numeric-header': column.key === 'added' || column.key === 'removed' || column.key === 'score' }"
         >
           {{ t(column.labelKey) }}
           <i class="column-resizer" @mousedown.prevent="startColumnResize(column.key, $event)"></i>
@@ -155,7 +156,7 @@ const emit = defineEmits<{
   (e: 'select-file', raw: string): void
   (e: 'open-diff', raw: string): void
   (e: 'request-refresh'): void
-  (e: 'file-action', payload: { action: 'open-diff' | 'diff-previous' | 'file-history' | 'open-external' | 'mark-resolved'; raw: string }): void
+  (e: 'file-action', payload: { action: 'open-diff' | 'diff-previous' | 'file-history' | 'open-external' | 'mark-resolved' | 'revert'; raw: string }): void
   (e: 'toggle-review-selection', payload: { raw: string; checked: boolean }): void
   (e: 'set-review-selection', raws: string[]): void
 }>()
@@ -224,6 +225,14 @@ const contextMenuOptions = computed(() => [
     label: t('gitAssistant.files.menu.openExternal'),
     key: 'open-external',
     disabled: contextFile.value?.type === 'deleted',
+  },
+  {
+    type: 'divider',
+    key: 'divider-danger',
+  },
+  {
+    label: t('gitAssistant.files.menu.revert'),
+    key: 'revert',
   },
   {
     type: 'divider',
@@ -303,7 +312,7 @@ function handleContextMenuSelect(key: string | number) {
     return
   }
 
-  if (key === 'open-diff' || key === 'diff-previous' || key === 'file-history' || key === 'open-external' || key === 'mark-resolved') {
+  if (key === 'open-diff' || key === 'diff-previous' || key === 'file-history' || key === 'open-external' || key === 'mark-resolved' || key === 'revert') {
     emit('file-action', { action: key, raw: file.raw })
   }
 }
@@ -454,6 +463,10 @@ onUnmounted(stopColumnResize)
   padding: 0 8px;
   position: relative;
   white-space: nowrap;
+
+  &.numeric-header {
+    justify-content: flex-end;
+  }
 }
 
 .column-resizer {

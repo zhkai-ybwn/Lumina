@@ -6,7 +6,7 @@
 </template>
 
 <script setup lang="ts">
-const emit = defineEmits(['click'])
+defineEmits(['click'])
 
 defineProps({
   icon: String,

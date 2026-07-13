@@ -58,11 +58,6 @@ const handleClick = () => {
     border-color: var(--lumina-primary);
   }
 
-  /* 磁吸效果（轻微 3D） */
-  &:hover {
-    transition: transform 0.25s ease;
-  }
-
   .app-icon {
     width: 56px;
     height: 56px;

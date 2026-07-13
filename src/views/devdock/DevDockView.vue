@@ -2,12 +2,6 @@
   <div class="devdock-page">
     <WorkbenchTopbar>
       <WorkbenchIdentity :label="t('devdock.overview.eyebrow')" :value="t('devdock.overview.title')" />
-      <WorkbenchSwitch
-        active-key="devdock"
-        :aria-label="t('workbench.switcherLabel')"
-        :items="workbenchSwitchItems"
-        @select="handleWorkbenchSelect"
-      />
       <div class="toolbar-tags" :aria-label="t('devdock.projects.summary', { count: projects.length, scanned: scannedCount })">
         <WorkbenchTag :label="t('devdock.projects.totalLabel')" :value="projects.length" />
         <WorkbenchTag :label="t('devdock.projects.scannedLabel')" :value="scannedCount" tone="primary" />
@@ -24,230 +18,74 @@
     </WorkbenchTopbar>
 
     <section class="devdock-shell">
-      <main class="project-list-panel">
-        <header class="panel-header">
-          <div>
-            <span>{{ t('devdock.projects.title') }}</span>
-            <strong>{{ t('devdock.projects.subtitle') }}</strong>
-          </div>
-        </header>
+      <DevDockProjectList
+        v-model:pin-editing="pinEditing"
+        v-model:script-search="scriptSearch"
+        :displayed-scripts="displayedScripts"
+        :editing-alias-path="editingAliasPath"
+        :filtered-scripts="filteredScripts"
+        :has-projects="Boolean(projects.length)"
+        :hidden-script-count="hiddenScriptCount"
+        :is-project-commands-expanded="isProjectCommandsExpanded"
+        :is-script-pinned="isScriptPinned"
+        :is-script-running="isScriptRunning"
+        :is-script-starting="isScriptStarting"
+        :projects="visibleProjects"
+        :recent-count="recentCommands.length"
+        :script-action-label="scriptActionLabel"
+        :script-sort="scriptSort"
+        :set-alias-input-ref="setAliasInputRef"
+        @add-project="handleAddProject"
+        @cancel-edit-alias="cancelEditAlias"
+        @dismiss-project-error="dismissProjectError"
+        @finish-edit-alias="finishEditAlias"
+        @open-recent="recentDrawerOpen = true"
+        @remove-project="removeProject"
+        @rename-project="renameProject"
+        @scan-project="project => scanProject(project, { touch: true })"
+        @start-edit-alias="startEditAlias"
+        @toggle-pinned-script="togglePinnedScript"
+        @toggle-project-commands="toggleProjectCommands"
+        @toggle-script="toggleScript"
+        @update:script-sort="setScriptSort"
+      />
 
-        <section v-if="!projects.length" class="empty-page">
-          <strong>{{ t('devdock.empty.title') }}</strong>
-          <p>{{ t('devdock.empty.description') }}</p>
-          <button class="tool-btn primary" type="button" @click="handleAddProject">
-            {{ t('devdock.actions.addProject') }}
-          </button>
-        </section>
-
-        <section v-else class="project-list">
-          <article v-for="project in sortedProjects" :key="project.path" class="project-row">
-            <header class="project-row-summary" role="button" tabindex="0" @click="toggleProject(project.path)" @keydown.enter.prevent="toggleProject(project.path)" @keydown.space.prevent="toggleProject(project.path)">
-              <button class="expand-btn" type="button" :aria-expanded="expandedProjects.has(project.path)" tabindex="-1">
-                <Icon :icon="expandedProjects.has(project.path) ? 'solar:alt-arrow-down-linear' : 'solar:alt-arrow-right-linear'" />
-              </button>
-
-              <div class="project-identity">
-                <div v-if="editingAliasPath === project.path" class="project-alias-edit">
-                  <input
-                    :ref="el => setAliasInputRef(el, project.path)"
-                    class="project-alias-input"
-                    type="text"
-                    :value="project.name"
-                    :placeholder="t('devdock.project.aliasPlaceholder')"
-                    @input="event => renameProject(project.path, (event.target as HTMLInputElement).value)"
-                    @blur="finishEditAlias(project)"
-                    @keydown.enter="finishEditAlias(project)"
-                    @keydown.escape="cancelEditAlias(project)"
-                    @click.stop
-                    @mousedown.stop
-                    @keydown.stop
-                  />
-                </div>
-                <template v-else>
-                  <span class="project-alias-text" :title="project.name || project.path">{{ project.name || t('devdock.project.aliasPlaceholder') }}</span>
-                </template>
-                <span :title="project.path">{{ project.path }}</span>
-              </div>
-
-              <div class="project-row-actions" @click.stop>
-                <button class="row-action" type="button" @click="startEditAlias(project.path)">
-                  {{ t('devdock.actions.rename') }}
-                </button>
-                <button class="row-action" type="button" :disabled="project.loading" @click="scanProject(project, { touch: true })">
-                  {{ project.loading ? t('devdock.actions.scanning') : t('devdock.actions.scan') }}
-                </button>
-                <button class="row-action danger" type="button" @click="removeProject(project.path)">
-                  {{ t('devdock.actions.removeProject') }}
-                </button>
-              </div>
-            </header>
-
-            <section v-if="project.error" class="project-error">
-              <span>{{ project.error }}</span>
-              <button type="button" :aria-label="t('common.dismiss')" @click="project.error = ''">
-                <Icon icon="solar:close-circle-linear" />
-              </button>
-            </section>
-
-            <section v-if="expandedProjects.has(project.path)" class="project-row-details">
-              <div class="project-meta">
-                <span>{{ project.manifest?.version || '--' }}</span>
-                <span>{{ dependencyLabel(project) }}</span>
-              </div>
-
-              <div v-if="project.loading" class="project-empty">
-                {{ t('devdock.actions.scanning') }}
-              </div>
-              <div v-else-if="!project.manifest" class="project-empty">
-                <span>{{ t('devdock.empty.noManifest') }}</span>
-              </div>
-              <div v-else-if="project.manifest.scripts.length" class="script-list">
-                <article v-for="script in sortedScripts(project)" :key="script.name" class="script-row">
-                  <button
-                    class="pin-btn"
-                    type="button"
-                    :class="{ active: isScriptPinned(project.path, script.name) }"
-                    :aria-label="isScriptPinned(project.path, script.name) ? t('devdock.actions.unpinScript') : t('devdock.actions.pinScript')"
-                    @click="togglePinnedScript(project.path, script.name)"
-                  >
-                    <Icon :icon="isScriptPinned(project.path, script.name) ? 'solar:pin-bold' : 'solar:pin-linear'" />
-                  </button>
-                  <div>
-                    <strong>{{ script.name }}</strong>
-                    <code>{{ script.command }}</code>
-                  </div>
-                  <button
-                    class="script-run-btn"
-                    type="button"
-                    :class="{ running: isScriptRunning(project.path, script.name) }"
-                    :disabled="isScriptStarting(project.path, script.name) || isScriptRunning(project.path, script.name)"
-                    @click="startScript(project, script)"
-                  >
-                    {{ scriptButtonLabel(project.path, script.name) }}
-                  </button>
-                </article>
-              </div>
-              <div v-else class="project-empty">
-                {{ t('devdock.scripts.empty') }}
-              </div>
-            </section>
-          </article>
-        </section>
-      </main>
-
-      <aside class="process-panel">
-        <header class="panel-header">
-          <div>
-            <span>{{ t('devdock.processes.title') }}</span>
-            <strong>{{ t('devdock.processes.subtitle') }}</strong>
-          </div>
-          <button class="recent-command-btn" type="button" :aria-label="t('devdock.recentCommands.open')" @click="recentDrawerOpen = true">
-            <Icon icon="solar:history-linear" />
-            <b>{{ recentCommands.length }}</b>
-          </button>
-        </header>
-
-        <section v-if="!processes.length" class="process-empty">
-          <strong>{{ t('devdock.processes.emptyTitle') }}</strong>
-          <p>{{ t('devdock.processes.emptyDescription') }}</p>
-        </section>
-        <section v-else class="process-list">
-          <article v-for="process in processes" :key="process.id" class="process-row">
-            <div class="process-row-head">
-              <div class="process-row-main">
-                <strong>{{ process.projectName }} · {{ process.scriptName }}</strong>
-                <span>
-                  {{ processStatusLabel(process) }} · {{ t('devdock.processes.pid', { pid: process.pid }) }}
-                  <template v-if="process.ports.length"> · {{ t('devdock.processes.ports', { ports: process.ports.join(', ') }) }}</template>
-                </span>
-              </div>
-              <button class="process-open-btn" type="button" :disabled="!processUrl(process)" @click="openProcessUrl(process)">
-                {{ t('devdock.actions.open') }}
-              </button>
-            </div>
-            <div class="process-link-row">
-              <code>{{ processUrl(process) || process.command }}</code>
-              <button type="button" :disabled="!processUrl(process)" @click="copyProcessUrl(process)">{{ t('devdock.actions.copy') }}</button>
-            </div>
-            <div class="process-actions">
-              <button type="button" @click="openProcessLogs(process.id)">{{ t('devdock.actions.logs') }}</button>
-              <button type="button" :disabled="isProcessBusy(process.id)" @click="restartProcess(process.id)">{{ t('devdock.actions.restart') }}</button>
-              <button class="danger" type="button" :disabled="process.status.state !== 'running' || isProcessBusy(process.id)" @click="stopProcess(process.id)">
-                {{ t('devdock.actions.stop') }}
-              </button>
-            </div>
-          </article>
-        </section>
-      </aside>
+      <DevDockProcessPanel
+        :is-busy="isProcessBusy"
+        :process-status-label="processStatusLabel"
+        :process-url="processUrl"
+        :processes="processes"
+        @copy-url="copyProcessUrl"
+        @open-logs="openProcessLogs"
+        @open-url="openProcessUrl"
+        @restart="restartProcess"
+        @stop="stopProcess"
+      />
     </section>
 
-    <WorkbenchDrawer
-      v-if="recentDrawerOpen"
-      fixed
-      size="narrow"
-      :title="t('devdock.recentCommands.title')"
-      :description="t('devdock.recentCommands.description')"
-      :close-label="t('common.dismiss')"
+    <DevDockRecentDrawer
+      :commands="recentCommands"
+      :is-running="isRecentCommandRunning"
+      :show="recentDrawerOpen"
       @close="recentDrawerOpen = false"
-    >
-      <section v-if="recentCommands.length" class="recent-command-list">
-        <article v-for="command in recentCommands" :key="`${command.projectPath}:${command.scriptName}`" class="recent-command-row">
-          <div>
-            <strong>{{ command.projectName }} · {{ command.scriptName }}</strong>
-            <code>{{ command.command }}</code>
-          </div>
-          <button
-            class="script-run-btn"
-            type="button"
-            :class="{ running: isRecentCommandRunning(command) }"
-            :disabled="isRecentCommandRunning(command)"
-            @click="startRecentCommand(command)"
-          >
-            {{ isRecentCommandRunning(command) ? t('devdock.actions.running') : t('devdock.actions.run') }}
-          </button>
-        </article>
-      </section>
-      <section v-else class="process-empty">
-        <strong>{{ t('devdock.recentCommands.emptyTitle') }}</strong>
-        <p>{{ t('devdock.recentCommands.emptyDescription') }}</p>
-      </section>
-    </WorkbenchDrawer>
+      @start-command="startRecentCommand"
+    />
 
-    <WorkbenchDrawer
-      v-if="logDrawerOpen"
-      fixed
-      size="log"
-      :title="`${processLogs?.process.projectName ?? ''} · ${processLogs?.process.scriptName ?? ''}`"
-      :description="processLogDescription"
-      :close-label="t('common.dismiss')"
-      @close="closeProcessLogs"
-    >
-      <section v-if="processLogs" class="process-log-list wb-log" aria-live="polite">
-        <pre v-for="line in visibleLogLines" :key="`${line.timestamp}:${line.stream}:${line.text}`" class="wb-log-line" :class="line.stream"><span class="wb-log-stream">{{ line.showStream ? line.stream : '' }}</span><span v-html="renderLogLine(line.text)" /></pre>
-        <pre v-if="!visibleLogLines.length" class="wb-log-line log-pending"><span class="wb-log-stream">WAIT</span><span>{{ t('devdock.processes.waitingLogs') }}</span></pre>
-      </section>
-      <section v-else class="process-empty">
-        <strong>{{ t('devdock.processes.emptyLogsTitle') }}</strong>
-        <p>{{ t('devdock.processes.emptyLogsDescription') }}</p>
-      </section>
-    </WorkbenchDrawer>
+    <DevDockLogModal :logs="processLogs" :show="logModalOpen" @after-leave="stopLogPolling" @close="closeProcessLogs" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, reactive, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, nextTick, onActivated, onDeactivated, onMounted, onUnmounted, reactive, ref } from 'vue'
 import { open } from '@tauri-apps/plugin-dialog'
-import { AnsiUp } from 'ansi_up'
+import { useMessage } from 'naive-ui'
 import { useLocale } from '@/hooks/useLocale'
 import { GIT_RECENT_REPOS_STORAGE_KEY, GIT_REPO_STORAGE_KEY } from '@/constants/git'
 import WorkbenchButton from '@/components/workbench/WorkbenchButton.vue'
-import WorkbenchDrawer from '@/components/workbench/WorkbenchDrawer.vue'
 import WorkbenchIdentity from '@/components/workbench/WorkbenchIdentity.vue'
-import WorkbenchSwitch from '@/components/workbench/WorkbenchSwitch.vue'
 import WorkbenchTag from '@/components/workbench/WorkbenchTag.vue'
 import WorkbenchTopbar from '@/components/workbench/WorkbenchTopbar.vue'
+import { reportError } from '@/services/app-error-service'
 import {
   listProjectProcesses,
   loadProjectManifest,
@@ -256,78 +94,65 @@ import {
   restartProjectProcess,
   startProjectProcess,
   stopProjectProcess,
-  type ProjectManifest,
   type ProjectProcessLogs,
   type ProjectProcessSnapshot,
   type ProjectScript,
 } from '@/services/project/project-service'
+import DevDockLogModal from './components/DevDockLogModal.vue'
+import DevDockProcessPanel from './components/DevDockProcessPanel.vue'
+import DevDockProjectList from './components/DevDockProjectList.vue'
+import DevDockRecentDrawer from './components/DevDockRecentDrawer.vue'
+import type { DevDockProject, RecentCommand, ScriptSort, StoredProject } from './types'
 
 const DEVDOC_PINNED_SCRIPTS_STORAGE_KEY = 'lumina.devdock.pinnedScripts'
 const DEVDOC_RECENT_COMMANDS_STORAGE_KEY = 'lumina.devdock.recentCommands'
+const DEVDOC_SCRIPT_SORT_STORAGE_KEY = 'lumina.devdock.scriptSort'
 const SCRIPT_PRIORITY = ['dev', 'serve', 'start', 'tauri:dev', 'preview', 'build', 'test', 'lint']
-const ansiUp = new AnsiUp()
-ansiUp.escape_html = true
 
-interface DevDockProject {
-  path: string
-  name: string
-  loading: boolean
-  error: string
-  manifest: ProjectManifest | null
-  openedAt: number
-}
-
-interface StoredProject {
-  path?: string
-  name?: string
-  openedAt?: number
-}
-
-interface RecentCommand {
-  projectPath: string
-  projectName: string
-  scriptName: string
-  command: string
-  packageManager: string
-  usedAt: number
+interface ProjectScriptView {
+  displayed: ProjectScript[]
+  filtered: ProjectScript[]
+  hiddenCount: number
 }
 
 const { t } = useLocale()
-const router = useRouter()
+const message = useMessage()
 const projects = ref<DevDockProject[]>([])
-const expandedProjects = reactive(new Set<string>())
 const pinnedScripts = ref(new Set<string>())
+const expandedCommandProjects = reactive(new Set<string>())
 const recentCommands = ref<RecentCommand[]>([])
 const recentDrawerOpen = ref(false)
 const processes = ref<ProjectProcessSnapshot[]>([])
 const processBusy = reactive(new Set<string>())
 const startingScripts = reactive(new Set<string>())
 const processLogs = ref<ProjectProcessLogs | null>(null)
-const logDrawerOpen = ref(false)
+const logModalOpen = ref(false)
 const editingAliasPath = ref<string | null>(null)
 const aliasInputRefs = new Map<string, HTMLInputElement>()
-let processPollTimer: ReturnType<typeof window.setInterval> | undefined
+const scriptSearch = ref('')
+const scriptSort = ref<ScriptSort>(loadScriptSort())
+const pinEditing = ref(false)
 let logPollTimer: ReturnType<typeof window.setInterval> | undefined
-const workbenchSwitchItems = computed(() => [
-  { key: 'git', label: t('workbench.git') },
-  { key: 'devdock', label: t('workbench.devdock') },
-])
+let processPollTimer: ReturnType<typeof window.setInterval> | undefined
 const loadingAll = computed(() => projects.value.some(project => project.loading))
 const scannedCount = computed(() => projects.value.filter(project => project.manifest).length)
 const sortedProjects = computed(() => [...projects.value].sort((left, right) => right.openedAt - left.openedAt))
-const processLogDescription = computed(() => {
-  if (!processLogs.value) return ''
-  const ports = processLogs.value.process.ports
-  return ports.length
-    ? `${processLogs.value.process.command} · ${t('devdock.processes.ports', { ports: ports.join(', ') })}`
-    : processLogs.value.process.command
+const scriptViews = computed(() => {
+  const views = new Map<string, ProjectScriptView>()
+  for (const project of projects.value) {
+    const filtered = getSortedProjectScripts(project)
+    const displayed = getDisplayedProjectScripts(project, filtered)
+    views.set(normalizePath(project.path), {
+      displayed,
+      filtered,
+      hiddenCount: Math.max(0, filtered.length - displayed.length),
+    })
+  }
+  return views
 })
-const visibleLogLines = computed(() => {
-  const lines = processLogs.value?.lines.filter(line => line.text.trim()) ?? []
-  return lines.map((line, index) => ({
-    ...line,
-    showStream: index === 0 || lines[index - 1].stream !== line.stream,
-  }))
+const visibleProjects = computed(() => {
+  if (!scriptSearch.value) return sortedProjects.value
+  return sortedProjects.value.filter(project => filteredScripts(project).length > 0)
 })
 
 onMounted(() => {
@@ -336,27 +161,22 @@ onMounted(() => {
   projects.value = loadStoredProjects()
   void scanAllProjects()
   void refreshProcesses()
-  processPollTimer = window.setInterval(() => {
-    void refreshProcesses()
-  }, 3000)
+  startProcessPolling()
+})
+
+onActivated(() => {
+  void refreshProcesses()
+  startProcessPolling()
+})
+
+onDeactivated(() => {
+  stopProcessPolling()
 })
 
 onUnmounted(() => {
-  if (processPollTimer) {
-    window.clearInterval(processPollTimer)
-  }
   stopLogPolling()
+  stopProcessPolling()
 })
-
-function openGitAssistant() {
-  router.push({ name: 'git-assistant' })
-}
-
-function handleWorkbenchSelect(key: string) {
-  if (key === 'git') {
-    openGitAssistant()
-  }
-}
 
 async function handleAddProject() {
   const selected = await open({
@@ -367,12 +187,11 @@ async function handleAddProject() {
 
   if (typeof selected !== 'string') return
   const project = rememberProject(selected)
-  expandedProjects.add(project.path)
   await scanProject(project, { touch: true })
 }
 
 async function scanAllProjects() {
-  await Promise.all(projects.value.map(project => scanProject(project)))
+  await runWithConcurrency(projects.value, 3, project => scanProject(project))
 }
 
 async function scanProject(project: DevDockProject, options: { touch?: boolean } = {}) {
@@ -389,16 +208,6 @@ async function scanProject(project: DevDockProject, options: { touch?: boolean }
   } finally {
     project.loading = false
   }
-}
-
-function toggleProject(path: string) {
-  const project = projects.value.find(project => project.path === path)
-  if (project) touchProject(project)
-  if (expandedProjects.has(path)) {
-    expandedProjects.delete(path)
-    return
-  }
-  expandedProjects.add(path)
 }
 
 function renameProject(path: string, name: string) {
@@ -438,13 +247,16 @@ function finishEditAlias(project: DevDockProject) {
   editingAliasPath.value = null
 }
 
-function cancelEditAlias(project: DevDockProject) {
+function cancelEditAlias() {
   editingAliasPath.value = null
+}
+
+function dismissProjectError(project: DevDockProject) {
+  project.error = ''
 }
 
 function removeProject(path: string) {
   const normalized = normalizePath(path)
-  expandedProjects.delete(path)
   projects.value = projects.value.filter(project => normalizePath(project.path) !== normalized)
   persistProjects()
 }
@@ -500,7 +312,7 @@ function readRecentProjects(): StoredProject[] {
     const raw = localStorage.getItem(GIT_RECENT_REPOS_STORAGE_KEY)
     return raw ? (JSON.parse(raw) as StoredProject[]) : []
   } catch (err) {
-    console.error(err)
+    reportError('devdock.load-recent-projects', err)
     return []
   }
 }
@@ -520,19 +332,85 @@ function touchProject(project: DevDockProject) {
   persistProjects()
 }
 
-function sortedScripts(project: DevDockProject) {
-  const scripts = project.manifest?.scripts ?? []
+function filteredScripts(project: DevDockProject) {
+  return getProjectScriptView(project).filtered
+}
+
+function displayedScripts(project: DevDockProject) {
+  return getProjectScriptView(project).displayed
+}
+
+function hiddenScriptCount(project: DevDockProject) {
+  return getProjectScriptView(project).hiddenCount
+}
+
+function getProjectScriptView(project: DevDockProject): ProjectScriptView {
+  return scriptViews.value.get(normalizePath(project.path)) ?? {
+    displayed: [],
+    filtered: [],
+    hiddenCount: 0,
+  }
+}
+
+function getSortedProjectScripts(project: DevDockProject) {
+  const search = scriptSearch.value.toLocaleLowerCase()
+  const scripts = (project.manifest?.scripts ?? []).filter(script => !search || script.name.toLocaleLowerCase().includes(search))
   return [...scripts].sort((left, right) => {
     const leftPinned = isScriptPinned(project.path, left.name)
     const rightPinned = isScriptPinned(project.path, right.name)
     if (leftPinned !== rightPinned) return leftPinned ? -1 : 1
 
-    const leftPriority = getScriptPriority(left.name)
-    const rightPriority = getScriptPriority(right.name)
-    if (leftPriority !== rightPriority) return leftPriority - rightPriority
+    if (scriptSort.value === 'recent') {
+      const recentDifference = getScriptLastUsed(project.path, right.name) - getScriptLastUsed(project.path, left.name)
+      if (recentDifference) return recentDifference
+    }
+
+    if (scriptSort.value === 'priority') {
+      const leftPriority = getScriptPriority(left.name)
+      const rightPriority = getScriptPriority(right.name)
+      if (leftPriority !== rightPriority) return leftPriority - rightPriority
+    }
 
     return left.name.localeCompare(right.name)
   })
+}
+
+function getDisplayedProjectScripts(project: DevDockProject, scripts: ProjectScript[]) {
+  if (scriptSearch.value || expandedCommandProjects.has(project.path)) return scripts
+
+  const pinned = scripts.filter(script => isScriptPinned(project.path, script.name))
+  const suggested = scripts.filter(script => !isScriptPinned(project.path, script.name)).slice(0, 4)
+  return [...pinned, ...suggested]
+}
+
+function toggleProjectCommands(path: string) {
+  if (expandedCommandProjects.has(path)) {
+    expandedCommandProjects.delete(path)
+  } else {
+    expandedCommandProjects.add(path)
+  }
+}
+
+function isProjectCommandsExpanded(path: string) {
+  return expandedCommandProjects.has(path)
+}
+
+function loadScriptSort(): ScriptSort {
+  const saved = localStorage.getItem(DEVDOC_SCRIPT_SORT_STORAGE_KEY)
+  return saved === 'name' || saved === 'recent' ? saved : 'priority'
+}
+
+function setScriptSort(value: ScriptSort) {
+  scriptSort.value = value
+  persistScriptSort()
+}
+
+function persistScriptSort() {
+  localStorage.setItem(DEVDOC_SCRIPT_SORT_STORAGE_KEY, scriptSort.value)
+}
+
+function getScriptLastUsed(projectPath: string, scriptName: string) {
+  return recentCommands.value.find(command => normalizePath(command.projectPath) === normalizePath(projectPath) && command.scriptName === scriptName)?.usedAt ?? 0
 }
 
 function getScriptPriority(name: string) {
@@ -565,7 +443,7 @@ function loadPinnedScripts() {
     const raw = localStorage.getItem(DEVDOC_PINNED_SCRIPTS_STORAGE_KEY)
     return new Set<string>(raw ? JSON.parse(raw) : [])
   } catch (err) {
-    console.error(err)
+    reportError('devdock.load-pinned-scripts', err)
     return new Set<string>()
   }
 }
@@ -578,6 +456,15 @@ async function startScript(project: DevDockProject, script: ProjectScript) {
     scriptName: script.name,
     packageManager: project.manifest?.packageManager || 'npm',
   })
+}
+
+async function toggleScript(project: DevDockProject, script: ProjectScript) {
+  const process = findRunningScript(project.path, script.name)
+  if (process) {
+    await stopProcess(process.id)
+    return
+  }
+  await startScript(project, script)
 }
 
 async function startRecentCommand(command: RecentCommand) {
@@ -600,7 +487,7 @@ async function startProjectCommand(command: {
     startLogPolling(process.id)
     void refreshProcessLogs(process.id)
   } catch (err) {
-    console.error(err)
+    message.error(reportError('devdock.start', err), { duration: 8000 })
   } finally {
     startingScripts.delete(key)
     await refreshProcesses()
@@ -611,7 +498,19 @@ async function refreshProcesses() {
   try {
     processes.value = await listProjectProcesses()
   } catch (err) {
-    console.error(err)
+    reportError('devdock.refresh-processes', err)
+  }
+}
+
+function startProcessPolling() {
+  stopProcessPolling()
+  processPollTimer = window.setInterval(() => void refreshProcesses(), 5000)
+}
+
+function stopProcessPolling() {
+  if (processPollTimer) {
+    window.clearInterval(processPollTimer)
+    processPollTimer = undefined
   }
 }
 
@@ -621,7 +520,7 @@ async function stopProcess(processId: string) {
     await stopProjectProcess(processId)
     processes.value = processes.value.filter(process => process.id !== processId)
   } catch (err) {
-    console.error(err)
+    message.error(reportError('devdock.stop', err), { duration: 8000 })
   } finally {
     processBusy.delete(processId)
     await refreshProcesses()
@@ -633,7 +532,7 @@ async function restartProcess(processId: string) {
   try {
     updateProcess(await restartProjectProcess(processId))
   } catch (err) {
-    console.error(err)
+    message.error(reportError('devdock.restart', err), { duration: 8000 })
   } finally {
     processBusy.delete(processId)
     await refreshProcesses()
@@ -643,10 +542,10 @@ async function restartProcess(processId: string) {
 async function openProcessLogs(processId: string) {
   try {
     processLogs.value = await loadProjectProcessLogs(processId)
-    logDrawerOpen.value = true
+    logModalOpen.value = true
     startLogPolling(processId)
   } catch (err) {
-    console.error(err)
+    message.error(reportError('devdock.open-logs', err))
   }
 }
 
@@ -655,18 +554,18 @@ function showProcessLogShell(process: ProjectProcessSnapshot) {
     process,
     lines: [],
   }
-  logDrawerOpen.value = true
+  logModalOpen.value = true
 }
 
 function closeProcessLogs() {
-  logDrawerOpen.value = false
+  logModalOpen.value = false
   stopLogPolling()
 }
 
 function startLogPolling(processId: string) {
   stopLogPolling()
   logPollTimer = window.setInterval(() => {
-    if (!logDrawerOpen.value) {
+    if (!logModalOpen.value) {
       stopLogPolling()
       return
     }
@@ -686,7 +585,7 @@ async function refreshProcessLogs(processId: string) {
     processLogs.value = await loadProjectProcessLogs(processId)
     updateProcess(processLogs.value.process)
   } catch (err) {
-    console.error(err)
+    reportError('devdock.poll-logs', err)
     stopLogPolling()
   }
 }
@@ -731,7 +630,7 @@ function loadRecentCommands() {
       .sort((left, right) => right.usedAt - left.usedAt)
       .slice(0, 12)
   } catch (err) {
-    console.error(err)
+    reportError('devdock.load-recent-commands', err)
     return []
   }
 }
@@ -741,8 +640,12 @@ function isScriptStarting(projectPath: string, scriptName: string) {
 }
 
 function isScriptRunning(projectPath: string, scriptName: string) {
+  return Boolean(findRunningScript(projectPath, scriptName))
+}
+
+function findRunningScript(projectPath: string, scriptName: string) {
   const normalized = normalizePath(projectPath)
-  return processes.value.some(
+  return processes.value.find(
     process => normalizePath(process.projectPath) === normalized && process.scriptName === scriptName && process.status.state === 'running',
   )
 }
@@ -751,9 +654,9 @@ function isRecentCommandRunning(command: RecentCommand) {
   return isScriptRunning(command.projectPath, command.scriptName)
 }
 
-function scriptButtonLabel(projectPath: string, scriptName: string) {
+function scriptActionLabel(projectPath: string, scriptName: string) {
   if (isScriptStarting(projectPath, scriptName)) return t('devdock.actions.starting')
-  if (isScriptRunning(projectPath, scriptName)) return t('devdock.actions.running')
+  if (isScriptRunning(projectPath, scriptName)) return t('devdock.actions.stop')
   return t('devdock.actions.run')
 }
 
@@ -769,8 +672,8 @@ function processStatusLabel(process: ProjectProcessSnapshot) {
 }
 
 function processUrl(process: ProjectProcessSnapshot) {
-  const port = process.ports[0]
-  return port ? `http://localhost:${port}` : ''
+  const networkUrl = process.urls.find(url => !/\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0)(?=[:/])/i.test(url))
+  return networkUrl || process.urls[0] || ''
 }
 
 async function openProcessUrl(process: ProjectProcessSnapshot) {
@@ -786,18 +689,6 @@ async function copyProcessUrl(process: ProjectProcessSnapshot) {
   await navigator.clipboard.writeText(url)
 }
 
-function renderLogLine(text: string) {
-  return ansiUp.ansi_to_html(text)
-}
-
-function dependencyLabel(project: DevDockProject) {
-  if (!project.manifest) return '--'
-  return t('devdock.overview.dependencyCount', {
-    dependencies: project.manifest.dependenciesCount,
-    devDependencies: project.manifest.devDependenciesCount,
-  })
-}
-
 function getProjectDisplayName(path: string) {
   const normalized = path.replace(/\\/g, '/')
   const parts = normalized.split('/').filter(Boolean)
@@ -806,6 +697,21 @@ function getProjectDisplayName(path: string) {
 
 function normalizePath(path: string) {
   return path.replace(/\\/g, '/').toLowerCase()
+}
+
+async function runWithConcurrency<T>(items: T[], limit: number, worker: (item: T) => Promise<void>) {
+  const pending = [...items]
+  const workerCount = Math.min(limit, pending.length)
+  await Promise.all(
+    Array.from({ length: workerCount }, async () => {
+      while (pending.length) {
+        const item = pending.shift()
+        if (item) {
+          await worker(item)
+        }
+      }
+    }),
+  )
 }
 </script>
 
@@ -825,18 +731,6 @@ function normalizePath(path: string) {
   padding: 8px;
 }
 
-.project-list-panel,
-.process-panel {
-  background: var(--lumina-surface-1);
-  border: 1px solid var(--lumina-card-border);
-  border-radius: var(--lumina-radius-lg);
-  box-shadow: var(--lumina-shadow-sm);
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  min-height: 0;
-  overflow: hidden;
-}
-
 .toolbar-tags {
   align-items: center;
   display: flex;
@@ -846,641 +740,11 @@ function normalizePath(path: string) {
   overflow: hidden;
 }
 
-.tool-btn,
-.row-action {
-  align-items: center;
-  background: var(--lumina-button-secondary-bg);
-  border: 1px solid var(--lumina-card-border);
-  border-radius: var(--lumina-radius-sm);
-  color: var(--lumina-text);
-  cursor: pointer;
-  display: inline-flex;
-  flex: 0 0 auto;
-  font-size: 11px;
-  height: 28px;
-  justify-content: center;
-  padding: 0 10px;
-  white-space: nowrap;
-
-  &:hover:not(:disabled) {
-    background: var(--lumina-button-secondary-hover);
-  }
-
-  &:disabled {
-    cursor: not-allowed;
-    opacity: 0.56;
-  }
-
-  &.danger {
-    color: var(--lumina-danger);
-
-    &:hover:not(:disabled) {
-      background: color-mix(in srgb, var(--lumina-danger) 8%, transparent);
-    }
-  }
-}
-
-.project-row-actions {
-  display: flex;
-  gap: 6px;
-  justify-self: end;
-}
-
-.primary {
-  background: var(--lumina-primary);
-  border-color: var(--lumina-primary);
-  color: #fff;
-}
-
 .devdock-shell {
   display: grid;
   flex: 1;
   gap: 8px;
   grid-template-columns: minmax(0, 1fr) 360px;
   min-height: 0;
-}
-
-.panel-header {
-  align-items: center;
-  border-bottom: 1px solid var(--lumina-card-border);
-  display: flex;
-  justify-content: space-between;
-  min-height: 44px;
-  padding: 8px 12px;
-
-  div {
-    display: grid;
-    gap: 2px;
-  }
-
-  span {
-    color: var(--lumina-text-secondary);
-    font-size: 11px;
-  }
-
-  strong {
-    font-size: 14px;
-  }
-
-  b {
-    color: var(--lumina-primary);
-    font-size: 18px;
-  }
-}
-
-.empty-page,
-.process-empty {
-  align-content: center;
-  color: var(--lumina-text-secondary);
-  display: grid;
-  gap: 10px;
-  justify-content: center;
-  min-height: 0;
-  padding: 24px;
-  text-align: center;
-
-  strong {
-    color: var(--lumina-text);
-    font-size: 15px;
-  }
-
-  p {
-    line-height: 1.55;
-    margin: 0;
-    max-width: 520px;
-  }
-
-  .tool-btn {
-    justify-self: center;
-  }
-}
-
-.project-list {
-  min-height: 0;
-  overflow: auto;
-  padding: 8px;
-}
-
-.project-row {
-  background: var(--lumina-surface-1);
-  border: 1px solid var(--lumina-card-border);
-  border-radius: var(--lumina-radius-md);
-  overflow: hidden;
-
-  & + & {
-    margin-top: 8px;
-  }
-}
-
-.project-row-summary {
-  align-items: center;
-  cursor: pointer;
-  display: grid;
-  gap: 8px;
-  grid-template-columns: 28px 1fr auto;
-  min-height: 46px;
-  outline: none;
-  padding: 7px 9px;
-
-  &:hover,
-  &:focus-visible {
-    background: color-mix(in srgb, var(--lumina-primary) 5%, transparent);
-  }
-}
-
-.expand-btn,
-.icon-btn,
-.project-error button {
-  align-items: center;
-  background: transparent;
-  border: 0;
-  border-radius: var(--lumina-radius-sm);
-  color: var(--lumina-text-secondary);
-  cursor: pointer;
-  display: inline-flex;
-  height: 26px;
-  justify-content: center;
-  padding: 0;
-  width: 26px;
-
-  &:hover {
-    background: var(--lumina-button-secondary-hover);
-    color: var(--lumina-text);
-  }
-
-  svg {
-    height: 16px;
-    width: 16px;
-  }
-}
-
-.icon-btn:hover {
-  color: var(--lumina-danger);
-}
-
-.project-identity {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
-
-  span {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  span {
-    color: var(--lumina-text-secondary);
-    font-size: 11px;
-  }
-}
-
-.project-alias-text {
-  color: var(--lumina-text);
-  font-size: 13px;
-  font-weight: 700;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.project-alias-edit {
-  min-width: 0;
-  width: 100%;
-}
-
-.project-alias-input {
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: var(--lumina-radius-sm);
-  color: var(--lumina-text);
-  font: inherit;
-  font-size: 13px;
-  font-weight: 700;
-  height: 26px;
-  min-width: 0;
-  padding: 0 6px;
-  width: 100%;
-
-  &::placeholder {
-    color: var(--lumina-text-secondary);
-    font-weight: 500;
-  }
-
-  &:hover {
-    background: var(--lumina-surface-2);
-    border-color: var(--lumina-card-border);
-  }
-
-  &:focus {
-    background: var(--lumina-input-bg);
-    border-color: var(--lumina-primary);
-    box-shadow: 0 0 0 2px var(--lumina-accent-ring);
-    outline: none;
-  }
-}
-
-
-.project-error {
-  align-items: center;
-  background: color-mix(in srgb, var(--lumina-danger) 10%, var(--lumina-surface-2));
-  border-top: 1px solid color-mix(in srgb, var(--lumina-danger) 24%, transparent);
-  color: var(--lumina-danger);
-  display: flex;
-  font-size: 11px;
-  gap: 8px;
-  justify-content: space-between;
-  min-height: 30px;
-  padding: 5px 10px 5px 44px;
-}
-
-.project-row-details {
-  border-top: 1px solid var(--lumina-card-border);
-  display: grid;
-  gap: 8px;
-  grid-template-rows: auto auto;
-  padding: 8px 10px 10px 44px;
-}
-
-.project-meta {
-  display: flex;
-  gap: 6px;
-  min-width: 0;
-  overflow: hidden;
-
-  span {
-    background: var(--lumina-surface-2);
-    border: 1px solid var(--lumina-card-border);
-    border-radius: var(--lumina-radius-sm);
-    color: var(--lumina-text-secondary);
-    font-size: 11px;
-    min-width: 0;
-    overflow: hidden;
-    padding: 6px 7px;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-}
-
-.project-empty {
-  align-content: center;
-  background: var(--lumina-empty-bg);
-  border: 1px dashed var(--lumina-empty-border);
-  border-radius: var(--lumina-radius-md);
-  color: var(--lumina-text-secondary);
-  display: grid;
-  gap: 8px;
-  justify-content: center;
-  min-height: 120px;
-  padding: 18px;
-  text-align: center;
-}
-
-.script-list {
-  border: 1px solid var(--lumina-card-border);
-  border-radius: var(--lumina-radius-md);
-  min-height: 0;
-  overflow: hidden;
-}
-
-.script-row {
-  align-items: center;
-  border-bottom: 1px solid color-mix(in srgb, var(--lumina-card-border) 72%, transparent);
-  display: grid;
-  gap: 10px;
-  grid-template-columns: 28px minmax(0, 1fr) 76px;
-  min-height: 44px;
-  padding: 7px 10px;
-
-  div {
-    display: grid;
-    gap: 4px;
-    min-width: 0;
-  }
-
-  strong {
-    font-size: 13px;
-  }
-
-  code {
-    background: transparent;
-    color: color-mix(in srgb, var(--lumina-text-secondary) 82%, var(--lumina-surface-3));
-    font-family: SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
-    font-size: 10px;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .pin-btn,
-  .script-run-btn {
-    background: var(--lumina-button-secondary-bg);
-    border: 1px solid var(--lumina-card-border);
-    border-radius: var(--lumina-radius-sm);
-    color: var(--lumina-text-secondary);
-    height: 28px;
-  }
-
-  .pin-btn {
-    align-items: center;
-    cursor: pointer;
-    display: inline-flex;
-    justify-content: center;
-    padding: 0;
-    width: 28px;
-
-    &:hover,
-    &.active {
-      background: color-mix(in srgb, var(--lumina-primary) 10%, var(--lumina-surface-1));
-      border-color: color-mix(in srgb, var(--lumina-primary) 42%, var(--lumina-card-border));
-      color: var(--lumina-primary);
-    }
-  }
-
-  .script-run-btn {
-    cursor: pointer;
-
-    &:hover:not(:disabled) {
-      background: var(--lumina-button-secondary-hover);
-      color: var(--lumina-text);
-    }
-
-    &:disabled {
-      cursor: not-allowed;
-      opacity: 0.72;
-    }
-
-    &.running {
-      background: color-mix(in srgb, var(--lumina-success) 12%, var(--lumina-surface-1));
-      border-color: color-mix(in srgb, var(--lumina-success) 42%, var(--lumina-card-border));
-      color: var(--lumina-success);
-      opacity: 1;
-    }
-  }
-}
-
-.process-list {
-  align-content: start;
-  display: grid;
-  gap: 6px;
-  grid-auto-rows: min-content;
-  min-height: 0;
-  overflow: auto;
-  padding: 6px;
-}
-
-.process-row {
-  border: 1px solid var(--lumina-card-border);
-  border-radius: var(--lumina-radius-sm);
-  display: grid;
-  gap: 6px;
-  padding: 8px;
-  position: relative;
-
-  &::before {
-    background: var(--lumina-success);
-    border-radius: 999px;
-    content: '';
-    height: 6px;
-    left: 7px;
-    position: absolute;
-    top: 12px;
-    width: 6px;
-  }
-}
-
-.process-row-head {
-  align-items: start;
-  display: grid;
-  gap: 8px;
-  grid-template-columns: minmax(0, 1fr) auto;
-  min-width: 0;
-}
-
-.process-row-main {
-  display: grid;
-  gap: 3px;
-  min-width: 0;
-
-  strong,
-  span {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  strong {
-    font-size: 12px;
-    padding-left: 12px;
-  }
-
-  span {
-    color: var(--lumina-text-secondary);
-    font-size: 11px;
-  }
-}
-
-.process-open-btn {
-  background: color-mix(in srgb, var(--lumina-primary) 12%, var(--lumina-surface-1));
-  border: 1px solid color-mix(in srgb, var(--lumina-primary) 46%, var(--lumina-card-border));
-  border-radius: var(--lumina-radius-sm);
-  color: var(--lumina-primary);
-  cursor: pointer;
-  font-size: 11px;
-  font-weight: 650;
-  height: 28px;
-  min-width: 54px;
-  padding: 0 10px;
-
-  &:hover:not(:disabled) {
-    background: color-mix(in srgb, var(--lumina-primary) 18%, var(--lumina-surface-1));
-  }
-
-  &:disabled {
-    cursor: not-allowed;
-    opacity: 0.52;
-  }
-}
-
-.process-link-row {
-  align-items: center;
-  background: var(--lumina-surface-2);
-  border: 1px solid color-mix(in srgb, var(--lumina-card-border) 72%, transparent);
-  border-radius: var(--lumina-radius-sm);
-  display: grid;
-  gap: 6px;
-  grid-template-columns: minmax(0, 1fr) auto;
-  min-height: 28px;
-  padding: 3px 4px 3px 8px;
-
-  code {
-    color: var(--lumina-text-secondary);
-    font-family: SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
-    font-size: 10px;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  button {
-    background: transparent;
-    border: 0;
-    border-radius: var(--lumina-radius-sm);
-    color: var(--lumina-text-secondary);
-    cursor: pointer;
-    font-size: 11px;
-    height: 22px;
-    padding: 0 6px;
-
-    &:hover:not(:disabled) {
-      background: var(--lumina-button-secondary-hover);
-      color: var(--lumina-text);
-    }
-
-    &:disabled {
-      cursor: not-allowed;
-      opacity: 0.5;
-    }
-  }
-}
-
-.process-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  justify-content: flex-end;
-
-  button {
-    background: var(--lumina-button-secondary-bg);
-    border: 1px solid var(--lumina-card-border);
-    border-radius: var(--lumina-radius-sm);
-    color: var(--lumina-text-secondary);
-    cursor: pointer;
-    font-size: 11px;
-    height: 26px;
-    min-width: 42px;
-    padding: 0 7px;
-
-    &:hover:not(:disabled) {
-      background: var(--lumina-button-secondary-hover);
-      color: var(--lumina-text);
-    }
-
-    &:disabled {
-      cursor: not-allowed;
-      opacity: 0.56;
-    }
-
-    &.danger:hover:not(:disabled) {
-      border-color: color-mix(in srgb, var(--lumina-danger) 45%, var(--lumina-card-border));
-      color: var(--lumina-danger);
-    }
-  }
-}
-
-.recent-command-btn {
-  align-items: center;
-  background: var(--lumina-button-secondary-bg);
-  border: 1px solid var(--lumina-card-border);
-  border-radius: var(--lumina-radius-sm);
-  color: var(--lumina-text-secondary);
-  cursor: pointer;
-  display: inline-flex;
-  gap: 6px;
-  height: 28px;
-  justify-content: center;
-  padding: 0 8px;
-
-  &:hover {
-    background: var(--lumina-button-secondary-hover);
-    color: var(--lumina-text);
-  }
-
-  svg {
-    height: 15px;
-    width: 15px;
-  }
-
-  b {
-    color: var(--lumina-primary);
-    font-size: 12px;
-  }
-}
-
-.recent-command-list {
-  align-content: start;
-  display: grid;
-  gap: 6px;
-  grid-auto-rows: min-content;
-  min-height: 0;
-  overflow: auto;
-  padding: 8px;
-}
-
-.recent-command-row {
-  align-items: center;
-  border: 1px solid var(--lumina-card-border);
-  border-radius: var(--lumina-radius-sm);
-  display: grid;
-  gap: 8px;
-  grid-template-columns: minmax(0, 1fr) 76px;
-  min-height: 44px;
-  padding: 6px 8px;
-
-  div {
-    display: grid;
-    gap: 3px;
-    min-width: 0;
-  }
-
-  strong,
-  code {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  strong {
-    font-size: 12px;
-  }
-
-  code {
-    color: var(--lumina-text-secondary);
-    font-family: SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
-    font-size: 10px;
-  }
-
-  .script-run-btn {
-    background: var(--lumina-button-secondary-bg);
-    border: 1px solid var(--lumina-card-border);
-    border-radius: var(--lumina-radius-sm);
-    color: var(--lumina-text-secondary);
-    cursor: pointer;
-    height: 26px;
-
-    &:hover {
-      background: var(--lumina-button-secondary-hover);
-      color: var(--lumina-text);
-    }
-
-    &.running {
-      background: color-mix(in srgb, var(--lumina-success) 12%, var(--lumina-surface-1));
-      border-color: color-mix(in srgb, var(--lumina-success) 42%, var(--lumina-card-border));
-      color: var(--lumina-success);
-      cursor: not-allowed;
-    }
-  }
-}
-
-.process-log-list {
-  .stderr {
-    color: #ffb4a8;
-  }
 }
 </style>

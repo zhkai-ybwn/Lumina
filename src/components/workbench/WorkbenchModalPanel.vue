@@ -10,7 +10,7 @@
 <script setup lang="ts">
 withDefaults(defineProps<{
   closeLabel: string
-  size?: 'normal' | 'wide' | 'diff'
+  size?: 'normal' | 'wide' | 'diff' | 'log'
 }>(), {
   size: 'normal',
 })
@@ -42,6 +42,12 @@ defineEmits<{
     display: block;
     height: min(820px, calc(100vh - 76px));
     width: min(1480px, calc(100vw - 72px));
+  }
+
+  &.size-log {
+    grid-template-rows: minmax(0, 1fr);
+    height: min(760px, calc(100vh - 76px));
+    width: min(1180px, calc(100vw - 72px));
   }
 }
 

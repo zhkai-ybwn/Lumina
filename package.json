@@ -1,7 +1,7 @@
 {
   "name": "lumina",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0-beta.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -21,11 +21,11 @@
     "@vicons/ionicons5": "^0.13.0",
     "ansi_up": "^6.0.6",
     "diff2html": "^3.4.56",
-    "naive-ui": "^2.43.1",
+    "naive-ui": "^2.44.1",
     "or": "^0.2.0",
     "pinia": "^3.0.3",
     "vue": "^3.5.22",
-    "vue-i18n": "^10.0.0",
+    "vue-i18n": "^10.0.8",
     "vue-router": "^4.6.3"
   },
   "devDependencies": {
@@ -36,6 +36,7 @@
     "@vue/eslint-config-typescript": "^14.6.0",
     "@vue/tsconfig": "^0.8.1",
     "eslint": "^9.38.0",
+    "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-vue": "^10.5.1",
     "postcss-html": "^1.8.1",
     "postcss-scss": "^4.0.9",
@@ -48,6 +49,11 @@
     "typescript": "~5.9.3",
     "vite": "^7.1.7",
     "vue-tsc": "^3.1.0"
+  },
+  "overrides": {
+    "lodash": "4.18.1",
+    "lodash-es": "4.18.1",
+    "postcss": "8.5.10"
   },
   "volta": {
     "node": "20.19.3"

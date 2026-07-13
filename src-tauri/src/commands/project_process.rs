@@ -79,6 +79,7 @@ pub struct ProjectProcessSnapshot {
     pub exited_at: Option<u128>,
     pub exit_code: Option<i32>,
     pub ports: Vec<u16>,
+    pub urls: Vec<String>,
     pub log_count: usize,
     pub last_log_line: Option<String>,
 }
@@ -158,6 +159,44 @@ pub async fn stop_project_process(
 }
 
 #[tauri::command]
+pub async fn stop_all_project_processes(
+    state: State<'_, ProjectProcessState>,
+) -> Result<Vec<ProjectProcessSnapshot>, String> {
+    stop_all_processes(&state)
+}
+
+pub fn stop_all_processes(
+    state: &ProjectProcessState,
+) -> Result<Vec<ProjectProcessSnapshot>, String> {
+    let processes = state
+        .processes
+        .lock()
+        .map_err(|_| "读取进程状态失败。".to_string())?
+        .values()
+        .map(clone_process)
+        .collect::<Vec<_>>();
+    let snapshots = processes.iter().map(snapshot_process).collect::<Vec<_>>();
+    let mut failures = Vec::new();
+
+    for process in &processes {
+        if let Err(error) = stop_process(process) {
+            failures.push(format!("{} · {}: {}", process.meta.project_name, process.meta.script_name, error));
+        }
+    }
+
+    if !failures.is_empty() {
+        return Err(format!("以下进程未能完全停止:\n{}", failures.join("\n")));
+    }
+
+    state
+        .processes
+        .lock()
+        .map_err(|_| "清理进程状态失败。".to_string())?
+        .clear();
+    Ok(snapshots)
+}
+
+#[tauri::command]
 pub async fn restart_project_process(
     process_id: String,
     state: State<'_, ProjectProcessState>,
@@ -229,7 +268,7 @@ fn start_process(
         .or(manifest.name)
         .unwrap_or_else(|| display_name_from_path(&payload.project_path));
 
-    let mut command = shell_command(&command_label);
+    let mut command = package_manager_process_command(&package_manager, &script.name);
     command
         .current_dir(&payload.project_path)
         .stdin(Stdio::null())
@@ -336,7 +375,15 @@ fn stop_process(process: &ManagedProcess) -> Result<(), String> {
         status.state = "stopped".to_string();
         status.exited_at = Some(now_millis());
     }
-    Ok(())
+
+    for _ in 0..20 {
+        if !pid_is_alive(pid) && ports.iter().all(|port| !is_port_listening(*port)) {
+            return Ok(());
+        }
+        thread::sleep(Duration::from_millis(100));
+    }
+
+    Err(format!("PID {} 或端口 {:?} 仍未释放", pid, ports))
 }
 
 fn snapshot_process(process: &ManagedProcess) -> ProjectProcessSnapshot {
@@ -344,6 +391,10 @@ fn snapshot_process(process: &ManagedProcess) -> ProjectProcessSnapshot {
     let ports = logs
         .as_ref()
         .map(|lines| detect_ports(lines))
+        .unwrap_or_default();
+    let urls = logs
+        .as_ref()
+        .map(|lines| detect_urls(lines))
         .unwrap_or_default();
     let mut status = process_status(process);
     if status.state == "exited" && ports.iter().any(|port| is_port_listening(*port)) {
@@ -364,6 +415,7 @@ fn snapshot_process(process: &ManagedProcess) -> ProjectProcessSnapshot {
         exited_at: status.exited_at,
         exit_code: status.exit_code,
         ports,
+        urls,
         log_count: logs.as_ref().map(|lines| lines.len()).unwrap_or(0),
         last_log_line: logs
             .as_ref()
@@ -389,6 +441,24 @@ fn detect_ports(lines: &VecDeque<ProjectProcessLogLine>) -> Vec<u16> {
     }
     ports.sort_unstable();
     ports
+}
+
+fn detect_urls(lines: &VecDeque<ProjectProcessLogLine>) -> Vec<String> {
+    let mut urls = Vec::new();
+    for line in lines.iter().rev().take(80) {
+        let text = strip_ansi(&line.text);
+        for token in text.split_whitespace() {
+            let candidate = token
+                .trim_matches(|ch: char| matches!(ch, '(' | ')' | '[' | ']' | '<' | '>' | ',' | ';' | '"' | '\''))
+                .trim_end_matches('.');
+            if (candidate.starts_with("http://") || candidate.starts_with("https://"))
+                && !urls.iter().any(|url| url == candidate)
+            {
+                urls.push(candidate.to_string());
+            }
+        }
+    }
+    urls
 }
 
 fn process_ports(process: &ManagedProcess) -> Vec<u16> {
@@ -516,21 +586,6 @@ fn push_log(logs: &Arc<Mutex<VecDeque<ProjectProcessLogLine>>>, line: ProjectPro
     }
 }
 
-fn shell_command(command_line: &str) -> Command {
-    #[cfg(target_os = "windows")]
-    {
-        let mut command = silent_command("cmd");
-        command.args(["/C", command_line]);
-        command
-    }
-    #[cfg(not(target_os = "windows"))]
-    {
-        let mut command = Command::new("sh");
-        command.args(["-c", command_line]);
-        command
-    }
-}
-
 fn silent_command(program: &str) -> Command {
     let mut command = Command::new(program);
     hide_command_window(&mut command);
@@ -633,6 +688,30 @@ fn package_manager_command(package_manager: &str) -> String {
     .to_string()
 }
 
+fn package_manager_process_command(package_manager: &str, script_name: &str) -> Command {
+    #[cfg(target_os = "windows")]
+    {
+        let mut command = silent_command("cmd");
+        command.args([
+            "/D",
+            "/S",
+            "/C",
+            &format!("{} run {}", package_manager, script_name),
+        ]);
+        return command;
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        let mut parts = package_manager.split_whitespace();
+        let program = parts.next().unwrap_or("npm");
+        let mut command = silent_command(program);
+        command.args(parts);
+        command.args(["run", script_name]);
+        command
+    }
+}
+
 fn is_safe_script_name(script_name: &str) -> bool {
     !script_name.is_empty()
         && script_name
@@ -654,4 +733,121 @@ fn now_millis() -> u128 {
         .duration_since(UNIX_EPOCH)
         .map(|duration| duration.as_millis())
         .unwrap_or_default()
+}
+
+fn pid_is_alive(pid: u32) -> bool {
+    #[cfg(windows)]
+    {
+        let output = silent_command("tasklist")
+            .args(["/FI", &format!("PID eq {pid}"), "/NH"])
+            .output();
+        match output {
+            Ok(out) => {
+                let stdout = String::from_utf8_lossy(&out.stdout);
+                stdout.lines().any(|line| {
+                    line.split_whitespace()
+                        .nth(1)
+                        .is_some_and(|value| value == pid.to_string())
+                })
+            }
+            Err(_) => false,
+        }
+    }
+
+    #[cfg(not(windows))]
+    {
+        // On Unix, kill(pid, 0) checks if process exists without sending signal
+        unsafe { libc::kill(pid as i32, 0) == 0 }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn detects_complete_urls_from_ansi_logs() {
+        let lines = VecDeque::from([
+            ProjectProcessLogLine {
+                stream: "stdout".to_string(),
+                text: "Local: http://localhost:3000/".to_string(),
+                timestamp: 1,
+            },
+            ProjectProcessLogLine {
+                stream: "stdout".to_string(),
+                text: "Network: \u{1b}[36mhttp://192.168.1.20:3000/app\u{1b}[0m".to_string(),
+                timestamp: 2,
+            },
+        ]);
+
+        assert_eq!(
+            detect_urls(&lines),
+            vec![
+                "http://192.168.1.20:3000/app".to_string(),
+                "http://localhost:3000/".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn package_manager_command_uses_hidden_shell_on_windows() {
+        let command = package_manager_process_command("corepack pnpm", "dev");
+
+        #[cfg(windows)]
+        {
+            assert_eq!(command.get_program().to_string_lossy(), "cmd");
+            let args = command
+                .get_args()
+                .map(|arg| arg.to_string_lossy().to_string())
+                .collect::<Vec<_>>();
+            assert_eq!(args, vec!["/D", "/S", "/C", "corepack pnpm run dev"]);
+        }
+
+        #[cfg(not(windows))]
+        {
+            assert_eq!(command.get_program().to_string_lossy(), "corepack");
+            let args = command
+                .get_args()
+                .map(|arg| arg.to_string_lossy().to_string())
+                .collect::<Vec<_>>();
+            assert_eq!(args, vec!["pnpm", "run", "dev"]);
+        }
+    }
+
+    #[test]
+    fn stop_process_terminates_managed_child() {
+        #[cfg(windows)]
+        let child = silent_command("cmd")
+            .args(["/C", "ping 127.0.0.1 -n 30 > nul"])
+            .spawn()
+            .expect("spawn child");
+        #[cfg(not(windows))]
+        let child = Command::new("sh")
+            .args(["-c", "sleep 30"])
+            .spawn()
+            .expect("spawn child");
+        let pid = child.id();
+        let process = ManagedProcess {
+            child: Arc::new(Mutex::new(child)),
+            logs: Arc::new(Mutex::new(VecDeque::new())),
+            status: Arc::new(Mutex::new(ProjectProcessStatus {
+                state: "running".to_string(),
+                exit_code: None,
+                exited_at: None,
+            })),
+            meta: ProjectProcessMeta {
+                id: "test-process".to_string(),
+                project_path: ".".to_string(),
+                project_name: "test".to_string(),
+                script_name: "test".to_string(),
+                command: "test".to_string(),
+                package_manager: "npm".to_string(),
+                pid,
+                started_at: now_millis(),
+            },
+        };
+
+        stop_process(&process).expect("stop child process");
+        assert!(!pid_is_alive(pid));
+    }
 }

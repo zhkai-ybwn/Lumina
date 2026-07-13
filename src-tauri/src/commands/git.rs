@@ -12,6 +12,7 @@ use crate::git::prompt::{build_analysis_prompt, build_selected_commit_prompt};
 use crate::git::profile::{self, GitProjectProfileFile};
 use crate::git::runner;
 use serde::Deserialize;
+use tauri::{AppHandle, Emitter};
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -36,28 +37,53 @@ pub async fn load_git_file_head_diff(payload: GitFileActionPayload) -> Result<Gi
 }
 
 #[tauri::command]
-pub async fn commit_git_changes(payload: GitCommitPayload) -> Result<GitCommandResult, String> {
-    run_git_task("提交变更", move || runner::commit_changes(&payload)).await
+pub async fn commit_git_changes(app: AppHandle, payload: GitCommitPayload) -> Result<GitCommandResult, String> {
+    run_git_task("提交变更", move || {
+        runner::commit_changes_with_progress(&payload, |event| {
+            let _ = app.emit("git-command-progress", event);
+        })
+    })
+    .await
 }
 
 #[tauri::command]
-pub async fn push_git_changes(payload: GitPushPayload) -> Result<GitCommandResult, String> {
-    run_git_task("推送变更", move || runner::push_changes(&payload)).await
+pub async fn push_git_changes(app: AppHandle, payload: GitPushPayload) -> Result<GitCommandResult, String> {
+    run_git_task("推送变更", move || {
+        runner::push_changes_with_progress(&payload, |event| {
+            let _ = app.emit("git-command-progress", event);
+        })
+    })
+    .await
 }
 
 #[tauri::command]
-pub async fn pull_git_changes(payload: GitPullPayload) -> Result<GitCommandResult, String> {
-    run_git_task("拉取变更", move || runner::pull_changes(&payload)).await
+pub async fn pull_git_changes(app: AppHandle, payload: GitPullPayload) -> Result<GitCommandResult, String> {
+    run_git_task("拉取变更", move || {
+        runner::pull_changes_with_progress(&payload, |event| {
+            let _ = app.emit("git-command-progress", event);
+        })
+    })
+    .await
 }
 
 #[tauri::command]
-pub async fn rebase_git_changes(payload: GitRebasePayload) -> Result<GitCommandResult, String> {
-    run_git_task("Rebase 变更", move || runner::rebase_changes(&payload)).await
+pub async fn rebase_git_changes(app: AppHandle, payload: GitRebasePayload) -> Result<GitCommandResult, String> {
+    run_git_task("Rebase 变更", move || {
+        runner::rebase_changes_with_progress(&payload, |event| {
+            let _ = app.emit("git-command-progress", event);
+        })
+    })
+    .await
 }
 
 #[tauri::command]
-pub async fn fetch_git_changes(payload: GitRepoPayload) -> Result<GitCommandResult, String> {
-    run_git_task("Fetch 远端变更", move || runner::fetch_changes(&payload)).await
+pub async fn fetch_git_changes(app: AppHandle, payload: GitRepoPayload) -> Result<GitCommandResult, String> {
+    run_git_task("Fetch 远端变更", move || {
+        runner::fetch_changes_with_progress(&payload, |event| {
+            let _ = app.emit("git-command-progress", event);
+        })
+    })
+    .await
 }
 
 #[tauri::command]
@@ -83,6 +109,11 @@ pub async fn open_git_file_external(payload: GitFileActionPayload) -> Result<Git
 #[tauri::command]
 pub async fn mark_git_files_resolved(payload: GitFilesActionPayload) -> Result<GitCommandResult, String> {
     run_git_task("标记冲突已解决", move || runner::mark_files_resolved(&payload)).await
+}
+
+#[tauri::command]
+pub async fn revert_git_file(payload: GitFileActionPayload) -> Result<GitCommandResult, String> {
+    run_git_task("回退文件变更", move || runner::revert_file(&payload)).await
 }
 
 #[tauri::command]
@@ -137,8 +168,9 @@ pub fn save_git_project_profile(payload: SaveGitProjectProfilePayload) -> Result
 
 #[tauri::command]
 pub async fn build_git_commit_prompt(payload: GitCommitPromptPayload) -> Result<GitCommitPromptPreview, String> {
+    let language = payload.language.unwrap_or_else(|| "en".to_string());
     tokio::task::spawn_blocking(move || {
-        build_selected_commit_prompt(&payload.repo_path, &payload.branch, &payload.selected_files)
+        build_selected_commit_prompt(&payload.repo_path, &payload.branch, &payload.selected_files, &language)
     })
     .await
     .map_err(|e| format!("构建 Commit Prompt 任务失败: {}", e))?

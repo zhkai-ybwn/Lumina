@@ -6,13 +6,6 @@
       </button>
     </WorkbenchIdentity>
 
-    <WorkbenchSwitch
-      active-key="git"
-      :aria-label="t('workbench.switcherLabel')"
-      :items="workbenchSwitchItems"
-      @select="handleWorkbenchSelect"
-    />
-
     <WorkbenchTag :label="t('gitAssistant.repo.branchShort')" :value="branch || '--'" />
     <WorkbenchTag :label="t('gitAssistant.repo.summaryTotal')" :value="summary.total" />
     <WorkbenchTag :label="t('gitAssistant.repo.summaryStaged')" :value="summary.staged" />
@@ -49,11 +42,9 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useRouter } from 'vue-router'
 import { useLocale } from '@/hooks/useLocale'
 import WorkbenchButton from '@/components/workbench/WorkbenchButton.vue'
 import WorkbenchIdentity from '@/components/workbench/WorkbenchIdentity.vue'
-import WorkbenchSwitch from '@/components/workbench/WorkbenchSwitch.vue'
 import WorkbenchTag from '@/components/workbench/WorkbenchTag.vue'
 import WorkbenchTopbar from '@/components/workbench/WorkbenchTopbar.vue'
 import type { GitRepositoryState } from '@/services/git/git-service'
@@ -82,11 +73,6 @@ defineEmits<{
 }>()
 
 const { t } = useLocale()
-const router = useRouter()
-const workbenchSwitchItems = computed(() => [
-  { key: 'git', label: t('workbench.git') },
-  { key: 'devdock', label: t('workbench.devdock') },
-])
 
 const repoName = computed(() => {
   const normalized = props.repoPath.replace(/\\/g, '/')
@@ -138,15 +124,6 @@ function normalizePath(path: string) {
   return path.replace(/\\/g, '/').toLowerCase()
 }
 
-function openDevDock() {
-  router.push({ name: 'devdock' })
-}
-
-function handleWorkbenchSelect(key: string) {
-  if (key === 'devdock') {
-    openDevDock()
-  }
-}
 </script>
 
 <style scoped lang="scss">

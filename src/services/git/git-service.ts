@@ -140,6 +140,10 @@ export async function markGitFilesResolved(repoPath: string, filePaths: string[]
   return await invoke<GitCommandResult>('mark_git_files_resolved', { payload: { repoPath, filePaths } })
 }
 
+export async function revertGitFile(repoPath: string, filePath: string): Promise<GitCommandResult> {
+  return await invoke<GitCommandResult>('revert_git_file', { payload: { repoPath, filePath } })
+}
+
 export async function abortGitMerge(repoPath: string): Promise<GitCommandResult> {
   return await invoke<GitCommandResult>('abort_git_merge', { payload: { repoPath } })
 }

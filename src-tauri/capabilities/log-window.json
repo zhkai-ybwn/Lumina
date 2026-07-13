@@ -1,0 +1,10 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "log-window-capability",
+  "description": "Permissions for the log window",
+  "windows": ["git-log"],
+  "permissions": [
+    "core:default",
+    "core:event:default"
+  ]
+}

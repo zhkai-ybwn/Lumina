@@ -25,6 +25,11 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/views/settings/SettingsView.vue')
       }
     ]
+  },
+  {
+    path: '/log',
+    name: 'git-log',
+    component: () => import('@/views/git-log/GitLogView.vue')
   }
 ]
 

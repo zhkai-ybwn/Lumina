@@ -1,4 +1,5 @@
 import { ref } from 'vue'
+import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 import { useLocale } from '@/hooks/useLocale'
 import {
   abortGitMerge,
@@ -27,8 +28,23 @@ export interface GitCommandDialogState {
   stderr: string
   message: string
   suggestion: string
+  startedAt: number
+  finishedAt: number | null
+  progressPercent: number | null
+  progressPhase: string
+  transfer: string
   nextActionLabel: string
   nextAction: '' | 'push' | 'pull'
+}
+
+interface GitCommandProgressEvent {
+  repoPath: string
+  command: string
+  stream: 'stdout' | 'stderr'
+  text: string
+  phase?: string | null
+  percent?: number | null
+  transfer?: string | null
 }
 
 export function useGitRemote(
@@ -47,6 +63,8 @@ export function useGitRemote(
   const remoteLoading = ref(false)
   const conflictLoading = ref(false)
   const remoteUrlDraft = ref('')
+  let unlistenProgress: UnlistenFn | null = null
+  let progressListenerToken = 0
 
   const gitCommandDialog = ref<GitCommandDialogState>({
     visible: false,
@@ -59,11 +77,17 @@ export function useGitRemote(
     stderr: '',
     message: '',
     suggestion: '',
+    startedAt: 0,
+    finishedAt: null,
+    progressPercent: null,
+    progressPhase: '',
+    transfer: '',
     nextActionLabel: '',
     nextAction: '',
   })
 
   function startGitCommand(title: string, phase: string, nextAction: '' | 'push' | 'pull' = '') {
+    void startGitProgressListener(getDisplayRepoPath())
     gitCommandDialog.value = {
       visible: true,
       title,
@@ -75,16 +99,25 @@ export function useGitRemote(
       stderr: '',
       message: t('gitAssistant.gitCommand.running'),
       suggestion: '',
+      startedAt: Date.now(),
+      finishedAt: null,
+      progressPercent: null,
+      progressPhase: '',
+      transfer: '',
       nextActionLabel: '',
       nextAction,
     }
   }
 
-  function finishGitCommand(result: GitCommandResult, nextActionLabel = '') {
+  function finishGitCommand(result: GitCommandResult, nextActionLabel = '', phase?: string) {
+    stopGitProgressListener()
     gitCommandDialog.value = {
       ...gitCommandDialog.value,
+      phase: phase ?? t('gitAssistant.gitCommand.completed'),
       running: false,
       success: true,
+      finishedAt: Date.now(),
+      progressPercent: gitCommandDialog.value.progressPercent ?? 100,
       command: result.command,
       stdout: result.stdout,
       stderr: result.stderr,
@@ -95,6 +128,7 @@ export function useGitRemote(
   }
 
   function failGitCommand(err: unknown) {
+    stopGitProgressListener()
     const message = err instanceof Error ? err.message : String(err)
     const lowerMessage = message.toLowerCase()
     const nextAction: '' | 'push' | 'pull' =
@@ -107,6 +141,8 @@ export function useGitRemote(
       ...gitCommandDialog.value,
       running: false,
       success: false,
+      finishedAt: Date.now(),
+      phase: t('gitAssistant.gitCommand.failed'),
       stderr: message,
       message: t('gitAssistant.gitCommand.failed'),
       suggestion: '',
@@ -118,6 +154,47 @@ export function useGitRemote(
             : '',
       nextAction,
     }
+  }
+
+  async function startGitProgressListener(repoPath: string) {
+    stopGitProgressListener()
+    const token = ++progressListenerToken
+    if (!repoPath) return
+    const unlisten = await listen<GitCommandProgressEvent>('git-command-progress', (event) => {
+      const payload = event.payload
+      if (payload.repoPath !== repoPath || !gitCommandDialog.value.running) return
+
+      gitCommandDialog.value = {
+        ...gitCommandDialog.value,
+        command: gitCommandDialog.value.command || payload.command,
+        stdout: payload.stream === 'stdout'
+          ? appendGitOutput(gitCommandDialog.value.stdout, payload.text)
+          : gitCommandDialog.value.stdout,
+        stderr: payload.stream === 'stderr'
+          ? appendGitOutput(gitCommandDialog.value.stderr, payload.text)
+          : gitCommandDialog.value.stderr,
+        progressPercent: payload.percent ?? gitCommandDialog.value.progressPercent,
+        progressPhase: payload.phase ?? gitCommandDialog.value.progressPhase,
+        transfer: payload.transfer ?? gitCommandDialog.value.transfer,
+      }
+    })
+    if (token === progressListenerToken) {
+      unlistenProgress = unlisten
+    } else {
+      unlisten()
+    }
+  }
+
+  function stopGitProgressListener() {
+    progressListenerToken += 1
+    unlistenProgress?.()
+    unlistenProgress = null
+  }
+
+  function appendGitOutput(current: string, chunk: string) {
+    const normalized = chunk.replace(/\r/g, '\n')
+    const next = `${current}${normalized}`
+    return next.length > 200_000 ? next.slice(-200_000) : next
   }
 
   async function handleConfigureOrigin() {
@@ -132,7 +209,7 @@ export function useGitRemote(
     try {
       const result = await configureGitOrigin(displayRepoPath, remoteUrlDraft.value)
       finishGitCommand(result, nextAction === 'push' ? t('gitAssistant.gitCommand.pushNext') : '')
-      await loadSnapshotByPath(displayRepoPath)
+      void loadSnapshotByPath(displayRepoPath)
     } catch (err) {
       console.error(err)
       failGitCommand(err)
@@ -151,7 +228,7 @@ export function useGitRemote(
     try {
       const result = await repairGitUpstream(displayRepoPath)
       finishGitCommand(result, t('gitAssistant.gitCommand.pushNext'))
-      await loadSnapshotByPath(displayRepoPath)
+      void loadSnapshotByPath(displayRepoPath)
     } catch (err) {
       console.error(err)
       failGitCommand(err)
@@ -177,7 +254,7 @@ export function useGitRemote(
           success: action === 'pull' ? null : false,
           nextAction: 'pull',
         }
-        await loadSnapshotByPath(displayRepoPath)
+        void loadSnapshotByPath(displayRepoPath)
         return
       }
 
@@ -187,7 +264,7 @@ export function useGitRemote(
           ...gitCommandDialog.value,
           success: false,
         }
-        await loadSnapshotByPath(displayRepoPath)
+        void loadSnapshotByPath(displayRepoPath)
         return
       }
 
@@ -202,7 +279,7 @@ export function useGitRemote(
       }
       const result = await pushGitChanges(displayRepoPath)
       finishGitCommand(result)
-      await loadSnapshotByPath(displayRepoPath)
+      void loadSnapshotByPath(displayRepoPath)
     } catch (err) {
       console.error(err)
       failGitCommand(err)
@@ -236,11 +313,11 @@ export function useGitRemote(
 
     pullLoading.value = true
     setError('')
-    startGitCommand(t('gitAssistant.gitCommand.pullTitle'), t('gitAssistant.gitCommand.pulling'))
+    startGitCommand(t('gitAssistant.gitCommand.pullTitle'), t('gitAssistant.gitCommand.pulling'), 'push')
     try {
       const result = await pullGitChanges(displayRepoPath)
-      finishGitCommand(result)
-      await loadSnapshotByPath(displayRepoPath)
+      finishGitCommand(result, t('gitAssistant.gitCommand.pushNext'))
+      void loadSnapshotByPath(displayRepoPath)
     } catch (err) {
       console.error(err)
       failGitCommand(err)

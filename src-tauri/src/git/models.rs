@@ -143,6 +143,18 @@ pub struct GitCommandResult {
     pub suggestion: Option<String>,
 }
 
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GitCommandProgressEvent {
+    pub repo_path: String,
+    pub command: String,
+    pub stream: String,
+    pub text: String,
+    pub phase: Option<String>,
+    pub percent: Option<u8>,
+    pub transfer: Option<String>,
+}
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GitSyncStatus {
@@ -218,6 +230,7 @@ pub struct GitAiPayload {
     pub staged_files: Vec<String>,
     pub staged_diff: String,
     pub model: AiModelConfig,
+    pub language: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -226,6 +239,7 @@ pub struct GitCommitPromptPayload {
     pub repo_path: String,
     pub branch: String,
     pub selected_files: Vec<String>,
+    pub language: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]

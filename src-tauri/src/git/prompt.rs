@@ -20,28 +20,42 @@ const MAX_TOTAL_EVIDENCE_CHARS: usize = 12000;
 const MAX_CANDIDATE_LINES_PER_FILE: usize = 80;
 const MIN_EVIDENCE_SCORE: i32 = 40;
 
-pub fn build_analysis_schema() -> Value {
+pub fn build_analysis_schema(language: &str) -> Value {
+    let (title_desc, body_desc, summary_desc, risks_desc) = match language {
+        "zh" => (
+            "Conventional commit 风格标题，简洁的中文描述",
+            "3 到 6 条要点，每行以 \"- \" 开头，使用中文",
+            "简洁的中文摘要，描述主要业务变更，不要罗列文件名",
+            "中文风险提示，1 到 5 条",
+        ),
+        _ => (
+            "Conventional commit style title, concise and in English",
+            "3 to 6 bullet lines separated by newline, in English",
+            "A concise Chinese summary of the main business change line, not a raw file list",
+            "Chinese risk notes, 1 to 5 items",
+        ),
+    };
     json!({
         "type": "object",
         "properties": {
             "title": {
                 "type": "string",
-                "description": "Conventional commit style title, concise and in English"
+                "description": title_desc
             },
             "body": {
                 "type": "string",
-                "description": "3 to 6 bullet lines separated by newline, in English"
+                "description": body_desc
             },
             "summary": {
                 "type": "string",
-                "description": "A concise Chinese summary of the main business change line, not a raw file list"
+                "description": summary_desc
             },
             "risks": {
                 "type": "array",
                 "items": {
                     "type": "string"
                 },
-                "description": "Chinese risk notes, 1 to 5 items"
+                "description": risks_desc
             }
         },
         "required": ["title", "body", "summary", "risks"]
@@ -68,6 +82,7 @@ pub fn join_preview(items: &[String], limit: usize) -> String {
 }
 
 pub fn build_analysis_prompt(payload: &GitAiPayload) -> String {
+    let language = payload.language.as_deref().unwrap_or("en");
     let config = AnalysisConfig::default();
     let context = build_analysis_context(&payload.status);
     let mut staged_diff_preview = payload.staged_diff.clone();
@@ -76,12 +91,35 @@ pub fn build_analysis_prompt(payload: &GitAiPayload) -> String {
         staged_diff_preview.push_str("\n...<truncated>");
     }
 
-    let schema_text = build_analysis_schema().to_string();
+    let schema_text = build_analysis_schema(language).to_string();
     let context_json = serde_json::to_string_pretty(&context).unwrap_or_else(|_| "{}".to_string());
     let scope_json =
         serde_json::to_string_pretty(&context.scope_summaries).unwrap_or_else(|_| "[]".to_string());
     let signal_json =
         serde_json::to_string_pretty(&context.diff_signals).unwrap_or_else(|_| "{}".to_string());
+
+    let (lang_rule_6, lang_rule_7, lang_rule_16, lang_rule_17, lang_rule_18, title_examples) = match language {
+        "zh" => (
+            "6. summary 必须使用中文，描述主要业务变更，不要罗列文件名。",
+            "7. risks 必须使用中文。",
+            "16. title 必须使用中文。",
+            "17. summary 和 risks 必须使用中文。",
+            "18. 不要在 title 中使用英文。",
+            r#"- feat(模块): 新增配置页面和相关国际化
+- feat(模块): 支持日志查看和配置流程
+- refactor(模块): 简化配置常量和页面接入"#,
+        ),
+        _ => (
+            "6. summary must be in Simplified Chinese and should explain the main change line, not list filenames.",
+            "7. risks must be in Simplified Chinese.",
+            "16. title must be written in English only.",
+            "17. summary and risks must be written in Simplified Chinese only.",
+            "18. Do not use Chinese in the title.",
+            r#"- feat(feature/module): add configuration pages and related i18n
+- feat(app/module): support log view and configuration flow
+- refactor(feature/module): simplify configuration constants and page wiring"#,
+        ),
+    };
 
     format!(
         r#"
@@ -100,8 +138,8 @@ Important rules:
 3. When multiple scopes are changed, summarize the main feature-level intent first, then mention supporting integration changes if needed.
 4. The title must reflect real intent instead of vague words like optimize, improve, or update, unless no more specific wording is justified.
 5. The body must summarize feature-level changes, not file-by-file edits.
-6. summary must be in Simplified Chinese and should explain the main change line, not list filenames.
-7. risks must be in Simplified Chinese.
+{lang_rule_6}
+{lang_rule_7}
 8. body must be plain text using 3-6 bullet lines, each line prefixed with "- ".
 9. Do not include markdown fences.
 10. Be grounded only in the provided data. Do not invent business details not supported by the git snapshot.
@@ -110,23 +148,12 @@ Important rules:
 13. If multiple scopes are involved, choose the most representative one or combine at most two major scopes.
 14. Prefer concrete capability words such as add pages, adjust configuration flow, update constants, support logs, integrate i18n, remove obsolete config.
 15. Do not describe the change as "multiple modules" unless there is truly no stronger common intent.
-16. If the evidence is insufficient for a very specific claim, stay moderately specific instead of becoming generic.
-16. title must be written in English only.
-17. summary and risks must be written in Simplified Chinese only.
-18. Do not use Chinese in the title.
+{lang_rule_16}
+{lang_rule_17}
+{lang_rule_18}
 19. The title should be a single conventional commit line and must not mention i18n unless it is a major part of the change.
 20. Prefer title patterns like:
-    - feat(scope): add ...
-    - feat(scope1, scope2): support ...
-    - refactor(scope): simplify ...
-16. title must be written in English only.
-17. summary and risks must be written in Simplified Chinese only.
-18. Do not use Chinese in the title.
-19. The title should be a single conventional commit line and must not mention i18n unless it is a major part of the change.
-20. Prefer title patterns like:
-    - feat(scope): add ...
-    - feat(scope1, scope2): support ...
-    - refactor(scope): simplify ...
+    {title_examples}
 21. Supporting changes such as i18n, routes, and config wiring should usually stay in the body or summary, not in the title, unless they are the dominant change.
 
 Heuristics:
@@ -225,6 +252,7 @@ pub fn build_selected_commit_prompt(
     repo_path: &str,
     branch: &str,
     selected_files: &[String],
+    language: &str,
 ) -> Result<GitCommitPromptPreview, String> {
     let profile = load_prompt_profile(repo_path);
     let action_map = load_file_actions(repo_path);
@@ -337,7 +365,19 @@ pub fn build_selected_commit_prompt(
 
     let group_overview = format_group_overview(&group_summary);
     let omitted_overview = format_omitted_files(&files);
-    let schema_text = build_analysis_schema().to_string();
+    let schema_text = build_analysis_schema(language).to_string();
+    let (lang_rule_4, lang_rule_5, lang_rule_6) = match language {
+        "zh" => (
+            "4. title 必须使用中文。",
+            "5. body 必须使用中文要点，每行以 \"- \" 开头。",
+            "6. summary 和 risks 必须使用中文。",
+        ),
+        _ => (
+            "4. The title must be English only.",
+            "5. The body must be English bullet lines, each prefixed with \"- \".",
+            "6. summary and risks must be Simplified Chinese only.",
+        ),
+    };
     let prompt = format!(
         r#"
 You are a precise git commit assistant.
@@ -352,9 +392,9 @@ Rules:
 1. Infer the main intent from the selected files, not from the whole workspace.
 2. Do not mechanically list file paths.
 3. Prefer a concrete conventional commit title like feat(scope): ..., fix(scope): ..., refactor(scope): ...
-4. The title must be English only.
-5. The body must be English bullet lines, each prefixed with "- ".
-6. summary and risks must be Simplified Chinese only.
+{lang_rule_4}
+{lang_rule_5}
+{lang_rule_6}
 7. Do not invent business details beyond the evidence.
 8. If evidence is weak, stay moderately specific instead of becoming vague.
 
