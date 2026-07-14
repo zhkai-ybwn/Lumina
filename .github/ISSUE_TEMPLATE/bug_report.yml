@@ -1,0 +1,60 @@
+name: Bug report
+description: Report a reproducible problem in Lumina
+title: '[Bug]: '
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. Please remove API keys, private repository paths, internal IPs, and sensitive logs before submitting.
+  - type: input
+    id: version
+    attributes:
+      label: Lumina version
+      placeholder: e.g. 0.1.0-beta.1
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Affected area
+      options:
+        - Git workbench
+        - AI Commit Assistant
+        - DevDock / process management
+        - Settings
+        - Installation or build
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior and logs
+      description: Remove credentials and private project information.
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Operating system and package manager
+      placeholder: e.g. Windows 11, pnpm 9
+    validations:
+      required: true

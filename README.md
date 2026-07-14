@@ -1,53 +1,70 @@
 # Lumina
 
-**中文** | [English](#english)
+[English](#english) · [下载与发布](https://github.com/zhkai-ybwn/Lumina/releases) · [反馈问题](https://github.com/zhkai-ybwn/Lumina/issues/new/choose)
 
-Lumina 是一个面向日常开发的桌面工作台：在同一个应用中管理 Git 变更、生成提交说明、运行多个本地项目，并查看进程与日志。
+Lumina 是一个给多项目开发者使用的本地桌面工作台：用低成本模型生成 Git Commit Message，并在一个窗口内启动、停止和查看多个项目进程。
 
-> 当前版本：`0.1.0-beta.1`。这是一个公开测试版本，欢迎提交 Issue 和反馈。
+> 不必为一次提交说明消耗紧张的编码模型 Token，也不必在 Git Bash、CMD 和 VS Code 终端之间来回找项目。
 
-## 功能
+## 为什么做它
 
-### Git 工作台
+日常开发里有两个重复、但不值得占用大量注意力的任务：
 
-- 浏览工作区变更、暂存状态、冲突文件和分支同步状态。
-- 选择部分文件提交，同时保留未选择文件原有的暂存状态。
-- 支持 Fetch、Pull、Push、Rebase、冲突标记和单文件 Revert。
-- 查看文件 Diff、提交历史与 Git 命令实时进度。
-- 记录最近项目，并支持为项目设置本地别名。
+1. 根据已选文件写一条可靠的 Commit Message。让通用编码模型反复处理它，成本并不划算。
+2. 同时维护多个前端项目时，开发服务散落在多个终端窗口，启动、停止、日志和端口状态都难追踪。
 
-### AI Commit Assistant
+Lumina 把这两件事放到同一个本地桌面应用里。AI 只辅助提交信息生成；进程仍由你明确选择的 `package.json` scripts 启动和控制。
 
-- 基于选中文件生成 conventional commit 标题和正文。
-- 查看生成 Prompt、文件筛选策略与提交历史。
-- 支持 Ollama 及 OpenAI-compatible API，并可按任务选择模型。
+## 两个核心工作流
 
-### DevDock
+### 低成本 AI Commit
 
-- 管理多个本地项目，解析 `package.json` 中的 scripts。
-- 启动、停止、重启开发进程，查看 PID、端口、URL 和日志。
-- 支持命令搜索、置顶、最近命令和浏览器快速打开。
-- 退出应用时可选择最小化到系统托盘，或停止全部受管进程后退出。
+选择本次要提交的文件，Lumina 会生成可编辑的 Conventional Commit 标题与正文；你仍然可以检查 Prompt、修改结果，再完成提交。
 
-## 快速开始
+![Lumina 的 Git 提交信息生成界面](src/assets/Git提交信息生成界面.png)
 
-### 环境要求
+支持 Ollama 与 OpenAI-compatible API，可配置 DeepSeek 等兼容服务。Prompt 按选中文件构建，并提供处理过程查看，避免把无关工作区内容直接发送给模型。
 
-- Node.js 20+
-- Rust 1.77.2+
-- Git
-- [Tauri 2 系统依赖](https://v2.tauri.app/start/prerequisites/)
+下面是开发期间同一 API Key 的近 30 天用量样本：41 次请求共 ¥0.36，约 ¥0.0088 / 次请求。费用会随模型、输入和输出长度变化；这不是对所有使用场景的价格承诺。
 
-### 本地运行
+![DeepSeek API 用量样本](src/assets/DeepSeek消耗明细.png)
+
+### DevDock：多项目进程管理
+
+DevDock 读取项目的 `package.json` scripts，集中展示并运行多个项目。你可以查看运行状态、PID、端口、可访问地址和日志，并随时停止或重启受管进程。
+
+![DevDock 多项目启动与状态管理](src/assets/多项目启动界面截图.png)
+
+日志直接在 Lumina 内查看，不需要在一堆终端窗口中定位对应服务。
+
+![DevDock 进程日志](src/assets/进程管理单进程启动界面（日志弹窗）.png)
+
+## 功能一览
+
+| Git 工作台                           | AI Commit Assistant              | DevDock                   |
+| ------------------------------------ | -------------------------------- | ------------------------- |
+| 文件 Diff、暂存状态和提交历史        | 生成并编辑 Conventional Commit   | 解析并运行项目 scripts    |
+| Fetch、Pull、Push、Rebase 与冲突辅助 | OpenAI-compatible 与 Ollama 模型 | 启动、停止、重启受管进程  |
+| 选择部分文件提交，保留其他暂存状态   | Prompt 预览、处理过程与生成记录  | PID、端口、URL 和实时日志 |
+
+## 安装与试用
+
+### 下载桌面安装包
+
+前往 [Releases](https://github.com/zhkai-ybwn/Lumina/releases) 下载已发布的安装包。当前仍处于公开测试阶段，欢迎通过 [Issue](https://github.com/zhkai-ybwn/Lumina/issues/new/choose) 提交使用反馈。
+
+### 从源码运行
+
+环境要求：Node.js 20+、Rust 1.77.2+、Git，以及 [Tauri 2 系统依赖](https://v2.tauri.app/start/prerequisites/)。
 
 ```bash
-git clone https://github.com/<your-github-id>/lumina.git
-cd lumina
+git clone https://github.com/zhkai-ybwn/Lumina.git
+cd Lumina
 npm install
 npm run tauri:dev
 ```
 
-### 构建安装包
+构建安装包：
 
 ```bash
 npm run tauri:build
@@ -59,165 +76,33 @@ npm run tauri:build
 powershell -ExecutionPolicy Bypass -File fix-tauri-tools.ps1
 ```
 
-## AI 模型配置
+## 配置 AI 模型
 
-打开 **设置 → AI 模型管理**，添加模型后先测试连接，再按需指定给 Commit Message、Change Summary 或 Light Review。
+打开 **设置 → 模型**，添加模型后先测试连接，再为 Commit Message 等任务选择模型。
 
-- **Ollama**：Base URL 例如 `http://localhost:11434`，适合完全本地的工作流。
-- **OpenAI-compatible**：填写服务地址、模型名和 API Key，兼容支持 `/chat/completions` 的服务。
+- **OpenAI-compatible**：填写服务地址、模型名和 API Key；可用于 DeepSeek 等兼容 `/chat/completions` 的服务。
+- **Ollama**：例如 `http://localhost:11434`，适合完全本地的模型工作流。
+
+使用远程模型时，选中的代码变更和生成 Prompt 会发送给你配置的服务提供方。请只对你有权限发送的代码使用远程服务。
 
 ## 数据与安全边界
 
-- AI 模型配置、最近仓库、主题和提交历史保存在本机应用数据中。
-- 项目画像和 Prompt 调试数据写入项目内的 `.lumina/`，该目录已被忽略，不会被 Lumina 自动提交。
-- DevDock 会执行你选择项目中的 `package.json` scripts。只添加和运行你信任的项目目录。
-- 当使用远程 AI 服务时，选中的代码变更和生成 Prompt 会发送给你配置的服务提供方。
+- 模型配置、最近仓库、主题和提交记录保存在本机应用数据中。
+- 项目画像与 Prompt 调试数据写入项目内的 `.lumina/`，Lumina 不会自动提交该目录。
+- DevDock 会执行你主动选择项目中的 `package.json` scripts；请只添加可信项目目录。
+- 退出时可选择最小化到系统托盘，或停止全部受管进程后退出。
 
-## 开发
+## 反馈与贡献
 
-```bash
-npm run tauri:dev   # 启动桌面应用
-npm run dev         # 仅启动 Vite
-npm run lint        # TypeScript、ESLint、Stylelint
-npm run build       # 构建前端
-npm run tauri:build # 构建桌面安装包
-```
+Lumina 现在最需要的是实际工作流反馈，尤其是：
 
-## 项目结构
+- 你是否会用低成本模型替代编码模型生成 Commit Message？
+- 你通常会同时运行多少个本地项目？
+- 你最希望 DevDock 优先解决“项目组启动”“进程健康检查”还是“成本统计”？
 
-```text
-src/                         Vue 前端
-  views/git-assistant/       Git 工作台
-  views/devdock/             多项目进程管理
-  views/git-log/             提交历史窗口
-  components/workbench/      共享工作台组件
-  services/                  Tauri 命令调用封装
-src-tauri/                   Rust / Tauri 后端
-  commands/                  Tauri command 层
-  git/                       Git 操作与 Prompt 构建
-  ai/                        AI 服务调用
-```
+请使用 [Bug 报告](https://github.com/zhkai-ybwn/Lumina/issues/new/choose) 或 [功能建议](https://github.com/zhkai-ybwn/Lumina/issues/new/choose) 模板。欢迎提交 Pull Request，详细流程见 [贡献指南](CONTRIBUTING.md)。
 
-## 贡献
-
-欢迎提交 Issue 和 Pull Request。提交前请运行：
-
-```bash
-npm run lint
-cargo test --manifest-path src-tauri/Cargo.toml --lib
-```
-
-## 许可证
-
-[MIT License](LICENSE)
-
----
-
-<a id="english"></a>
-
-# Lumina
-
-[中文](#lumina) | **English**
-
-Lumina is a desktop workbench for everyday development: manage Git changes, generate commit messages, run multiple local projects, and inspect processes and logs from one application.
-
-> Current version: `0.1.0-beta.1`. This is a public beta. Issues and feedback are welcome.
-
-## Features
-
-### Git Workbench
-
-- Inspect working-tree changes, staged files, conflicts, branches, and sync status.
-- Commit selected files without changing the staged state of files that were not selected.
-- Fetch, pull, push, rebase, conflict resolution, and per-file revert.
-- File diffs, commit history, and live Git command progress.
-- Recent repositories with local aliases.
-
-### AI Commit Assistant
-
-- Generate conventional commit titles and bodies from selected files.
-- Review generated prompts, file-selection strategy, and commit-message history.
-- Use Ollama or OpenAI-compatible APIs, with model routing per task.
-
-### DevDock
-
-- Manage multiple local projects and parse scripts from `package.json`.
-- Start, stop, and restart development processes; inspect PID, ports, URLs, and logs.
-- Search and pin commands, reopen recent commands, and open running services in a browser.
-- Minimize to the system tray or stop all managed processes before quitting.
-
-## Getting Started
-
-### Prerequisites
-
-- Node.js 20+
-- Rust 1.77.2+
-- Git
-- [Tauri 2 prerequisites](https://v2.tauri.app/start/prerequisites/)
-
-### Run Locally
-
-```bash
-git clone https://github.com/<your-github-id>/lumina.git
-cd lumina
-npm install
-npm run tauri:dev
-```
-
-### Build an Installer
-
-```bash
-npm run tauri:build
-```
-
-Artifacts are written to `src-tauri/target/release/bundle/`. On Windows, if NSIS or WiX downloads fail, run:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File fix-tauri-tools.ps1
-```
-
-## AI Model Setup
-
-Open **Settings → AI Models**, add a model, test the connection, then optionally assign it to Commit Message, Change Summary, or Light Review.
-
-- **Ollama**: use a Base URL such as `http://localhost:11434` for a local workflow.
-- **OpenAI-compatible**: provide the service URL, model name, and API key. Services exposing `/chat/completions` are supported.
-
-## Data and Security
-
-- AI configuration, recent repositories, themes, and commit history stay in local application data.
-- Project profiles and prompt-debug data are stored in `.lumina/` within each project. The directory is ignored by Git.
-- DevDock executes scripts from the selected project's `package.json`. Only add projects you trust.
-- When using a remote AI provider, selected code changes and generated prompts are sent to the provider you configure.
-
-## Development
-
-```bash
-npm run tauri:dev   # Run the desktop app
-npm run dev         # Run Vite only
-npm run lint        # TypeScript, ESLint, and Stylelint
-npm run build       # Build the frontend
-npm run tauri:build # Build desktop installers
-```
-
-## Project Layout
-
-```text
-src/                         Vue frontend
-  views/git-assistant/       Git workbench
-  views/devdock/             Multi-project process management
-  views/git-log/             Commit-history window
-  components/workbench/      Shared workbench components
-  services/                  Tauri command wrappers
-src-tauri/                   Rust / Tauri backend
-  commands/                  Tauri command layer
-  git/                       Git operations and prompt construction
-  ai/                        AI service clients
-```
-
-## Contributing
-
-Issues and pull requests are welcome. Before opening a pull request, run:
+开发前的本地检查：
 
 ```bash
 npm run lint
@@ -226,4 +111,69 @@ cargo test --manifest-path src-tauri/Cargo.toml --lib
 
 ## License
 
-[MIT License](LICENSE)
+[MIT](LICENSE)
+
+---
+
+<a id="english"></a>
+
+# Lumina
+
+[中文](#lumina) · [Releases](https://github.com/zhkai-ybwn/Lumina/releases) · [Report an issue](https://github.com/zhkai-ybwn/Lumina/issues/new/choose)
+
+Lumina is a local desktop workbench for developers who manage multiple projects: generate Git commit messages with cost-effective AI models, then start, stop, and inspect local project processes in one place.
+
+## Why Lumina
+
+Two routine tasks become distracting when repeated every day:
+
+1. Writing a reliable commit message from selected changes should not consume a costly coding-model budget.
+2. Running several local projects should not mean hunting through Git Bash, CMD, and VS Code terminals for the right service.
+
+Lumina keeps both workflows local and explicit. AI assists with commit messages; DevDock only runs the `package.json` scripts you choose.
+
+## Core workflows
+
+### Cost-conscious AI Commit
+
+Select the files for a commit, generate an editable Conventional Commit title and body, review the prompt, then commit.
+
+![Git commit message generation](src/assets/Git提交信息生成界面.png)
+
+Lumina supports Ollama and OpenAI-compatible APIs, including compatible DeepSeek services. Prompts are built from selected files and can be inspected before model use.
+
+### DevDock for local projects
+
+DevDock reads `package.json` scripts and brings multiple projects, their processes, ports, URLs, and logs into one view.
+
+![Multiple projects managed in DevDock](src/assets/多项目启动界面截图.png)
+
+![Process logs inside Lumina](src/assets/进程管理单进程启动界面（日志弹窗）.png)
+
+## Install
+
+Download a published installer from [Releases](https://github.com/zhkai-ybwn/Lumina/releases), or run from source with Node.js 20+, Rust 1.77.2+, Git, and the [Tauri 2 prerequisites](https://v2.tauri.app/start/prerequisites/):
+
+```bash
+git clone https://github.com/zhkai-ybwn/Lumina.git
+cd Lumina
+npm install
+npm run tauri:dev
+```
+
+Build an installer with `npm run tauri:build`.
+
+## AI and data boundary
+
+- Configure OpenAI-compatible or Ollama models in **Settings → Models**.
+- When you use a remote provider, selected code changes and the generated prompt are sent to that provider.
+- AI configuration, recent repositories, themes, and commit history stay in local application data.
+- DevDock only executes scripts from project directories you explicitly choose.
+
+## Feedback and contribution
+
+Lumina is in public beta. Please report bugs and feature ideas through [GitHub Issues](https://github.com/zhkai-ybwn/Lumina/issues/new/choose), and see [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request.
+
+## License
+
+[MIT](LICENSE)

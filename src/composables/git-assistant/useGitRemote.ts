@@ -24,8 +24,11 @@ export interface GitCommandDialogState {
   running: boolean
   success: boolean | null
   command: string
+  activeCommand: string
   stdout: string
   stderr: string
+  stdoutCarriageReturnPending: boolean
+  stderrCarriageReturnPending: boolean
   message: string
   suggestion: string
   startedAt: number
@@ -73,8 +76,11 @@ export function useGitRemote(
     running: false,
     success: null,
     command: '',
+    activeCommand: '',
     stdout: '',
     stderr: '',
+    stdoutCarriageReturnPending: false,
+    stderrCarriageReturnPending: false,
     message: '',
     suggestion: '',
     startedAt: 0,
@@ -95,8 +101,11 @@ export function useGitRemote(
       running: true,
       success: null,
       command: '',
+      activeCommand: '',
       stdout: '',
       stderr: '',
+      stdoutCarriageReturnPending: false,
+      stderrCarriageReturnPending: false,
       message: t('gitAssistant.gitCommand.running'),
       suggestion: '',
       startedAt: Date.now(),
@@ -118,9 +127,13 @@ export function useGitRemote(
       success: true,
       finishedAt: Date.now(),
       progressPercent: gitCommandDialog.value.progressPercent ?? 100,
+      progressPhase: '',
       command: result.command,
-      stdout: result.stdout,
-      stderr: result.stderr,
+      activeCommand: getLastCommand(result.command) || gitCommandDialog.value.activeCommand,
+      stdout: normalizeGitOutput(result.stdout),
+      stderr: normalizeGitOutput(result.stderr),
+      stdoutCarriageReturnPending: false,
+      stderrCarriageReturnPending: false,
       message: result.message,
       suggestion: result.suggestion ?? '',
       nextActionLabel,
@@ -143,6 +156,7 @@ export function useGitRemote(
       success: false,
       finishedAt: Date.now(),
       phase: t('gitAssistant.gitCommand.failed'),
+      progressPhase: '',
       stderr: message,
       message: t('gitAssistant.gitCommand.failed'),
       suggestion: '',
@@ -164,18 +178,26 @@ export function useGitRemote(
       const payload = event.payload
       if (payload.repoPath !== repoPath || !gitCommandDialog.value.running) return
 
+      const current = gitCommandDialog.value
+      const commandChanged = payload.command !== current.activeCommand
+      const stdout = payload.stream === 'stdout'
+        ? appendGitOutput(current.stdout, payload.text, current.stdoutCarriageReturnPending)
+        : null
+      const stderr = payload.stream === 'stderr'
+        ? appendGitOutput(current.stderr, payload.text, current.stderrCarriageReturnPending)
+        : null
+
       gitCommandDialog.value = {
-        ...gitCommandDialog.value,
-        command: gitCommandDialog.value.command || payload.command,
-        stdout: payload.stream === 'stdout'
-          ? appendGitOutput(gitCommandDialog.value.stdout, payload.text)
-          : gitCommandDialog.value.stdout,
-        stderr: payload.stream === 'stderr'
-          ? appendGitOutput(gitCommandDialog.value.stderr, payload.text)
-          : gitCommandDialog.value.stderr,
-        progressPercent: payload.percent ?? gitCommandDialog.value.progressPercent,
-        progressPhase: payload.phase ?? gitCommandDialog.value.progressPhase,
-        transfer: payload.transfer ?? gitCommandDialog.value.transfer,
+        ...current,
+        command: appendGitCommand(current.command, payload.command),
+        activeCommand: payload.command,
+        stdout: stdout?.text ?? current.stdout,
+        stderr: stderr?.text ?? current.stderr,
+        stdoutCarriageReturnPending: stdout?.carriageReturnPending ?? current.stdoutCarriageReturnPending,
+        stderrCarriageReturnPending: stderr?.carriageReturnPending ?? current.stderrCarriageReturnPending,
+        progressPercent: payload.percent ?? (commandChanged ? null : current.progressPercent),
+        progressPhase: payload.phase ?? (commandChanged ? '' : current.progressPhase),
+        transfer: payload.transfer ?? (commandChanged ? '' : current.transfer),
       }
     })
     if (token === progressListenerToken) {
@@ -191,10 +213,45 @@ export function useGitRemote(
     unlistenProgress = null
   }
 
-  function appendGitOutput(current: string, chunk: string) {
-    const normalized = chunk.replace(/\r/g, '\n')
-    const next = `${current}${normalized}`
-    return next.length > 200_000 ? next.slice(-200_000) : next
+  function appendGitCommand(current: string, command: string) {
+    if (!command || current.split('\n').includes(command)) return current
+    return current ? `${current}\n${command}` : command
+  }
+
+  function getLastCommand(command: string) {
+    return command.split('\n').map(item => item.trim()).filter(Boolean).at(-1) ?? ''
+  }
+
+  function normalizeGitOutput(text: string) {
+    return appendGitOutput('', text, false).text
+  }
+
+  function appendGitOutput(current: string, chunk: string, carriageReturnPending: boolean) {
+    let text = current
+    let pending = carriageReturnPending
+
+    for (const char of chunk) {
+      if (pending) {
+        if (char === '\n') {
+          text += '\n'
+          pending = false
+          continue
+        }
+        text = text.slice(0, text.lastIndexOf('\n') + 1)
+        pending = false
+      }
+
+      if (char === '\r') {
+        pending = true
+      } else {
+        text += char
+      }
+    }
+
+    return {
+      text: text.length > 200_000 ? text.slice(-200_000) : text,
+      carriageReturnPending: pending,
+    }
   }
 
   async function handleConfigureOrigin() {

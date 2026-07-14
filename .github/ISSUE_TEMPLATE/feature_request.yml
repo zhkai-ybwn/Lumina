@@ -1,0 +1,41 @@
+name: Feature request
+description: Suggest an improvement based on a real development workflow
+title: '[Feature]: '
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Tell us about the workflow problem first. A concrete example is more useful than a feature list.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Relevant area
+      options:
+        - AI Commit Assistant
+        - Git workbench
+        - DevDock / process management
+        - Settings
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Workflow problem
+      description: What are you doing today, and where does it become slow, costly, or error-prone?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed outcome
+      description: Describe the outcome you need. A specific implementation is optional.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: What tools or workarounds have you tried?

@@ -422,6 +422,7 @@
       :running="gitCommandDialog.running"
       :success="gitCommandDialog.success"
       :command="gitCommandDialog.command"
+      :active-command="gitCommandDialog.activeCommand"
       :stdout="gitCommandDialog.stdout"
       :stderr="gitCommandDialog.stderr"
       :message="gitCommandDialog.message"

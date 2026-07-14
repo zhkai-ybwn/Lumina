@@ -22,28 +22,25 @@
         </div>
       </header>
 
-      <div class="operation-stage">
-        <div class="stage-node stage-node--source">
-          <strong>Git</strong>
-          <span>{{ t('gitAssistant.gitCommand.workingTree') }}</span>
+      <section class="progress-summary">
+        <div class="progress-summary__heading">
+          <strong>{{ currentActivity }}</strong>
+          <code>{{ activeCommand || commandSummary }}</code>
         </div>
-        <div class="stage-beam" :class="statusTone"></div>
-        <div class="stage-node stage-node--target">
-          <strong>{{ phase }}</strong>
-          <span>{{ commandSummary }}</span>
+        <div class="progress-track" :aria-label="currentActivity">
+          <div class="progress-bar" :class="[statusTone, { determinate: progressPercent !== null }]" :style="progressStyle"></div>
         </div>
-      </div>
-
-      <div class="progress-track">
-        <div class="progress-bar" :class="[statusTone, { determinate: progressPercent !== null }]" :style="progressStyle"></div>
-      </div>
+        <div class="progress-details">
+          <span v-if="progressPercent !== null">{{ progressPercent }}%</span>
+          <span v-if="transfer">{{ transfer }}</span>
+          <span>{{ elapsedLabel }}</span>
+        </div>
+      </section>
 
       <section class="log-panel" :class="statusTone">
         <div class="log-toolbar">
           <span>{{ t('gitAssistant.gitCommand.output') }}</span>
-          <div class="log-stats">
-            <strong v-for="stat in progressStats" :key="stat">{{ stat }}</strong>
-          </div>
+          <span>{{ elapsedLabel }}</span>
         </div>
         <div class="log-box">
           <template v-for="(line, idx) in logLines" :key="idx">
@@ -91,6 +88,7 @@ const props = defineProps<{
   running: boolean
   success: boolean | null
   command: string
+  activeCommand: string
   stdout: string
   stderr: string
   message: string
@@ -150,9 +148,11 @@ const statusLabel = computed(() => {
 })
 
 const commandSummary = computed(() => {
-  const firstCommand = props.command.split('\n').find(Boolean)
-  return firstCommand || props.message || 'preparing'
+  const lastCommand = props.command.split('\n').filter(Boolean).at(-1)
+  return lastCommand || props.message || 'preparing'
 })
+
+const currentActivity = computed(() => props.progressPhase || props.phase || statusLabel.value)
 
 const ticker = ref(Date.now())
 let timerId: number | undefined
@@ -179,22 +179,6 @@ watch(
 
 onBeforeUnmount(stopTicker)
 
-function countTextLines(text: string) {
-  const trimmed = text.trim()
-  return trimmed ? trimmed.split(/\r?\n/).length : 0
-}
-
-function getByteSize(text: string) {
-  if (!text) return 0
-  return new TextEncoder().encode(text).length
-}
-
-function formatBytes(bytes: number) {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`
-}
-
 function formatDuration(ms: number) {
   const seconds = Math.max(0, Math.round(ms / 1000))
   if (seconds < 60) return `${seconds}s`
@@ -209,30 +193,11 @@ const elapsedLabel = computed(() => {
   return formatDuration(end - props.startedAt)
 })
 
-const outputLineCount = computed(() => countTextLines(props.stdout) + countTextLines(props.stderr))
-const outputSize = computed(() => getByteSize(props.stdout) + getByteSize(props.stderr))
-
 const progressStyle = computed(() => {
   if (props.progressPercent === null) return undefined
   return { width: `${Math.max(0, Math.min(100, props.progressPercent))}%` }
 })
 
-const progressStats = computed(() => {
-  const stats = []
-  if (props.progressPercent !== null) {
-    stats.push(`${props.progressPercent}%`)
-  }
-  if (props.progressPhase) {
-    stats.push(props.progressPhase)
-  }
-  if (props.transfer) {
-    stats.push(props.transfer)
-  }
-  stats.push(elapsedLabel.value)
-  stats.push(`${outputLineCount.value} ${t('gitAssistant.gitCommand.lines')}`)
-  stats.push(formatBytes(outputSize.value))
-  return stats
-})
 </script>
 
 <style scoped lang="scss">
@@ -254,7 +219,7 @@ const progressStats = computed(() => {
   box-shadow: var(--lumina-shadow-md);
   display: grid;
   gap: 14px;
-  grid-template-rows: auto auto auto minmax(240px, 1fr) auto;
+  grid-template-rows: auto auto minmax(240px, 1fr) auto;
   max-height: min(680px, 86vh);
   overflow: hidden;
   position: relative;
@@ -367,74 +332,32 @@ const progressStats = computed(() => {
   }
 }
 
-.operation-stage {
-  align-items: center;
+.progress-summary {
   display: grid;
-  gap: 12px;
-  grid-template-columns: 150px minmax(80px, 1fr) 240px;
+  gap: 8px;
   padding: 0 18px;
 }
 
-.stage-node {
-  background: var(--lumina-surface-2);
-  border: 1px solid var(--lumina-card-border);
-  border-radius: 9px;
-  display: grid;
-  gap: 4px;
+.progress-summary__heading {
+  align-items: baseline;
+  display: flex;
+  gap: 12px;
   min-width: 0;
-  padding: 12px;
 
-  strong,
-  span {
+  strong {
+    color: var(--lumina-text);
+    flex: 0 0 auto;
+    font-size: 13px;
+  }
+
+  code {
+    color: var(--lumina-text-secondary);
+    font-family: Consolas, 'Liberation Mono', Menlo, monospace;
+    font-size: 11px;
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-  }
-
-  strong {
-    color: var(--lumina-text);
-    font-size: 13px;
-  }
-
-  span {
-    color: var(--lumina-text-secondary);
-    font-family: Consolas, 'Liberation Mono', Menlo, monospace;
-    font-size: 11px;
-  }
-}
-
-.stage-node--source {
-  border-left: 2px solid var(--lumina-primary);
-}
-
-.stage-node--target {
-  border-left: 2px solid var(--lumina-text-secondary);
-}
-
-.stage-beam {
-  background: var(--lumina-card-border);
-  height: 1px;
-  overflow: hidden;
-  position: relative;
-
-  &.running::after {
-    animation: beam-run 1.1s ease-in-out infinite;
-    background: var(--lumina-primary);
-    content: '';
-    height: 2px;
-    left: 0;
-    position: absolute;
-    top: 0;
-    width: 38%;
-  }
-
-  &.failed {
-    background: var(--lumina-danger);
-  }
-
-  &.done {
-    background: var(--lumina-success);
   }
 }
 
@@ -442,9 +365,16 @@ const progressStats = computed(() => {
   background: var(--lumina-surface-2);
   border: 1px solid var(--lumina-card-border);
   border-radius: 999px;
-  height: 12px;
-  margin: 0 18px;
+  height: 8px;
   overflow: hidden;
+}
+
+.progress-details {
+  color: var(--lumina-text-secondary);
+  display: flex;
+  font-family: Consolas, 'Liberation Mono', Menlo, monospace;
+  font-size: 11px;
+  gap: 12px;
 }
 
 .progress-bar {
@@ -549,23 +479,6 @@ const progressStats = computed(() => {
   min-height: 32px;
   padding: 0 10px;
 
-  strong {
-    background: var(--lumina-surface-2);
-    border: 1px solid var(--lumina-card-border);
-    border-radius: 999px;
-    color: var(--lumina-text);
-    font-family: Consolas, 'Liberation Mono', Menlo, monospace;
-    font-size: 11px;
-    font-weight: 600;
-    line-height: 20px;
-    padding: 0 8px;
-  }
-}
-
-.log-stats {
-  align-items: center;
-  display: flex;
-  gap: 6px;
 }
 
 .dialog-actions {
@@ -617,13 +530,4 @@ const progressStats = computed(() => {
   }
 }
 
-@keyframes beam-run {
-  0% {
-    transform: translateX(-120%);
-  }
-
-  100% {
-    transform: translateX(320%);
-  }
-}
 </style>
