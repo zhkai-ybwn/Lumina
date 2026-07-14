@@ -918,7 +918,7 @@ fn sync_status_message(state: &GitRepositoryState, action: &GitSyncRecommendedAc
     );
 
     let advice = match action {
-        GitSyncRecommendedAction::Push => "本地有待推送提交，可以继续 Push。",
+        GitSyncRecommendedAction::Push => "",
         GitSyncRecommendedAction::Pull => "远端有本地没有的提交，请先 Pull，再 Push。",
         GitSyncRecommendedAction::ResolveDivergence => {
             "本地和远端都有新提交，不能直接 Push。请先 Pull 或打开 Log 确认分叉后再处理。"
@@ -928,7 +928,11 @@ fn sync_status_message(state: &GitRepositoryState, action: &GitSyncRecommendedAc
         GitSyncRecommendedAction::None => "本地与远端已同步。",
     };
 
-    format!("{}\n{}", base, advice)
+    if advice.is_empty() {
+        base
+    } else {
+        format!("{}\n{}", base, advice)
+    }
 }
 
 pub fn sync_status(payload: &GitRepoPayload) -> Result<GitSyncStatus, String> {

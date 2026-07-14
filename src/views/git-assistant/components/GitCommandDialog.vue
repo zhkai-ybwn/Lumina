@@ -42,7 +42,7 @@
           <span>{{ t('gitAssistant.gitCommand.output') }}</span>
           <span>{{ elapsedLabel }}</span>
         </div>
-        <div class="log-box">
+        <div ref="logBox" class="log-box">
           <template v-for="(line, idx) in logLines" :key="idx">
             <div v-if="idx > 0" class="log-separator"></div>
             <div class="log-line" :class="`log-${line.type}`">{{ line.text }}</div>
@@ -74,7 +74,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { Icon } from '@iconify/vue'
 import { useLocale } from '@/hooks/useLocale'
 
@@ -155,6 +155,7 @@ const commandSummary = computed(() => {
 const currentActivity = computed(() => props.progressPhase || props.phase || statusLabel.value)
 
 const ticker = ref(Date.now())
+const logBox = ref<HTMLElement | null>(null)
 let timerId: number | undefined
 
 function stopTicker() {
@@ -178,6 +179,15 @@ watch(
 )
 
 onBeforeUnmount(stopTicker)
+
+watch(
+  () => [props.command, props.stdout, props.stderr] as const,
+  () => {
+    void nextTick(() => {
+      if (logBox.value) logBox.value.scrollTop = logBox.value.scrollHeight
+    })
+  },
+)
 
 function formatDuration(ms: number) {
   const seconds = Math.max(0, Math.round(ms / 1000))
@@ -220,6 +230,7 @@ const progressStyle = computed(() => {
   display: grid;
   gap: 14px;
   grid-template-rows: auto auto minmax(240px, 1fr) auto;
+  height: min(680px, 86vh);
   max-height: min(680px, 86vh);
   overflow: hidden;
   position: relative;
@@ -381,11 +392,10 @@ const progressStyle = computed(() => {
   background: var(--lumina-primary);
   height: 100%;
   transition: width 0.2s ease;
-  width: 100%;
+  width: 0;
 
   &.running {
-    animation: progress-slide 1.2s linear infinite;
-    width: 45%;
+    animation: none;
   }
 
   &.determinate {
@@ -518,16 +528,6 @@ const progressStyle = computed(() => {
   border-color: var(--lumina-primary);
   box-shadow: none;
   color: #fff;
-}
-
-@keyframes progress-slide {
-  0% {
-    transform: translateX(-100%);
-  }
-
-  100% {
-    transform: translateX(230%);
-  }
 }
 
 </style>
