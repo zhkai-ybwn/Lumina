@@ -449,9 +449,12 @@ fn detect_urls(lines: &VecDeque<ProjectProcessLogLine>) -> Vec<String> {
         let text = strip_ansi(&line.text);
         for token in text.split_whitespace() {
             let candidate = token
-                .trim_matches(|ch: char| matches!(ch, '(' | ')' | '[' | ']' | '<' | '>' | ',' | ';' | '"' | '\''))
-                .trim_end_matches('.');
+                .trim_matches(|ch: char| matches!(ch, '(' | ')' | '[' | ']' | '<' | '>' | ',' | ';' | '"' | '\'' | '|' | '`' | '#' | '!'))
+                .trim_end_matches('.')
+                .trim_end_matches(':')
+                .trim_end_matches(',');
             if (candidate.starts_with("http://") || candidate.starts_with("https://"))
+                && is_localhost_url(candidate)
                 && !urls.iter().any(|url| url == candidate)
             {
                 urls.push(candidate.to_string());
@@ -459,6 +462,52 @@ fn detect_urls(lines: &VecDeque<ProjectProcessLogLine>) -> Vec<String> {
         }
     }
     urls
+}
+
+fn is_localhost_url(url: &str) -> bool {
+    let without_protocol = url
+        .strip_prefix("https://")
+        .or_else(|| url.strip_prefix("http://"))
+        .unwrap_or(url);
+    let host = without_protocol
+        .split('/')
+        .next()
+        .unwrap_or("")
+        .split(':')
+        .next()
+        .unwrap_or("");
+    host == "localhost"
+        || host == "127.0.0.1"
+        || host == "0.0.0.0"
+        || host.ends_with(".local")
+        || is_private_ip(host)
+}
+
+fn is_private_ip(host: &str) -> bool {
+    let parts: Vec<&str> = host.split('.').collect();
+    if parts.len() != 4 {
+        return false;
+    }
+    let nums: Option<Vec<u8>> = parts.iter().map(|p| p.parse::<u8>().ok()).collect();
+    if let Some([a, b, _, _]) = nums.as_deref() {
+        // 10.0.0.0/8
+        if *a == 10 {
+            return true;
+        }
+        // 172.16.0.0/12
+        if *a == 172 && (16..=31).contains(b) {
+            return true;
+        }
+        // 192.168.0.0/16
+        if *a == 192 && *b == 168 {
+            return true;
+        }
+        // 169.254.0.0/16 (link-local)
+        if *a == 169 && *b == 254 {
+            return true;
+        }
+    }
+    false
 }
 
 fn process_ports(process: &ManagedProcess) -> Vec<u16> {
@@ -814,6 +863,20 @@ mod tests {
         }
     }
 
+    #[cfg(windows)]
+    #[test]
+    fn hidden_command_preserves_piped_output() {
+        let output = silent_command("cmd")
+            .args(["/D", "/S", "/C", "echo lumina-log"])
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .output()
+            .expect("run hidden command");
+
+        assert!(output.status.success());
+        assert!(String::from_utf8_lossy(&output.stdout).contains("lumina-log"));
+    }
+
     #[test]
     fn stop_process_terminates_managed_child() {
         #[cfg(windows)]
@@ -849,5 +912,27 @@ mod tests {
 
         stop_process(&process).expect("stop child process");
         assert!(!pid_is_alive(pid));
+    }
+}
+
+#[tauri::command]
+pub async fn check_pid_alive(pid: u32) -> bool {
+    #[cfg(windows)]
+    {
+        let output = std::process::Command::new("tasklist")
+            .args(["/FI", &format!("PID eq {pid}"), "/NH"])
+            .output();
+        match output {
+            Ok(out) => {
+                let stdout = String::from_utf8_lossy(&out.stdout);
+                stdout.contains(&pid.to_string())
+            }
+            Err(_) => false,
+        }
+    }
+
+    #[cfg(not(windows))]
+    {
+        unsafe { libc::kill(pid as i32, 0) == 0 }
     }
 }

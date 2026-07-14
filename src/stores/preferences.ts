@@ -2,10 +2,12 @@ import { defineStore } from 'pinia'
 import { i18n, type AppLocale } from '@/i18n'
 
 export type ThemeMode = 'light' | 'dark' | 'system'
+export type CloseAction = 'ask' | 'hideToTray' | 'exit'
 
 const STORAGE_KEYS = {
   locale: 'lumina.preferences.locale',
   themeMode: 'lumina.preferences.themeMode',
+  closeAction: 'lumina.preferences.closeAction',
 } as const
 
 let systemThemeMedia: MediaQueryList | null = null
@@ -18,6 +20,7 @@ export const usePreferencesStore = defineStore('preferences', {
   state: () => ({
     locale: (localStorage.getItem(STORAGE_KEYS.locale) as AppLocale | null) ?? 'zh-CN',
     themeMode: (localStorage.getItem(STORAGE_KEYS.themeMode) as ThemeMode | null) ?? 'system',
+    closeAction: (localStorage.getItem(STORAGE_KEYS.closeAction) as CloseAction | null) ?? 'ask',
   }),
 
   getters: {
@@ -41,6 +44,11 @@ export const usePreferencesStore = defineStore('preferences', {
       this.themeMode = mode
       localStorage.setItem(STORAGE_KEYS.themeMode, mode)
       this.syncThemeToDom()
+    },
+
+    setCloseAction(action: CloseAction) {
+      this.closeAction = action
+      localStorage.setItem(STORAGE_KEYS.closeAction, action)
     },
 
     syncLocale() {

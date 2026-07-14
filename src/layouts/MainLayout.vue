@@ -4,7 +4,12 @@
       <div class="window-title" data-tauri-drag-region>{{ windowTitle }}</div>
 
       <div class="window-actions" @mousedown.stop @dblclick.stop>
-        <button class="window-button" type="button" :title="t('topbar.minimize')" @click="minimizeWindow">
+        <button
+          class="window-button"
+          type="button"
+          :title="t('topbar.minimize')"
+          @click="minimizeWindow"
+        >
           <span class="caption-icon caption-icon--minimize" aria-hidden="true"></span>
         </button>
         <button class="window-button" type="button" :title="maximizeTitle" @click="toggleMaximize">
@@ -14,7 +19,12 @@
             aria-hidden="true"
           ></span>
         </button>
-        <button class="window-button window-button--close" type="button" :title="t('topbar.close')" @click="closeWindow">
+        <button
+          class="window-button window-button--close"
+          type="button"
+          :title="t('topbar.close')"
+          @click="closeWindow"
+        >
           <span class="caption-icon caption-icon--close" aria-hidden="true"></span>
         </button>
       </div>
@@ -62,11 +72,36 @@
       </div>
     </div>
 
-    <n-modal v-model:show="exitDialogOpen" :auto-focus="false" :mask-closable="false">
-      <section class="exit-dialog" role="dialog" aria-modal="true" :aria-label="t('topbar.exitTitle')">
-        <header>
-          <h3>{{ t('topbar.exitTitle') }}</h3>
-          <p>{{ runningProcesses.length ? t('topbar.exitRunningHint') : t('topbar.exitIdleHint') }}</p>
+    <n-modal
+      v-model:show="exitDialogOpen"
+      :auto-focus="false"
+      :mask-closable="false"
+      :close-on-esc="true"
+    >
+      <section
+        class="exit-dialog"
+        role="dialog"
+        aria-modal="true"
+        :aria-label="t('topbar.exitTitle')"
+      >
+        <button
+          class="exit-dialog-close"
+          type="button"
+          :aria-label="t('topbar.cancel')"
+          @click="exitDialogOpen = false"
+        >
+          <span class="exit-dialog-close-mark" aria-hidden="true">×</span>
+        </button>
+        <header class="exit-dialog-heading">
+          <span class="exit-dialog-icon" aria-hidden="true"
+            ><Icon icon="solar:power-linear"
+          /></span>
+          <div>
+            <h3>{{ t('topbar.exitTitle') }}</h3>
+            <p>
+              {{ runningProcesses.length ? t('topbar.exitRunningHint') : t('topbar.exitIdleHint') }}
+            </p>
+          </div>
         </header>
         <div v-if="runningProcesses.length" class="exit-process-list">
           <div v-for="process in runningProcesses" :key="process.id" class="exit-process-row">
@@ -74,12 +109,21 @@
             <span>{{ process.scriptName }} · PID {{ process.pid }}</span>
           </div>
         </div>
-        <footer>
-          <button type="button" @click="exitDialogOpen = false">{{ t('topbar.cancel') }}</button>
-          <button type="button" @click="hideToTray">{{ t('topbar.hideToTray') }}</button>
-          <button class="danger" type="button" :disabled="exiting" @click="exitApplication">
-            {{ exiting ? t('topbar.exiting') : t('topbar.exitAndStop') }}
-          </button>
+        <footer class="exit-dialog-footer">
+          <label class="exit-remember">
+            <NCheckbox v-model:checked="rememberChoice">{{ t('topbar.rememberChoice') }}</NCheckbox>
+            <span>{{ t('topbar.rememberHint') }}</span>
+          </label>
+          <div class="exit-actions">
+            <button class="secondary" type="button" @click="handleHideToTray">
+              <Icon icon="solar:monitor-smartphone-linear" />
+              {{ t('topbar.hideToTray') }}
+            </button>
+            <button class="danger" type="button" :disabled="exiting" @click="exitApplication">
+              <Icon icon="solar:power-linear" />
+              {{ exiting ? t('topbar.exiting') : t('topbar.exitAndStop') }}
+            </button>
+          </div>
         </footer>
       </section>
     </n-modal>
@@ -94,7 +138,12 @@ import { useI18n } from 'vue-i18n'
 import type { UnlistenFn } from '@tauri-apps/api/event'
 import { listen } from '@tauri-apps/api/event'
 import { getCurrentWindow } from '@tauri-apps/api/window'
-import { listProjectProcesses, stopAllProjectProcesses, type ProjectProcessSnapshot } from '@/services/project/project-service'
+import {
+  listProjectProcesses,
+  stopAllProjectProcesses,
+  type ProjectProcessSnapshot,
+} from '@/services/project/project-service'
+import { usePreferencesStore } from '@/stores/preferences'
 
 const router = useRouter()
 const route = useRoute()
@@ -108,6 +157,8 @@ let unlistenTrayExit: UnlistenFn | null = null
 const exitDialogOpen = ref(false)
 const exiting = ref(false)
 const runningProcesses = ref<ProjectProcessSnapshot[]>([])
+const rememberChoice = ref(false)
+const preferencesStore = usePreferencesStore()
 
 const navItems = computed(() => [
   { route: 'git-assistant', label: t('workbench.git'), icon: 'solar:code-square-linear' },
@@ -119,14 +170,16 @@ const windowTitle = computed(() => {
   if (route.name === 'settings') return t('topbar.titleSettings')
   return t('topbar.titleGit')
 })
-const maximizeTitle = computed(() => (isMaximized.value ? t('topbar.restore') : t('topbar.maximize')))
+const maximizeTitle = computed(() =>
+  isMaximized.value ? t('topbar.restore') : t('topbar.maximize')
+)
 
 onMounted(async () => {
   await refreshMaximizedState()
   unlistenResize = await appWindow.onResized(refreshMaximizedState)
   unlistenCloseRequested = await appWindow.onCloseRequested(event => {
     event.preventDefault()
-    void requestExit()
+    void handleCloseRequest()
   })
   unlistenTrayExit = await listen('lumina://request-exit', () => {
     void requestExit()
@@ -157,11 +210,29 @@ async function toggleMaximize() {
 }
 
 async function closeWindow() {
+  await handleCloseRequest()
+}
+
+async function handleCloseRequest() {
+  const savedAction = preferencesStore.closeAction
+
+  if (savedAction === 'hideToTray') {
+    await hideToTray()
+    return
+  }
+
+  if (savedAction === 'exit') {
+    await exitApplication()
+    return
+  }
+
+  // Default: show dialog
   await requestExit()
 }
 
 async function requestExit() {
   try {
+    rememberChoice.value = false
     runningProcesses.value = await listProjectProcesses()
     exitDialogOpen.value = true
   } catch (error) {
@@ -174,7 +245,17 @@ async function hideToTray() {
   await appWindow.hide()
 }
 
+async function handleHideToTray() {
+  if (rememberChoice.value) {
+    preferencesStore.setCloseAction('hideToTray')
+  }
+  await hideToTray()
+}
+
 async function exitApplication() {
+  if (rememberChoice.value) {
+    preferencesStore.setCloseAction('exit')
+  }
   exiting.value = true
   try {
     await stopAllProjectProcesses()
@@ -241,7 +322,9 @@ async function refreshMaximizedState() {
   display: inline-flex;
   height: 32px;
   justify-content: center;
-  transition: background 0.18s ease, color 0.18s ease;
+  transition:
+    background 0.18s ease,
+    color 0.18s ease;
   width: 42px;
 
   &:hover,
@@ -257,51 +340,179 @@ async function refreshMaximizedState() {
 }
 
 .exit-dialog {
-  background: var(--lumina-surface-1);
+  background: var(--lumina-elevated-bg);
   border: 1px solid var(--lumina-card-border);
-  border-radius: 8px;
+  border-radius: var(--lumina-radius-xl);
   box-shadow: var(--lumina-shadow-lg);
   color: var(--lumina-text);
-  padding: 20px;
-  width: min(480px, calc(100vw - 32px));
+  padding: 24px;
+  position: relative;
+  width: min(424px, calc(100vw - 32px));
 
-  h3,
-  p {
+  h3 {
+    font-size: 17px;
+    font-weight: 650;
+    letter-spacing: -0.01em;
     margin: 0;
   }
 
   p {
     color: var(--lumina-text-secondary);
-    margin-top: 6px;
-  }
-
-  footer {
-    display: flex;
-    gap: 8px;
-    justify-content: flex-end;
-    margin-top: 18px;
+    font-size: 13px;
+    line-height: 1.65;
+    margin: 5px 0 0;
   }
 
   button {
+    align-items: center;
+    border-radius: var(--lumina-radius-md);
+    color: var(--lumina-text);
+    cursor: pointer;
+    display: inline-flex;
+    font-size: 13px;
+    font-weight: 600;
+    gap: 8px;
+    height: 40px;
+    justify-content: center;
+    padding: 0 16px;
+    transition:
+      background 0.15s ease,
+      border-color 0.15s ease,
+      transform 0.15s ease;
+
+    &:hover {
+      transform: translateY(-1px);
+    }
+
+    &:focus-visible {
+      box-shadow: 0 0 0 3px var(--lumina-accent-ring);
+      outline: none;
+    }
+
+    &:disabled {
+      cursor: wait;
+      opacity: 0.7;
+      transform: none;
+    }
+
+    svg {
+      height: 17px;
+      width: 17px;
+    }
+  }
+
+  button.secondary {
     background: var(--lumina-surface-2);
     border: 1px solid var(--lumina-card-border);
-    border-radius: 6px;
-    color: var(--lumina-text);
-    min-height: 32px;
-    padding: 0 12px;
+
+    &:hover {
+      background: var(--lumina-button-secondary-hover);
+      border-color: var(--lumina-input-border);
+    }
   }
 
   button.danger {
     background: var(--lumina-danger);
+    border-color: var(--lumina-danger);
     color: #fff;
+
+    &:hover {
+      background: color-mix(in srgb, var(--lumina-danger) 88%, #000);
+    }
   }
 }
 
+.exit-dialog-heading {
+  align-items: flex-start;
+  display: flex;
+  gap: 12px;
+  padding-right: 32px;
+}
+
+.exit-dialog-icon {
+  align-items: center;
+  background: color-mix(in srgb, var(--lumina-danger) 12%, var(--lumina-surface-2));
+  border-radius: var(--lumina-radius-md);
+  color: var(--lumina-danger);
+  display: inline-flex;
+  flex: 0 0 auto;
+  height: 32px;
+  justify-content: center;
+  width: 32px;
+
+  svg {
+    height: 18px;
+    width: 18px;
+  }
+}
+
+.exit-dialog-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: var(--lumina-surface-2) !important;
+  border: 1px solid var(--lumina-card-border) !important;
+  color: var(--lumina-text) !important;
+  cursor: pointer;
+  height: 30px;
+  width: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-radius: var(--lumina-radius-sm);
+
+  &:hover {
+    background: color-mix(in srgb, var(--lumina-danger) 10%, var(--lumina-surface-2)) !important;
+    border-color: color-mix(
+      in srgb,
+      var(--lumina-danger) 36%,
+      var(--lumina-card-border)
+    ) !important;
+    color: var(--lumina-danger) !important;
+    transform: none;
+  }
+}
+
+.exit-dialog-close-mark {
+  font-size: 23px;
+  font-weight: 300;
+  line-height: 1;
+  margin-top: -2px;
+}
+
+.exit-remember {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  span {
+    color: var(--lumina-text-secondary);
+    font-size: 12px;
+  }
+}
+
+.exit-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.exit-dialog-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 20px;
+}
+
 .exit-process-list {
-  border-block: 1px solid var(--lumina-card-border);
-  margin-top: 16px;
+  background: var(--lumina-surface-2);
+  border: 1px solid var(--lumina-card-border);
+  border-radius: var(--lumina-radius-md);
+  margin-top: 20px;
   max-height: 220px;
   overflow-y: auto;
+  padding: 0 12px;
 }
 
 .exit-process-row {
@@ -450,7 +661,9 @@ async function refreshMaximizedState() {
   display: flex;
   height: 36px;
   justify-content: center;
-  transition: background 0.15s ease, color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
   width: 36px;
 
   &:hover {

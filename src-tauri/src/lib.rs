@@ -83,6 +83,7 @@ pub fn run() {
             commands::project_process::restart_project_process,
             commands::project_process::load_project_process_logs,
             commands::project_process::open_project_url,
+            commands::project_process::check_pid_alive,
             log_frontend_error
         ])
         .run(tauri::generate_context!())

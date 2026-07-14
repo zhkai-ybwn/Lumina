@@ -20,6 +20,7 @@ import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import SettingsNav from './SettingsNav.vue'
 import LocalizationSettingsPanel from './panels/LocalizationSettingsPanel.vue'
+import CloseBehaviorSettingsPanel from './panels/CloseBehaviorSettingsPanel.vue'
 import ModelSettingsPanel from './panels/ModelSettingsPanel.vue'
 import ProjectProfileSettingsPanel from './panels/ProjectProfileSettingsPanel.vue'
 import TaskRoutingSettingsPanel from './panels/TaskRoutingSettingsPanel.vue'
@@ -32,9 +33,7 @@ const navSections = computed(() => [
   {
     key: 'project',
     label: t('settings.navSections.project'),
-    items: [
-      { key: 'profile', label: t('settings.nav.profile'), icon: 'solar:code-square-linear' },
-    ],
+    items: [{ key: 'profile', label: t('settings.nav.profile'), icon: 'solar:code-square-linear' }],
   },
   {
     key: 'app',
@@ -42,6 +41,7 @@ const navSections = computed(() => [
     items: [
       { key: 'language', label: t('settings.nav.language'), icon: 'solar:global-linear' },
       { key: 'theme', label: t('settings.nav.theme'), icon: 'solar:moon-linear' },
+      { key: 'closeBehavior', label: t('settings.nav.closeBehavior'), icon: 'solar:power-linear' },
       { key: 'models', label: t('settings.nav.models'), icon: 'solar:cpu-bolt-linear' },
       { key: 'routing', label: t('settings.nav.routing'), icon: 'solar:routing-3-linear' },
     ],
@@ -54,6 +54,8 @@ const activeComponent = computed(() => {
       return ProjectProfileSettingsPanel
     case 'theme':
       return ThemeSettingsPanel
+    case 'closeBehavior':
+      return CloseBehaviorSettingsPanel
     case 'models':
       return ModelSettingsPanel
     case 'routing':

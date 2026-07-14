@@ -19,12 +19,15 @@ export default {
     restore: 'Restore window',
     close: 'Close',
     exitTitle: 'Close Lumina',
-    exitRunningHint: 'These projects are still running. Exiting stops them and releases their ports.',
+    exitRunningHint:
+      'These projects are still running. Exiting stops them and releases their ports.',
     exitIdleHint: 'No project processes are currently running.',
     hideToTray: 'Minimize to tray',
     exitAndStop: 'Exit and stop all',
     exiting: 'Stopping...',
     cancel: 'Cancel',
+    rememberChoice: 'Remember choice',
+    rememberHint: 'You can change this any time in Settings',
   },
   devdock: {
     project: {
@@ -57,8 +60,10 @@ export default {
     },
     empty: {
       title: 'DevDock is connected to Lumina',
-      description: 'Next, DevDock will read package.json, detect scripts, running services, and ports. For now it shares the selected project directory and reserves the project control console layout.',
-      noManifest: 'This directory has no package.json information to show. Choose a Node project folder, or connect more project scanners later.',
+      description:
+        'Next, DevDock will read package.json, detect scripts, running services, and ports. For now it shares the selected project directory and reserves the project control console layout.',
+      noManifest:
+        'This directory has no package.json information to show. Choose a Node project folder, or connect more project scanners later.',
     },
     actions: {
       addProject: 'Add Project',
@@ -102,7 +107,8 @@ export default {
       title: 'Process Manager',
       subtitle: 'Stop, restart, and inspect logs quickly',
       emptyTitle: 'No running processes',
-      emptyDescription: 'After starting services from scripts on the left, their status, ports, logs, stop, and restart actions will appear here.',
+      emptyDescription:
+        'After starting services from scripts on the left, their status, ports, logs, stop, and restart actions will appear here.',
       pid: 'PID {pid}',
       ports: 'Ports {ports}',
       running: 'Running',
@@ -110,7 +116,8 @@ export default {
       exited: 'Exited {code}',
       unknown: 'Unknown',
       emptyLogsTitle: 'No logs yet',
-      emptyLogsDescription: 'After a process starts, the latest 500 stdout and stderr lines are kept here.',
+      emptyLogsDescription:
+        'After a process starts, the latest 500 stdout and stderr lines are kept here.',
       waitingLogs: 'Waiting for process output...',
       searchLogs: 'Search logs',
       logMatches: '{count} lines',
@@ -119,14 +126,16 @@ export default {
     recentCommands: {
       open: 'Open recent commands',
       title: 'Recent Commands',
-      description: 'Recently used project commands are kept here. Once execution is connected, they can be started quickly.',
+      description:
+        'Recently used project commands are kept here. Once execution is connected, they can be started quickly.',
       emptyTitle: 'No recent commands',
-      emptyDescription: 'Click scripts from projects on the left and frequent commands will appear here.',
+      emptyDescription:
+        'Click scripts from projects on the left and frequent commands will appear here.',
     },
   },
   settings: {
     title: 'Settings',
-    description: 'Manage Git Assistant language and theme preferences.',
+    description: 'Manage Lumina application preferences and Git Assistant configuration.',
     navSections: {
       project: 'Project',
       app: 'Application',
@@ -135,6 +144,7 @@ export default {
       profile: 'Project Profile',
       language: 'Language',
       theme: 'Theme',
+      closeBehavior: 'Close behavior',
       models: 'Models',
       routing: 'Task Routing',
     },
@@ -153,10 +163,22 @@ export default {
       dark: 'Dark',
       system: 'System',
     },
+    closeBehavior: {
+      title: 'Close behavior',
+      description: 'Choose what happens when you close Lumina or its window.',
+      ask: 'Ask every time',
+      askHint: 'Show a confirmation window so you can decide for each close.',
+      hideToTray: 'Minimize to tray',
+      hideToTrayHint: 'Keep project processes running and reopen Lumina from the system tray.',
+      exit: 'Exit and stop all',
+      exitHint: 'Stop all running project processes, then exit Lumina.',
+    },
     projectProfile: {
       title: 'Project Profile',
-      description: 'Detect and edit the current repository Lumina Git profile for future diff cleanup, commit messages, and attention scoring.',
-      noRepo: 'No Git repository selected yet. Go back to Git Assistant and choose a repository folder first.',
+      description:
+        'Detect and edit the current repository Lumina Git profile for future diff cleanup, commit messages, and attention scoring.',
+      noRepo:
+        'No Git repository selected yet. Go back to Git Assistant and choose a repository folder first.',
       currentRepo: 'Current repository',
       profilePath: 'Profile file',
       placeholder: '.lumina/git-profile.json content will appear here',
@@ -196,7 +218,8 @@ export default {
     },
     aiRouting: {
       title: 'Task Routing',
-      description: 'Choose which model handles each Git AI task. Tasks fall back to the default model.',
+      description:
+        'Choose which model handles each Git AI task. Tasks fall back to the default model.',
       empty: 'No enabled models yet. Add and enable a model in Model Settings first.',
       tasks: {
         commitMessage: 'Commit Message',
@@ -234,7 +257,8 @@ export default {
       recentRepoPlaceholder: 'Switch project',
       recentRepoEmpty: 'No recent projects',
       recentRepoManage: 'Manage Recent Projects',
-      recentRepoManageHint: 'Set aliases for common repositories and distinguish same-name projects by full path.',
+      recentRepoManageHint:
+        'Set aliases for common repositories and distinguish same-name projects by full path.',
       recentRepoAliasPlaceholder: 'Project alias',
       recentRepoSwitch: 'Switch',
       recentRepoRename: 'Rename',
@@ -253,24 +277,26 @@ export default {
       statusClean: 'Working tree is clean and ready for the next commit',
       statusNoStaged:
         '{count} changes detected. Select files directly, generate a commit message, and commit.',
-      statusReady: '{count} changes detected. {recommended} files are highlighted as worth extra attention.',
+      statusReady:
+        '{count} changes detected. {recommended} files are highlighted as worth extra attention.',
     },
     ai: {
-        title: 'Commit Panel',
-        generate: 'Generate Commit Message',
-        generating: 'Generating...',
-        progressReading: 'Reading file changes...',
-        progressCleaning: 'Cleaning file content...',
-        progressBuilding: 'Building prompt...',
-        progressCallingApi: 'Calling model for commit message...',
-        autoSendPrompt: 'Send prompt to model automatically',
-        commitLanguage: 'Commit language',
-        actionsTitle: 'AI Actions',
+      title: 'Commit Panel',
+      generate: 'Generate Commit Message',
+      generating: 'Generating...',
+      progressReading: 'Reading file changes...',
+      progressCleaning: 'Cleaning file content...',
+      progressBuilding: 'Building prompt...',
+      progressCallingApi: 'Calling model for commit message...',
+      autoSendPrompt: 'Send prompt to model automatically',
+      commitLanguage: 'Commit language',
+      actionsTitle: 'AI Actions',
       currentModel: 'Current model',
       reviewCode: 'Review Code',
       viewPrompt: 'View Prompt',
       noSelectedFiles: 'Select files before generating a commit prompt.',
-      intro: 'AI only augments the commit flow. Review stays as recommendation metadata in the file list and filters.',
+      intro:
+        'AI only augments the commit flow. Review stays as recommendation metadata in the file list and filters.',
       fallbackTitle: 'Fallback title',
       outputStatus: 'AI status',
       outputReady: 'Generated and ready to copy',
@@ -290,18 +316,18 @@ export default {
       reviewTitle: 'Review placeholder',
       reviewHint: 'Future review will stay file-scoped and user-triggered only.',
       reviewSelected: '{count} files selected for commit',
-        reviewRecommended: 'Recommended',
-        reviewNone: 'No recommended files',
-        noModelConfigured: 'Configure and enable a model in Settings first.',
-        pull: 'Pull',
-        pulling: 'Pulling...',
-        fetch: 'Fetch',
-        fetching: 'Fetching...',
-        push: 'Push',
-        pushing: 'Pushing...',
-        submit: 'Commit',
-        submitting: 'Committing...',
-        submitDisabled: 'Select files and enter a commit title',
+      reviewRecommended: 'Recommended',
+      reviewNone: 'No recommended files',
+      noModelConfigured: 'Configure and enable a model in Settings first.',
+      pull: 'Pull',
+      pulling: 'Pulling...',
+      fetch: 'Fetch',
+      fetching: 'Fetching...',
+      push: 'Push',
+      pushing: 'Pushing...',
+      submit: 'Commit',
+      submitting: 'Committing...',
+      submitDisabled: 'Select files and enter a commit title',
     },
     gitCommand: {
       commitTitle: 'Git Command Progress - Commit',
@@ -358,10 +384,14 @@ export default {
       ahead: 'Ahead {count}',
       behind: 'Behind {count}',
       diverged: 'Ahead {ahead} / Behind {behind}',
-      adviceRemoteMissing: 'This repository has no origin yet. You can commit locally, but pushing requires a GitHub remote URL first.',
-      adviceFirstCommit: 'This is a new repository flow: commit selected files first, then publish the main branch to origin.',
-      adviceSetUpstream: 'The branch has no usable upstream. Push will use -u to connect origin with the current branch.',
-      advicePullFirst: 'The remote has commits that are not local. Pull first, resolve conflicts if needed, then push.',
+      adviceRemoteMissing:
+        'This repository has no origin yet. You can commit locally, but pushing requires a GitHub remote URL first.',
+      adviceFirstCommit:
+        'This is a new repository flow: commit selected files first, then publish the main branch to origin.',
+      adviceSetUpstream:
+        'The branch has no usable upstream. Push will use -u to connect origin with the current branch.',
+      advicePullFirst:
+        'The remote has commits that are not local. Pull first, resolve conflicts if needed, then push.',
       advicePushReady: 'Local branch is ahead by {count} commits and ready to push.',
       adviceCleanSync: 'Local and remote are in sync. You can continue preparing the next commit.',
     },
@@ -379,15 +409,19 @@ export default {
       repairUpstream: 'Repair upstream',
       publishBranch: 'Push',
       originHint: 'You can commit locally first. Pushing requires a GitHub remote URL.',
-      divergedHint: 'Local and remote both have new commits. Pull can create a merge commit like TortoiseGit, or Rebase can keep history linear.',
-      upstreamMissingHint: 'This branch is not tracking a remote branch. Repair an existing branch or publish the current branch.',
-      upstreamGoneHint: 'The configured upstream no longer exists. Try repairing it or publish the current branch again.',
+      divergedHint:
+        'Local and remote both have new commits. Pull can create a merge commit like TortoiseGit, or Rebase can keep history linear.',
+      upstreamMissingHint:
+        'This branch is not tracking a remote branch. Repair an existing branch or publish the current branch.',
+      upstreamGoneHint:
+        'The configured upstream no longer exists. Try repairing it or publish the current branch again.',
       readyHint: 'Remote connection is healthy.',
     },
     history: {
       open: 'Generation History',
       title: 'Commit Message History',
-      description: 'Recent generated and pre-commit messages are saved here, so refreshes or failed commits do not lose them.',
+      description:
+        'Recent generated and pre-commit messages are saved here, so refreshes or failed commits do not lose them.',
       empty: 'No commit message history for this repository yet.',
       restore: 'Restore',
       ai: 'AI generated',
@@ -398,7 +432,8 @@ export default {
       open: 'Show Log',
       title: 'Commits',
       fileTitle: 'File History',
-      description: 'Review recent commits in the current repository to verify the commit flow and trace changes.',
+      description:
+        'Review recent commits in the current repository to verify the commit flow and trace changes.',
       loading: 'Loading Log...',
       empty: 'This repository has no commits yet.',
       noMatch: 'No commits match the current filters.',
@@ -427,15 +462,18 @@ export default {
     conflict: {
       title: 'Conflict resolution',
       count: '{count} conflicts',
-      description: 'Resolve conflicts in an external editor, then select the conflicted files and mark them as resolved. Use Abort merge to cancel the current merge.',
+      description:
+        'Resolve conflicts in an external editor, then select the conflicted files and mark them as resolved. Use Abort merge to cancel the current merge.',
       markSelectedResolved: 'Mark resolved',
       continueMerge: 'Continue merge',
       continueRebase: 'Continue rebase',
       abortMerge: 'Abort merge',
       abortRebase: 'Abort rebase',
       abortConfirm: 'Abort the current merge? This cancels the current merge conflict state.',
-      abortRebaseConfirm: 'Abort the current rebase? This returns the branch to the state before rebase started.',
-      resolveBeforeCommit: 'Resolve conflicted files and run Mark resolved before generating a commit message or committing.',
+      abortRebaseConfirm:
+        'Abort the current rebase? This returns the branch to the state before rebase started.',
+      resolveBeforeCommit:
+        'Resolve conflicted files and run Mark resolved before generating a commit message or committing.',
     },
     prompt: {
       title: 'Prompt Generation',
@@ -444,20 +482,21 @@ export default {
       overview: 'Overview',
       selectedFiles: 'Selected files',
       rawChars: 'Raw chars',
-        cleanedChars: 'Cleaned chars',
-        evidenceCount: 'Evidence lines',
-        rules: 'Processing Rules',
-        rulesHint: 'These rules explain how each file is classified, compressed, and why only this evidence enters the final prompt.',
-        files: 'File cleanup result',
-        columnPath: 'Path',
-        columnRole: 'Role',
-        columnScope: 'Scope',
-        columnStrategy: 'Cleanup strategy',
-        columnEvidence: 'Evidence',
-        columnChars: 'Cleaned / raw',
-        columnReason: 'Reason',
-        finalPrompt: 'Final Prompt',
-      },
+      cleanedChars: 'Cleaned chars',
+      evidenceCount: 'Evidence lines',
+      rules: 'Processing Rules',
+      rulesHint:
+        'These rules explain how each file is classified, compressed, and why only this evidence enters the final prompt.',
+      files: 'File cleanup result',
+      columnPath: 'Path',
+      columnRole: 'Role',
+      columnScope: 'Scope',
+      columnStrategy: 'Cleanup strategy',
+      columnEvidence: 'Evidence',
+      columnChars: 'Cleaned / raw',
+      columnReason: 'Reason',
+      finalPrompt: 'Final Prompt',
+    },
     files: {
       eyebrow: 'File changes',
       title: 'Change explorer',
@@ -484,7 +523,8 @@ export default {
       emptyNoMatchTitle: 'No matching files',
       emptyNoMatch: 'No files match the current filters.',
       emptyCleanTitle: 'Working tree clean',
-      emptyClean: 'This repository has no file changes to commit. Refresh the repository or inspect Log to confirm recent commits.',
+      emptyClean:
+        'This repository has no file changes to commit. Refresh the repository or inspect Log to confirm recent commits.',
       score: 'Score {score}',
       staged: 'Staged',
       unstaged: 'Unstaged',
