@@ -1273,6 +1273,14 @@ where
     }
 
     let fetch = run_git_capture_streaming(&payload.repo_path, &["fetch", "--progress", "--prune"], &mut on_progress)?;
+    emit_manual_git_progress(
+        &payload.repo_path,
+        "git push --progress",
+        "Checking remote status",
+        None,
+        None,
+        &mut on_progress,
+    );
     let state = load_repository_state(&payload.repo_path);
     let action = recommended_sync_action(&state);
     if matches!(action, GitSyncRecommendedAction::Pull | GitSyncRecommendedAction::ResolveDivergence) {

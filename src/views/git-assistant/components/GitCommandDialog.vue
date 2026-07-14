@@ -205,7 +205,7 @@ const elapsedLabel = computed(() => {
 
 const progressStyle = computed(() => {
   if (props.progressPercent === null) return undefined
-  return { width: `${Math.max(0, Math.min(100, props.progressPercent))}%` }
+  return { transform: `scaleX(${Math.max(0, Math.min(100, props.progressPercent)) / 100})` }
 })
 
 </script>
@@ -391,8 +391,11 @@ const progressStyle = computed(() => {
 .progress-bar {
   background: var(--lumina-primary);
   height: 100%;
-  transition: width 0.2s ease;
-  width: 0;
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  width: 100%;
+  will-change: transform;
 
   &.running {
     animation: none;
@@ -400,7 +403,6 @@ const progressStyle = computed(() => {
 
   &.determinate {
     animation: none;
-    transform: none;
   }
 
   &.failed {
